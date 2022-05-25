@@ -92,6 +92,7 @@
 		]
 	},
 	"main": "./out/extension.js",
+	"segmentKey": "YErmvd89wPsrCuGcVnF2XAl846W9WIGl",
 	"scripts": {
 		"vscode:prepublish": "webpack --mode production",
 		"webpack": "webpack --mode development",

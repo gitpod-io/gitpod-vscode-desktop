@@ -14,16 +14,13 @@ import { exportLogs } from './exportLogs';
 const EXTENSION_ID = 'gitpod.gitpod-desktop';
 const FIRST_INSTALL_KEY = 'gitpod-desktop.firstInstall';
 
-const ANALITYCS_KEY = 'YErmvd89wPsrCuGcVnF2XAl846W9WIGl'; // For development
-// const ANALITYCS_KEY = 'bUY8IRdJ42KjLOBS9LoIHMYFBD8rSzjU'; // For release
-
 let telemetry: TelemetryReporter;
 
 export async function activate(context: vscode.ExtensionContext) {
 	const logger = new Log('Gitpod');
 
-	const version = vscode.extensions.getExtension(EXTENSION_ID)!.packageJSON.version;
-	telemetry = new TelemetryReporter(EXTENSION_ID, version, ANALITYCS_KEY);
+	const packageJSON = vscode.extensions.getExtension(EXTENSION_ID)!.packageJSON;
+	telemetry = new TelemetryReporter(EXTENSION_ID, packageJSON.version, packageJSON.segmentKey);
 
 	/* Gitpod settings sync */
 	await updateSyncContext();

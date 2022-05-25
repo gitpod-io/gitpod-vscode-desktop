@@ -14,6 +14,12 @@ jobs:
           node-version: 16
 
       - run: |
+          set -e
+          setSegmentKey="setpath([\"segmentKey\"]; \"${{ secrets.ANALITYCS_KEY }}\")"
+          jqCommands="${setSegmentKey}"
+          cat package.json | jq "${jqCommands}" > package.json.tmp
+          mv package.json.tmp package.json
+
           yarn install --frozen-lockfile
 
       - name: Package extension
