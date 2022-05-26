@@ -5,7 +5,6 @@
 	"publisher": "gitpod",
 	"version": "0.0.37",
 	"license": "MIT",
-	"preview": true,
 	"icon": "resources/gitpod.png",
 	"repository": {
 		"type": "git",
@@ -15,7 +14,7 @@
 		"url": "https://github.com/gitpod-io/gitpod/issues"
 	},
 	"engines": {
-		"vscode": "^1.58.2"
+		"vscode": "^1.63.0"
 	},
 	"categories": [
 		"Other"
@@ -109,7 +108,7 @@
 		"@types/ssh2": "^0.5.52",
 		"@types/tmp": "^0.2.1",
 		"@types/uuid": "8.0.0",
-		"@types/vscode": "^1.58.2",
+		"@types/vscode": "^1.63.0",
 		"@types/webpack": "^5.28.0",
 		"@types/ws": "^7.4.7",
 		"@types/yazl": "^2.4.2",

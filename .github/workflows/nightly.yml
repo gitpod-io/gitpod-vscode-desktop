@@ -1,10 +1,13 @@
-name: Release
+name: Nightly
 
 on:
   workflow_dispatch:
+    inputs:
+      patchVersion:
+        description: "Format: YYYYMMDDHH"
 
 jobs:
-  release:
+  nightly:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -24,34 +27,29 @@ jobs:
           cat package.json | jq "${jqCommands}" > package.json.tmp
           mv package.json.tmp package.json
 
+      - name: Generate package.json
+        run: |
+          node ./scripts/prepare-nightly-build.js -v ${{ github.event.inputs.patchVersion }}
+
+      - name: Override package.json
+        run: |
+          mv ./package.json ./package.json.bak
+          mv ./package.insiders.json ./package.json
+
       - name: Package extension
         id: package_vsix
         run: |
-          yarn package
+          yarn package --pre-release
           echo ::set-output name=vsix_path::$(ls *.vsix)
 
           version=$(jq --raw-output '.version' package.json)
           echo ::set-output name=version::$version
 
-      - name: Ensure new version
+      - name: Publish to MS Marketplace
         run: |
-          latest_tag=$(curl --silent -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/gitpod-io/gitpod-vscode-desktop/releases/latest | jq --raw-output '.tag_name')
-          if [ "$latest_tag" = *${{ steps.package_vsix.outputs.version }} ]; then
-            exit 1
-          fi
-
-      # - name: Create GitHub release
-      #   uses: softprops/action-gh-release@v1
-      #   with:
-      #     tag_name: v${{ steps.package_vsix.outputs.version }}
-      #     token: ${{ secrets.GITHUB_TOKEN }}
-      #     files: ${{ steps.package_vsix.outputs.vsix_path }}
-
-      # - name: Publish to MS Marketplace
-      #   run: |
-      #     npx vsce publish --packagePath ${{ steps.package_vsix.outputs.vsix_path }}
-      #   env:
-      #     VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          npx vsce publish --packagePath ${{ steps.package_vsix.outputs.vsix_path }}
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
       # - name: Publish to Open VSX Registry
       #   run: |
