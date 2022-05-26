@@ -40,18 +40,18 @@ jobs:
             exit 1
           fi
 
-      # - name: Create GitHub release
-      #   uses: softprops/action-gh-release@v1
-      #   with:
-      #     tag_name: v${{ steps.package_vsix.outputs.version }}
-      #     token: ${{ secrets.GITHUB_TOKEN }}
-      #     files: ${{ steps.package_vsix.outputs.vsix_path }}
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.package_vsix.outputs.version }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          files: ${{ steps.package_vsix.outputs.vsix_path }}
 
-      # - name: Publish to MS Marketplace
-      #   run: |
-      #     npx vsce publish --packagePath ${{ steps.package_vsix.outputs.vsix_path }}
-      #   env:
-      #     VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      - name: Publish to MS Marketplace
+        run: |
+          npx vsce publish --packagePath ${{ steps.package_vsix.outputs.vsix_path }}
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
       # - name: Publish to Open VSX Registry
       #   run: |
