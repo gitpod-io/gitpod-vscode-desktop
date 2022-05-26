@@ -29,10 +29,10 @@
     minimatch "^3.1.2"
     strip-json-comments "^3.1.1"
 
-"@gitpod/gitpod-protocol@main":
-  version "0.1.5-main.3370"
-  resolved "https://registry.yarnpkg.com/@gitpod/gitpod-protocol/-/gitpod-protocol-0.1.5-main.3370.tgz#a5e4b9a47d00b09eb047495552de654c134cb797"
-  integrity sha512-EcyKZrionTsVc0onQzVjYWTKrlVtum2BRtPc5Y++ClGHCI4T1Pl3lgkCaQqXLWzfcyDk46JO12U1lkCO/nhyCQ==
+"@gitpod/gitpod-protocol@^0.1.5-main.3372":
+  version "0.1.5-main.3372"
+  resolved "https://registry.yarnpkg.com/@gitpod/gitpod-protocol/-/gitpod-protocol-0.1.5-main.3372.tgz#897846133c021e60848f8d98b1f7f3628aedc3d5"
+  integrity sha512-9UbqdPgFbspxLCxwOMzPAiDatmZhYwA9zLr031/WxfT8iNvG37VSJhue4aYOUCNGLTHXXM5OqcBvPfBOnH4+ow==
   dependencies:
     "@types/react" "17.0.32"
     ajv "^6.5.4"
@@ -56,19 +56,19 @@
     vscode-ws-jsonrpc "^0.2.0"
     ws "^7.4.6"
 
-"@gitpod/local-app-api-grpcweb@main":
-  version "0.1.5-main.3370"
-  resolved "https://registry.yarnpkg.com/@gitpod/local-app-api-grpcweb/-/local-app-api-grpcweb-0.1.5-main.3370.tgz#38558265d8bf8ca2b1d6259d62ed9af5b74ec0a3"
-  integrity sha512-uVS/WQlzUkmoNR+GopgA94sXdqNqCTk99coAUEDsohiLTZ1iF2CNzbVXerZl1/oKg6+aucEFsxL75UAD9p+KBg==
+"@gitpod/local-app-api-grpcweb@^0.1.5-main.3372":
+  version "0.1.5-main.3372"
+  resolved "https://registry.yarnpkg.com/@gitpod/local-app-api-grpcweb/-/local-app-api-grpcweb-0.1.5-main.3372.tgz#c07e697e439d20ba24c6f455f3daeeded4d0e137"
+  integrity sha512-ep1dV2iVKQtTlcoX5sJ3oVxlyBvz1kkrY8m2Sb4L21lOINF1IKHqfqUEtEf7S5nUiDYEGoP5cMXp/DvEii14ZQ==
   dependencies:
-    "@gitpod/supervisor-api-grpcweb" "0.1.5-main.3370"
+    "@gitpod/supervisor-api-grpcweb" "0.1.5-main.3372"
     "@improbable-eng/grpc-web" "0.14.0"
     google-protobuf "^3.19.1"
 
-"@gitpod/supervisor-api-grpcweb@0.1.5-main.3370":
-  version "0.1.5-main.3370"
-  resolved "https://registry.yarnpkg.com/@gitpod/supervisor-api-grpcweb/-/supervisor-api-grpcweb-0.1.5-main.3370.tgz#02959d689137c02709609399d2caf8410a845908"
-  integrity sha512-qo5I6u5zH3VuGtMhOhJeBIOq0vitJvITSNSXzc6tic3fDXDPsKSiSRXtn1P0AWH+d5L4FKvWkQThbLs6SZwXxQ==
+"@gitpod/supervisor-api-grpcweb@0.1.5-main.3372":
+  version "0.1.5-main.3372"
+  resolved "https://registry.yarnpkg.com/@gitpod/supervisor-api-grpcweb/-/supervisor-api-grpcweb-0.1.5-main.3372.tgz#0d0ecc818b87cad029abc34670aa7f185328c040"
+  integrity sha512-pwNATk2TfE2WgAnxy1ZnQV933F1b6BCKTDUHPJjKIHwUb0i86SWM/j4Tywn462gfwkCLlbuCM3+zxtGA+9n44A==
   dependencies:
     "@improbable-eng/grpc-web" "^0.14.0"
 
@@ -857,9 +857,9 @@ doctrine@^3.0.0:
     esutils "^2.0.2"
 
 electron-to-chromium@^1.4.118:
-  version "1.4.138"
-  resolved "https://registry.yarnpkg.com/electron-to-chromium/-/electron-to-chromium-1.4.138.tgz#3ec41ca589aaf505dfe2034fde913329af801730"
-  integrity sha512-IOyp2Seq3w4QLln+yZWcMF3VXhhduz4bwg9gfI+CnP5TkzwNXQ8FCZuwwPsnes73AfWdf5J2n2OXdUwDUspDPQ==
+  version "1.4.139"
+  resolved "https://registry.yarnpkg.com/electron-to-chromium/-/electron-to-chromium-1.4.139.tgz#e634b69769ab4a54626bbd9e1475de872839c89a"
+  integrity sha512-lYxzcUCjWxxVug+A7UxBCUiVr13TCjfZFYJS9Lq1VpU/ErwV4a6zUQo9dfojuGpw/L/x9REGuBl6ICQPGgbs3g==
 
 enhanced-resolve@^5.0.0, enhanced-resolve@^5.9.3:
   version "5.9.3"
@@ -1539,7 +1539,7 @@ minimatch@^3.0.4, minimatch@^3.1.1, minimatch@^3.1.2:
   dependencies:
     brace-expansion "^1.1.7"
 
-minimist@^1.1.0:
+minimist@^1.1.0, minimist@^1.2.6:
   version "1.2.6"
   resolved "https://registry.yarnpkg.com/minimist/-/minimist-1.2.6.tgz#8637a5b759ea0d6e98702cfb3a9283323c93af44"
   integrity sha512-Jsjnk4bw3YJqYzbdyBiNsPWHPfO++UGG749Cxs6peCu5Xg4nrena6OVxOYxrQTqww0Jmwt+Ref8rggumkTLz9Q==
