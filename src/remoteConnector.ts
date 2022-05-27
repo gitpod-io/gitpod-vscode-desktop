@@ -653,11 +653,11 @@ export default class RemoteConnector extends Disposable {
 				const { destination, password } = await this.getWorkspaceSSHDestination(params.workspaceId, params.gitpodHost);
 				sshDestination = destination;
 
-				this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'connected', ...params });
-
 				if (password) {
 					await this.showSSHPasswordModal(password);
 				}
+
+				this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'connected', ...params });
 			} catch (e) {
 				this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'failed', reason: e.toString(), ...params });
 				if (e instanceof NoSSHGatewayError) {
