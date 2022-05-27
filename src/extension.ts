@@ -85,11 +85,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		await context.globalState.update(FIRST_INSTALL_KEY, true);
 		telemetry.sendTelemetryEvent('gitpod_desktop_installation', { kind: 'install' });
 	}
-
-	// context.subscriptions.push(vscode.extensions.onDidChange(() => {
-	// 	const allUserExtensions = vscode.extensions.all.filter(ext => !ext.packageJSON['isBuiltin'] && !ext.packageJSON['isUserBuiltin']);
-	// 	console.log(`>>>`, allUserExtensions);
-	// }));
 }
 
 export async function deactivate() {
