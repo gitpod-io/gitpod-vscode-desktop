@@ -7,7 +7,8 @@ import * as fs from 'fs';
 import * as http from 'http';
 import * as net from 'net';
 import fetch, { Response } from 'node-fetch';
-import { Client as sshClient, utils as sshUtils } from 'ssh2';
+import { Client as sshClient, utils as sshUtils, OpenSSHAgent } from 'ssh2';
+import { ParsedKey } from 'ssh2-streams';
 import * as tmp from 'tmp';
 import * as path from 'path';
 import * as vscode from 'vscode';
@@ -413,7 +414,7 @@ export default class RemoteConnector extends Disposable {
 		}
 	}
 
-	private async getWorkspaceSSHDestination(workspaceId: string, gitpodHost: string): Promise<string> {
+	private async getWorkspaceSSHDestination(workspaceId: string, gitpodHost: string): Promise<{ destination: string; password?: string }> {
 		const session = await vscode.authentication.getSession(
 			'gitpod',
 			['function:getWorkspace', 'function:getOwnerToken', 'function:getLoggedInUser', 'resource:default'],
@@ -440,8 +441,9 @@ export default class RemoteConnector extends Disposable {
 
 		const ownerToken = await withServerApi(session.accessToken, serviceUrl.toString(), service => service.server.getOwnerToken(workspaceId), this.logger);
 
+		let password: string | undefined = ownerToken;
 		const sshDestInfo = {
-			user: `${workspaceId}#${ownerToken}`,
+			user: workspaceId,
 			// See https://github.com/gitpod-io/gitpod/pull/9786 for reasoning about `.ssh` suffix
 			hostName: workspaceUrl.host.replace(workspaceId, `${workspaceId}.ssh`)
 		};
@@ -490,7 +492,37 @@ export default class RemoteConnector extends Disposable {
 			this.logger.error(`Couldn't write '${sshDestInfo.hostName}' host to known_hosts file`, e);
 		}
 
-		return Buffer.from(JSON.stringify(sshDestInfo), 'utf8').toString('hex');
+		// Connect to the OpenSSH agent and check for registered keys
+		let sshKeys: ParsedKey[] | undefined;
+		try {
+			if (process.env['SSH_AUTH_SOCK']) {
+				sshKeys = await new Promise<ParsedKey[]>((resolve, reject) => {
+					const sshAgent = new OpenSSHAgent(process.env['SSH_AUTH_SOCK']!);
+					sshAgent.getIdentities((err, publicKeys) => {
+						if (err) {
+							reject(err);
+						} else {
+							resolve(publicKeys!);
+						}
+					});
+				});
+			} else {
+				this.logger.error(`'SSH_AUTH_SOCK' env variable not defined, cannot connect to OpenSSH agent`);
+			}
+		} catch (e) {
+			this.logger.error(`Couldn't get identities from OpenSSH agent`, e);
+		}
+
+		// If agent have registered keys, then use public key authentication
+		if (sshKeys?.length) {
+			sshDestInfo.user = `${workspaceId}#${ownerToken}`;
+			password = undefined;
+		}
+
+		return {
+			destination: Buffer.from(JSON.stringify(sshDestInfo), 'utf8').toString('hex'),
+			password
+		};
 	}
 
 	private async getWorkspaceLocalAppSSHDestination(params: SSHConnectionParams): Promise<{ localAppSSHDest: string; localAppSSHConfigPath: string }> {
@@ -571,6 +603,19 @@ export default class RemoteConnector extends Disposable {
 		return true;
 	}
 
+	private async showSSHPasswordModal(password: string) {
+		vscode.window.showInformationMessage(`[Read docs](https://code.visualstudio.com/docs/remote/ssh-tutorial#_create-an-ssh-key) how to create a SSH key.`);
+
+		const copy = 'copy';
+		const action = await vscode.window.showInformationMessage(`You don't have a public SSH key registered.\nUse this password to connect: ${password}`, { modal: true }, copy);
+		if (action === copy) {
+			await vscode.env.clipboard.writeText(password);
+			return;
+		}
+
+		throw new Error('Canceled SSH password modal dialog');
+	}
+
 	public async handleUri(uri: vscode.Uri) {
 		if (uri.path === RemoteConnector.AUTH_COMPLETE_PATH) {
 			this.logger.info('auth completed');
@@ -605,9 +650,14 @@ export default class RemoteConnector extends Disposable {
 			try {
 				this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'connecting', ...params });
 
-				sshDestination = await this.getWorkspaceSSHDestination(params.workspaceId, params.gitpodHost);
+				const { destination, password } = await this.getWorkspaceSSHDestination(params.workspaceId, params.gitpodHost);
+				sshDestination = destination;
 
 				this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'connected', ...params });
+
+				if (password) {
+					await this.showSSHPasswordModal(password);
+				}
 			} catch (e) {
 				this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'failed', reason: e.toString(), ...params });
 				if (e instanceof NoSSHGatewayError) {
