@@ -606,8 +606,10 @@ export default class RemoteConnector extends Disposable {
 	private async showSSHPasswordModal(password: string) {
 		vscode.window.showInformationMessage(`[Read docs](https://code.visualstudio.com/docs/remote/ssh-tutorial#_create-an-ssh-key) how to create a SSH key.`);
 
-		const copy = 'copy';
-		const action = await vscode.window.showInformationMessage(`You don't have a public SSH key registered.\nUse this password to connect: ${password}`, { modal: true }, copy);
+		const maskedPassword = '•'.repeat(password.length - 3) + password.substring(password.length - 3);
+
+		const copy = 'Copy';
+		const action = await vscode.window.showInformationMessage(`A public SSH key is required for authentication.\nAlternatively, you may use this password: ${maskedPassword}`, { modal: true }, copy);
 		if (action === copy) {
 			await vscode.env.clipboard.writeText(password);
 			return;
