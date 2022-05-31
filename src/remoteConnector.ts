@@ -604,7 +604,7 @@ export default class RemoteConnector extends Disposable {
 	}
 
 	private async showSSHPasswordModal(password: string) {
-		vscode.window.showInformationMessage(`[Read docs](https://code.visualstudio.com/docs/remote/ssh-tutorial#_create-an-ssh-key) how to create a SSH key.`);
+		vscode.window.showInformationMessage(`[Read the docs](https://code.visualstudio.com/docs/remote/ssh-tutorial#_create-an-ssh-key) on how to create an SSH key.`);
 
 		const maskedPassword = '•'.repeat(password.length - 3) + password.substring(password.length - 3);
 
