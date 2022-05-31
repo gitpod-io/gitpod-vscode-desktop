@@ -7,8 +7,7 @@ import * as fs from 'fs';
 import * as http from 'http';
 import * as net from 'net';
 import fetch, { Response } from 'node-fetch';
-import { Client as sshClient, utils as sshUtils, OpenSSHAgent } from 'ssh2';
-import { ParsedKey } from 'ssh2-streams';
+import { Client as sshClient, utils as sshUtils } from 'ssh2';
 import * as tmp from 'tmp';
 import * as path from 'path';
 import * as vscode from 'vscode';
@@ -16,7 +15,8 @@ import Log from './common/logger';
 import { Disposable } from './common/dispose';
 import { withServerApi } from './internalApi';
 import TelemetryReporter from './telemetryReporter';
-import { addHostToHostFile, checkNewHostInHostkeys } from './common/hostfile';
+import { addHostToHostFile, checkNewHostInHostkeys } from './ssh/hostfile';
+import { checkDefaultIdentityFiles } from './ssh/identityFiles';
 
 interface SSHConnectionParams {
 	workspaceId: string;
@@ -492,29 +492,34 @@ export default class RemoteConnector extends Disposable {
 			this.logger.error(`Couldn't write '${sshDestInfo.hostName}' host to known_hosts file`, e);
 		}
 
-		// Connect to the OpenSSH agent and check for registered keys
-		let sshKeys: ParsedKey[] | undefined;
-		try {
-			if (process.env['SSH_AUTH_SOCK']) {
-				sshKeys = await new Promise<ParsedKey[]>((resolve, reject) => {
-					const sshAgent = new OpenSSHAgent(process.env['SSH_AUTH_SOCK']!);
-					sshAgent.getIdentities((err, publicKeys) => {
-						if (err) {
-							reject(err);
-						} else {
-							resolve(publicKeys!);
-						}
-					});
-				});
-			} else {
-				this.logger.error(`'SSH_AUTH_SOCK' env variable not defined, cannot connect to OpenSSH agent`);
-			}
-		} catch (e) {
-			this.logger.error(`Couldn't get identities from OpenSSH agent`, e);
-		}
+		const identityFiles = await checkDefaultIdentityFiles();
+		this.logger.trace(`Default identity files`, identityFiles);
 
-		// If agent have registered keys, then use public key authentication
-		if (sshKeys?.length) {
+		// Commented this for now as `checkDefaultIdentityFiles` seems enough
+		// Connect to the OpenSSH agent and check for registered keys
+		// let sshKeys: ParsedKey[] | undefined;
+		// try {
+		// 	if (process.env['SSH_AUTH_SOCK']) {
+		// 		sshKeys = await new Promise<ParsedKey[]>((resolve, reject) => {
+		// 			const sshAgent = new OpenSSHAgent(process.env['SSH_AUTH_SOCK']!);
+		// 			sshAgent.getIdentities((err, publicKeys) => {
+		// 				if (err) {
+		// 					reject(err);
+		// 				} else {
+		// 					resolve(publicKeys!);
+		// 				}
+		// 			});
+		// 		});
+		// 	} else {
+		// 		this.logger.error(`'SSH_AUTH_SOCK' env variable not defined, cannot connect to OpenSSH agent`);
+		// 	}
+		// } catch (e) {
+		// 	this.logger.error(`Couldn't get identities from OpenSSH agent`, e);
+		// }
+
+		// If user has default identity files or agent have registered keys,
+		// then use public key authentication
+		if (identityFiles.length) {
 			sshDestInfo.user = `${workspaceId}#${ownerToken}`;
 			password = undefined;
 		}
