@@ -570,13 +570,13 @@ export default class RemoteConnector extends Disposable {
 		const currentConfigFile = remoteSSHconfig.get<string>('configFile');
 		if (usingSSHGateway) {
 			if (currentConfigFile?.includes('gitpod_ssh_config')) {
-				await remoteSSHconfig.update('configFile', undefined, vscode.ConfigurationTarget.Global);
+				await remoteSSHconfig.update('configFile', '', vscode.ConfigurationTarget.Global);
 			}
 		} else {
 			// TODO(ak) notify a user about config file changes?
 			if (currentConfigFile === localAppSSHConfigPath) {
 				// invalidate cached SSH targets from the current config file
-				await remoteSSHconfig.update('configFile', undefined, vscode.ConfigurationTarget.Global);
+				await remoteSSHconfig.update('configFile', '', vscode.ConfigurationTarget.Global);
 			}
 			await remoteSSHconfig.update('configFile', localAppSSHConfigPath, vscode.ConfigurationTarget.Global);
 		}
