@@ -629,7 +629,7 @@ export default class RemoteConnector extends Disposable {
 			return;
 		}
 
-		const isRemoteSSHExtInstalled = this.ensureRemoteSSHExtInstalled();
+		const isRemoteSSHExtInstalled = await this.ensureRemoteSSHExtInstalled();
 		if (!isRemoteSSHExtInstalled) {
 			return;
 		}
