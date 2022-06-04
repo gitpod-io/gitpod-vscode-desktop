@@ -489,11 +489,11 @@ export default class RemoteConnector extends Disposable {
 				this.logger.info(`'${sshDestInfo.hostName}' host added to known_hosts file`);
 			}
 		} catch (e) {
-			this.logger.error(`Couldn't write '${sshDestInfo.hostName}' host to known_hosts file`, e);
+			this.logger.error(`Couldn't write '${sshDestInfo.hostName}' host to known_hosts file:`, e);
 		}
 
 		const identityFiles = await checkDefaultIdentityFiles();
-		this.logger.trace(`Default identity files`, identityFiles);
+		this.logger.trace(`Default identity files:`, identityFiles.length ? identityFiles.toString() : 'None');
 
 		// Commented this for now as `checkDefaultIdentityFiles` seems enough
 		// Connect to the OpenSSH agent and check for registered keys
@@ -668,18 +668,18 @@ export default class RemoteConnector extends Disposable {
 			} catch (e) {
 				this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'failed', reason: e.toString(), ...params });
 				if (e instanceof NoSSHGatewayError) {
-					this.logger.error('No SSH gateway', e);
+					this.logger.error('No SSH gateway:', e);
 					vscode.window.showWarningMessage(`${e.host} does not support [direct SSH access](https://github.com/gitpod-io/gitpod/blob/main/install/installer/docs/workspace-ssh-access.md), connecting via the deprecated SSH tunnel over WebSocket.`);
 					// Do nothing and continue execution
 				} else if (e instanceof NoRunningInstanceError) {
-					this.logger.error('No Running instance', e);
+					this.logger.error('No Running instance:', e);
 					vscode.window.showErrorMessage(`Failed to connect to ${e.workspaceId} Gitpod workspace: workspace not running`);
 					return;
 				} else {
 					if (e instanceof SSHError) {
-						this.logger.error('SSH test connection error', e);
+						this.logger.error('SSH test connection error:', e);
 					} else {
-						this.logger.error(`Failed to connect to ${params.workspaceId} Gitpod workspace`, e);
+						this.logger.error(`Failed to connect to ${params.workspaceId} Gitpod workspace:`, e);
 					}
 					const seeLogs = 'See Logs';
 					const showTroubleshooting = 'Show Troubleshooting';
@@ -706,7 +706,7 @@ export default class RemoteConnector extends Disposable {
 
 				this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', { kind: 'local-app', status: 'connected', ...params });
 			} catch (e) {
-				this.logger.error(`Failed to connect ${params.workspaceId} Gitpod workspace`, e);
+				this.logger.error(`Failed to connect ${params.workspaceId} Gitpod workspace:`, e);
 				if (e instanceof LocalAppError) {
 					this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', { kind: 'local-app', status: 'failed', reason: e.toString(), ...params });
 					const seeLogs = 'See Logs';
@@ -749,7 +749,7 @@ export default class RemoteConnector extends Disposable {
 				);
 			});
 		} catch (e) {
-			this.logger.error('failed to disable auto tunneling', e);
+			this.logger.error('Failed to disable auto tunneling:', e);
 		}
 	}
 }
