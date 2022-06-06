@@ -6,8 +6,10 @@ import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import { exists as folderExists } from '../common/files';
 
-const KNOW_HOST_FILE = path.join(os.homedir(), '.ssh', 'known_hosts');
+const PATH_SSH_USER_DIR = path.join(os.homedir(), '.ssh');
+const KNOW_HOST_FILE = path.join(PATH_SSH_USER_DIR, 'known_hosts');
 const HASH_MAGIC = '|1|';
 const HASH_DELIM = '|';
 
@@ -32,6 +34,10 @@ export async function checkNewHostInHostkeys(host: string): Promise<boolean> {
 }
 
 export async function addHostToHostFile(host: string, hostKey: Buffer, type: string): Promise<void> {
+    if (!folderExists(PATH_SSH_USER_DIR)) {
+        await fs.promises.mkdir(PATH_SSH_USER_DIR, 0o700);
+    }
+
     const salt = crypto.randomBytes(20);
     const hostHash = crypto.createHmac('sha1', salt).update(host).digest();
 

@@ -575,13 +575,13 @@ export default class RemoteConnector extends Disposable {
 		const currentConfigFile = remoteSSHconfig.get<string>('configFile');
 		if (usingSSHGateway) {
 			if (currentConfigFile?.includes('gitpod_ssh_config')) {
-				await remoteSSHconfig.update('configFile', '', vscode.ConfigurationTarget.Global);
+				await remoteSSHconfig.update('configFile', undefined, vscode.ConfigurationTarget.Global);
 			}
 		} else {
 			// TODO(ak) notify a user about config file changes?
 			if (currentConfigFile === localAppSSHConfigPath) {
 				// invalidate cached SSH targets from the current config file
-				await remoteSSHconfig.update('configFile', '', vscode.ConfigurationTarget.Global);
+				await remoteSSHconfig.update('configFile', undefined, vscode.ConfigurationTarget.Global);
 			}
 			await remoteSSHconfig.update('configFile', localAppSSHConfigPath, vscode.ConfigurationTarget.Global);
 		}
@@ -609,18 +609,21 @@ export default class RemoteConnector extends Disposable {
 	}
 
 	private async showSSHPasswordModal(password: string) {
-		vscode.window.showInformationMessage(`[Read the docs](https://code.visualstudio.com/docs/remote/ssh-tutorial#_create-an-ssh-key) on how to create an SSH key.`);
-
 		const maskedPassword = '•'.repeat(password.length - 3) + password.substring(password.length - 3);
 
 		const copy = 'Copy';
-		const action = await vscode.window.showInformationMessage(`A public SSH key is required for authentication.\nAlternatively, you may use this password: ${maskedPassword}`, { modal: true }, copy);
+		const configureSSH = 'Configure SSH';
+		const action = await vscode.window.showInformationMessage(`An SSH key is required for passwordless authentication.\nAlternatively, copy and use this password: ${maskedPassword}`, { modal: true }, copy, configureSSH);
 		if (action === copy) {
 			await vscode.env.clipboard.writeText(password);
 			return;
 		}
+		if (action === configureSSH) {
+			await vscode.env.openExternal(vscode.Uri.parse('https://code.visualstudio.com/docs/remote/ssh-tutorial#_create-an-ssh-key'));
+			throw new Error(`SSH password modal dialog, ${configureSSH}`);
+		}
 
-		throw new Error('Canceled SSH password modal dialog');
+		throw new Error('SSH password modal dialog, Canceled');
 	}
 
 	public async handleUri(uri: vscode.Uri) {

@@ -2,6 +2,7 @@
  *  Copyright (c) Gitpod. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import * as os from 'os';
 import * as vscode from 'vscode';
 import Log from './common/logger';
 import GitpodAuthenticationProvider from './authentication';
@@ -17,9 +18,11 @@ const FIRST_INSTALL_KEY = 'gitpod-desktop.firstInstall';
 let telemetry: TelemetryReporter;
 
 export async function activate(context: vscode.ExtensionContext) {
-	const logger = new Log('Gitpod');
-
 	const packageJSON = vscode.extensions.getExtension(EXTENSION_ID)!.packageJSON;
+
+	const logger = new Log('Gitpod');
+	logger.info(`${EXTENSION_ID}/${packageJSON.version} (${os.release()} ${os.platform()} ${os.arch()}) vscode/${vscode.version} (${vscode.env.appName})`);
+
 	telemetry = new TelemetryReporter(EXTENSION_ID, packageJSON.version, packageJSON.segmentKey);
 
 	/* Gitpod settings sync */

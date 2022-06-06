@@ -4,7 +4,7 @@
 
 import * as os from 'os';
 import * as path from 'path';
-import * as fs from 'fs';
+import { exists as fileExists } from '../common/files';
 
 const homeDir = os.homedir();
 const PATH_SSH_CLIENT_ID_DSA = path.join(homeDir, '.ssh', '/id_dsa');
@@ -14,15 +14,6 @@ const PATH_SSH_CLIENT_ID_ED25519 = path.join(homeDir, '.ssh', '/id_ed25519');
 const PATH_SSH_CLIENT_ID_XMSS = path.join(homeDir, '.ssh', '/id_xmss');
 const PATH_SSH_CLIENT_ID_ECDSA_SK = path.join(homeDir, '.ssh', '/id_ecdsa_sk');
 const PATH_SSH_CLIENT_ID_ED25519_SK = path.join(homeDir, '.ssh', '/id_ed25519_sk');
-
-async function fileExists(path: string) {
-    try {
-        await fs.promises.access(path);
-        return true;
-    } catch {
-        return false;
-    }
-}
 
 export async function checkDefaultIdentityFiles(): Promise<string[]> {
     const files = [
