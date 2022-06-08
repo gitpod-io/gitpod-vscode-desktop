@@ -15,7 +15,8 @@ import Log from './common/logger';
 import { Disposable } from './common/dispose';
 import { withServerApi } from './internalApi';
 import TelemetryReporter from './telemetryReporter';
-import { addHostToHostFile, checkNewHostInHostkeys } from './common/hostfile';
+import { addHostToHostFile, checkNewHostInHostkeys } from './ssh/hostfile';
+import { checkDefaultIdentityFiles } from './ssh/identityFiles';
 
 interface SSHConnectionParams {
 	workspaceId: string;
@@ -413,7 +414,7 @@ export default class RemoteConnector extends Disposable {
 		}
 	}
 
-	private async getWorkspaceSSHDestination(workspaceId: string, gitpodHost: string): Promise<string> {
+	private async getWorkspaceSSHDestination(workspaceId: string, gitpodHost: string): Promise<{ destination: string; password?: string }> {
 		const session = await vscode.authentication.getSession(
 			'gitpod',
 			['function:getWorkspace', 'function:getOwnerToken', 'function:getLoggedInUser', 'resource:default'],
@@ -440,8 +441,9 @@ export default class RemoteConnector extends Disposable {
 
 		const ownerToken = await withServerApi(session.accessToken, serviceUrl.toString(), service => service.server.getOwnerToken(workspaceId), this.logger);
 
+		let password: string | undefined = ownerToken;
 		const sshDestInfo = {
-			user: `${workspaceId}#${ownerToken}`,
+			user: workspaceId,
 			// See https://github.com/gitpod-io/gitpod/pull/9786 for reasoning about `.ssh` suffix
 			hostName: workspaceUrl.host.replace(workspaceId, `${workspaceId}.ssh`)
 		};
@@ -487,10 +489,45 @@ export default class RemoteConnector extends Disposable {
 				this.logger.info(`'${sshDestInfo.hostName}' host added to known_hosts file`);
 			}
 		} catch (e) {
-			this.logger.error(`Couldn't write '${sshDestInfo.hostName}' host to known_hosts file`, e);
+			this.logger.error(`Couldn't write '${sshDestInfo.hostName}' host to known_hosts file:`, e);
 		}
 
-		return Buffer.from(JSON.stringify(sshDestInfo), 'utf8').toString('hex');
+		const identityFiles = await checkDefaultIdentityFiles();
+		this.logger.trace(`Default identity files:`, identityFiles.length ? identityFiles.toString() : 'None');
+
+		// Commented this for now as `checkDefaultIdentityFiles` seems enough
+		// Connect to the OpenSSH agent and check for registered keys
+		// let sshKeys: ParsedKey[] | undefined;
+		// try {
+		// 	if (process.env['SSH_AUTH_SOCK']) {
+		// 		sshKeys = await new Promise<ParsedKey[]>((resolve, reject) => {
+		// 			const sshAgent = new OpenSSHAgent(process.env['SSH_AUTH_SOCK']!);
+		// 			sshAgent.getIdentities((err, publicKeys) => {
+		// 				if (err) {
+		// 					reject(err);
+		// 				} else {
+		// 					resolve(publicKeys!);
+		// 				}
+		// 			});
+		// 		});
+		// 	} else {
+		// 		this.logger.error(`'SSH_AUTH_SOCK' env variable not defined, cannot connect to OpenSSH agent`);
+		// 	}
+		// } catch (e) {
+		// 	this.logger.error(`Couldn't get identities from OpenSSH agent`, e);
+		// }
+
+		// If user has default identity files or agent have registered keys,
+		// then use public key authentication
+		if (identityFiles.length) {
+			sshDestInfo.user = `${workspaceId}#${ownerToken}`;
+			password = undefined;
+		}
+
+		return {
+			destination: Buffer.from(JSON.stringify(sshDestInfo), 'utf8').toString('hex'),
+			password
+		};
 	}
 
 	private async getWorkspaceLocalAppSSHDestination(params: SSHConnectionParams): Promise<{ localAppSSHDest: string; localAppSSHConfigPath: string }> {
@@ -571,13 +608,31 @@ export default class RemoteConnector extends Disposable {
 		return true;
 	}
 
+	private async showSSHPasswordModal(password: string) {
+		const maskedPassword = '•'.repeat(password.length - 3) + password.substring(password.length - 3);
+
+		const copy = 'Copy';
+		const configureSSH = 'Configure SSH';
+		const action = await vscode.window.showInformationMessage(`An SSH key is required for passwordless authentication.\nAlternatively, copy and use this password: ${maskedPassword}`, { modal: true }, copy, configureSSH);
+		if (action === copy) {
+			await vscode.env.clipboard.writeText(password);
+			return;
+		}
+		if (action === configureSSH) {
+			await vscode.env.openExternal(vscode.Uri.parse('https://www.gitpod.io/docs/configure/ssh#create-an-ssh-key'));
+			throw new Error(`SSH password modal dialog, ${configureSSH}`);
+		}
+
+		throw new Error('SSH password modal dialog, Canceled');
+	}
+
 	public async handleUri(uri: vscode.Uri) {
 		if (uri.path === RemoteConnector.AUTH_COMPLETE_PATH) {
 			this.logger.info('auth completed');
 			return;
 		}
 
-		const isRemoteSSHExtInstalled = this.ensureRemoteSSHExtInstalled();
+		const isRemoteSSHExtInstalled = await this.ensureRemoteSSHExtInstalled();
 		if (!isRemoteSSHExtInstalled) {
 			return;
 		}
@@ -605,24 +660,29 @@ export default class RemoteConnector extends Disposable {
 			try {
 				this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'connecting', ...params });
 
-				sshDestination = await this.getWorkspaceSSHDestination(params.workspaceId, params.gitpodHost);
+				const { destination, password } = await this.getWorkspaceSSHDestination(params.workspaceId, params.gitpodHost);
+				sshDestination = destination;
+
+				if (password) {
+					await this.showSSHPasswordModal(password);
+				}
 
 				this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'connected', ...params });
 			} catch (e) {
 				this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'failed', reason: e.toString(), ...params });
 				if (e instanceof NoSSHGatewayError) {
-					this.logger.error('No SSH gateway', e);
+					this.logger.error('No SSH gateway:', e);
 					vscode.window.showWarningMessage(`${e.host} does not support [direct SSH access](https://github.com/gitpod-io/gitpod/blob/main/install/installer/docs/workspace-ssh-access.md), connecting via the deprecated SSH tunnel over WebSocket.`);
 					// Do nothing and continue execution
 				} else if (e instanceof NoRunningInstanceError) {
-					this.logger.error('No Running instance', e);
+					this.logger.error('No Running instance:', e);
 					vscode.window.showErrorMessage(`Failed to connect to ${e.workspaceId} Gitpod workspace: workspace not running`);
 					return;
 				} else {
 					if (e instanceof SSHError) {
-						this.logger.error('SSH test connection error', e);
+						this.logger.error('SSH test connection error:', e);
 					} else {
-						this.logger.error(`Failed to connect to ${params.workspaceId} Gitpod workspace`, e);
+						this.logger.error(`Failed to connect to ${params.workspaceId} Gitpod workspace:`, e);
 					}
 					const seeLogs = 'See Logs';
 					const showTroubleshooting = 'Show Troubleshooting';
@@ -649,7 +709,7 @@ export default class RemoteConnector extends Disposable {
 
 				this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', { kind: 'local-app', status: 'connected', ...params });
 			} catch (e) {
-				this.logger.error(`Failed to connect ${params.workspaceId} Gitpod workspace`, e);
+				this.logger.error(`Failed to connect ${params.workspaceId} Gitpod workspace:`, e);
 				if (e instanceof LocalAppError) {
 					this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', { kind: 'local-app', status: 'failed', reason: e.toString(), ...params });
 					const seeLogs = 'See Logs';
@@ -692,7 +752,7 @@ export default class RemoteConnector extends Disposable {
 				);
 			});
 		} catch (e) {
-			this.logger.error('failed to disable auto tunneling', e);
+			this.logger.error('Failed to disable auto tunneling:', e);
 		}
 	}
 }
