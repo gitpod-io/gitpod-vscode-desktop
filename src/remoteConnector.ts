@@ -619,7 +619,7 @@ export default class RemoteConnector extends Disposable {
 			return;
 		}
 		if (action === configureSSH) {
-			await vscode.env.openExternal(vscode.Uri.parse('https://code.visualstudio.com/docs/remote/ssh-tutorial#_create-an-ssh-key'));
+			await vscode.env.openExternal(vscode.Uri.parse('https://www.gitpod.io/docs/configure/ssh#create-an-ssh-key'));
 			throw new Error(`SSH password modal dialog, ${configureSSH}`);
 		}
 
