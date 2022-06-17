@@ -742,6 +742,17 @@ export default class RemoteConnector extends Disposable {
 	}
 
 	public async autoTunnelCommand(gitpodHost: string, instanceId: string, enabled: boolean) {
+		const forceUseLocalApp = vscode.workspace.getConfiguration('gitpod').get<boolean>('remote.useLocalApp')!;
+		if (!forceUseLocalApp) {
+			const authority = vscode.Uri.parse(gitpodHost).authority;
+			const configKey = `config/${authority}`;
+			const localAppconfig = this.context.globalState.get<LocalAppConfig>(configKey);
+			if (!localAppconfig || checkRunning(localAppconfig.pid) !== true) {
+				// Do nothing if we are using SSH gateway
+				return;
+			}
+		}
+
 		try {
 			await this.withLocalApp(gitpodHost, client => {
 				const request = new AutoTunnelRequest();
