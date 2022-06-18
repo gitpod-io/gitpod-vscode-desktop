@@ -24,7 +24,6 @@ const analyticsClientFactory = async (key: string): Promise<BaseTelemetryClient>
 		},
 		flush: async () => {
 			try {
-				// Types are oudated, flush does return a promise
 				await segmentAnalyticsClient.flush();
 			} catch (e: any) {
 				throw new Error('Failed to flush app analytics!\n' + e.message);

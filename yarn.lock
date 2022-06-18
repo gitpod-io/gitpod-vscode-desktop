@@ -134,7 +134,7 @@
     component-type "^1.2.1"
     join-component "^1.1.0"
 
-"@types/analytics-node@^3.1.8":
+"@types/analytics-node@^3.1.9":
   version "3.1.9"
   resolved "https://registry.yarnpkg.com/@types/analytics-node/-/analytics-node-3.1.9.tgz#1b71e485658dc5501f72a35fdcf30b857a90db9c"
   integrity sha512-C7L7/Dd/CmBST7AvgoCnf4yI9h6W5aYfCOcfUZS5GHlXDQjnXLVOUDpTdwTIZjW4lKECeil6+G+Ul6Xzwv/P0g==
