@@ -726,7 +726,7 @@ export default class RemoteConnector extends Disposable {
 
 		await this.updateRemoteSSHConfig(usingSSHGateway, localAppSSHConfigPath);
 
-		await this.context.globalState.update(`ssh-remote+${sshDestination}`, { ...params, usingSSHGateway });
+		await this.context.globalState.update(sshDestination!, { ...params, usingSSHGateway });
 
 		vscode.commands.executeCommand(
 			'vscode.openFolder',
@@ -780,7 +780,7 @@ export default class RemoteConnector extends Disposable {
 			const host = new URL(gitpodHost).host;
 			const connectionSuccessful = sshDest.hostName.endsWith(host) && await isRemoteExtensionHostRunning();
 
-			const connectionInfo = this.context.globalState.get<SSHConnectionParams & { usingSSHGateway: boolean }>(remoteUri.authority);
+			const connectionInfo = this.context.globalState.get<SSHConnectionParams & { usingSSHGateway: boolean }>(sshDestStr);
 			if (connectionInfo) {
 				const kind = connectionInfo.usingSSHGateway ? 'gateway' : 'local-app';
 				if (connectionSuccessful) {
