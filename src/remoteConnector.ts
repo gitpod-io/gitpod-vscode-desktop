@@ -107,6 +107,10 @@ export default class RemoteConnector extends Disposable {
 		super();
 
 		this.releaseStaleLocks();
+
+		if (vscode.env.remoteName && context.extension.extensionKind === vscode.ExtensionKind.UI) {
+			this._register(vscode.commands.registerCommand('gitpod.api.autoTunnel', this.autoTunnelCommand.bind(this)));
+		}
 	}
 
 	private releaseStaleLocks(): void {
@@ -662,6 +666,8 @@ export default class RemoteConnector extends Disposable {
 				if (password) {
 					await this.showSSHPasswordModal(password);
 				}
+
+				this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'connected', ...params });
 			} catch (e) {
 				this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'failed', reason: e.toString(), ...params });
 				if (e instanceof NoSSHGatewayError) {
@@ -700,6 +706,8 @@ export default class RemoteConnector extends Disposable {
 				const localAppDestData = await this.getWorkspaceLocalAppSSHDestination(params);
 				sshDestination = localAppDestData.localAppSSHDest;
 				localAppSSHConfigPath = localAppDestData.localAppSSHConfigPath;
+
+				this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', { kind: 'local-app', status: 'connected', ...params });
 			} catch (e) {
 				this.logger.error(`Failed to connect ${params.workspaceId} Gitpod workspace:`, e);
 				if (e instanceof LocalAppError) {
@@ -726,8 +734,6 @@ export default class RemoteConnector extends Disposable {
 
 		await this.updateRemoteSSHConfig(usingSSHGateway, localAppSSHConfigPath);
 
-		await this.context.globalState.update(sshDestination!, { ...params, usingSSHGateway });
-
 		vscode.commands.executeCommand(
 			'vscode.openFolder',
 			vscode.Uri.parse(`vscode-remote://ssh-remote+${sshDestination}${uri.path || '/'}`),
@@ -742,7 +748,7 @@ export default class RemoteConnector extends Disposable {
 			const configKey = `config/${authority}`;
 			const localAppconfig = this.context.globalState.get<LocalAppConfig>(configKey);
 			if (!localAppconfig || checkRunning(localAppconfig.pid) !== true) {
-				// Do nothing if we are using SSH gateway and local app is not running
+				// Do nothing if we are using SSH gateway
 				return;
 			}
 		}
@@ -759,54 +765,5 @@ export default class RemoteConnector extends Disposable {
 		} catch (e) {
 			this.logger.error('Failed to disable auto tunneling:', e);
 		}
-	}
-
-	public async checkRemoteConnectionSuccessful() {
-		const isRemoteExtensionHostRunning = async () => {
-			try {
-				// Invoke command from gitpot-remote extension to test if connection is successful
-				await vscode.commands.executeCommand('__gitpod.getGitpodRemoteLogsUri');
-				return true;
-			} catch {
-				return false;
-			}
-		};
-
-		const remoteUri = vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.[0].uri;
-		if (vscode.env.remoteName === 'ssh-remote' && this.context.extension.extensionKind === vscode.ExtensionKind.UI && remoteUri) {
-			const [, sshDestStr] = remoteUri.authority.split('+');
-			const sshDest: { user: string; hostName: string } = JSON.parse(Buffer.from(sshDestStr, 'hex').toString('utf8'));
-			const gitpodHost = vscode.workspace.getConfiguration('gitpod').get<string>('host')!;
-			const host = new URL(gitpodHost).host;
-			const connectionSuccessful = sshDest.hostName.endsWith(host) && await isRemoteExtensionHostRunning();
-
-			const connectionInfo = this.context.globalState.get<SSHConnectionParams & { usingSSHGateway: boolean }>(sshDestStr);
-			if (connectionInfo) {
-				const kind = connectionInfo.usingSSHGateway ? 'gateway' : 'local-app';
-				if (connectionSuccessful) {
-					this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', {
-						kind,
-						status: 'connected',
-						instanceId: connectionInfo.instanceId,
-						workspaceId: connectionInfo.workspaceId,
-						gitpodHost: connectionInfo.gitpodHost
-					});
-				} else {
-					this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', {
-						kind,
-						status: 'failed',
-						reason: 'remote-ssh extension: connection failed',
-						instanceId: connectionInfo.instanceId,
-						workspaceId: connectionInfo.workspaceId,
-						gitpodHost: connectionInfo.gitpodHost
-					});
-				}
-				await this.context.globalState.update(remoteUri.authority, undefined);
-			}
-
-			return connectionSuccessful;
-		}
-
-		return false;
 	}
 }

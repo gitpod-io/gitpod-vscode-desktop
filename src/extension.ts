@@ -69,6 +69,11 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	}));
 
+	// For analitycs, will be called by gitpod-remote extension
+	context.subscriptions.push(vscode.commands.registerCommand('__gitpod.getLocalMachineId', () => {
+		return vscode.env.machineId;
+	}));
+
 	const authProvider = new GitpodAuthenticationProvider(context, logger, telemetry);
 	const remoteConnector = new RemoteConnector(context, logger, telemetry);
 	context.subscriptions.push(authProvider);
@@ -83,10 +88,6 @@ export async function activate(context: vscode.ExtensionContext) {
 			}
 		}
 	}));
-
-	if (await remoteConnector.checkRemoteConnectionSuccessful()) {
-		context.subscriptions.push(vscode.commands.registerCommand('gitpod.api.autoTunnel', remoteConnector.autoTunnelCommand, remoteConnector));
-	}
 
 	if (!context.globalState.get<boolean>(FIRST_INSTALL_KEY, false)) {
 		await context.globalState.update(FIRST_INSTALL_KEY, true);
