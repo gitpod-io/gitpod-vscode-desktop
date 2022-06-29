@@ -22,6 +22,7 @@ import { withServerApi } from './internalApi';
 import TelemetryReporter from './telemetryReporter';
 import { addHostToHostFile, checkNewHostInHostkeys } from './ssh/hostfile';
 import { checkDefaultIdentityFiles } from './ssh/identityFiles';
+import { HeartbeatManager } from './heartbeat';
 
 interface SSHConnectionParams {
 	workspaceId: string;
@@ -108,6 +109,8 @@ export default class RemoteConnector extends Disposable {
 	public static AUTH_COMPLETE_PATH = '/auth-complete';
 	private static LOCK_COUNT = 0;
 	private static SSH_DEST_KEY = 'ssh-dest:';
+
+	private heartbeatManager: HeartbeatManager | undefined;
 
 	constructor(private readonly context: vscode.ExtensionContext, private readonly logger: Log, private readonly telemetry: TelemetryReporter) {
 		super();
@@ -416,16 +419,10 @@ export default class RemoteConnector extends Disposable {
 		}
 	}
 
-	private async getWorkspaceSSHDestination(workspaceId: string, gitpodHost: string): Promise<{ destination: string; password?: string }> {
-		const session = await vscode.authentication.getSession(
-			'gitpod',
-			['function:getWorkspace', 'function:getOwnerToken', 'function:getLoggedInUser', 'resource:default'],
-			{ createIfNone: true }
-		);
-
+	private async getWorkspaceSSHDestination(accessToken: string, { workspaceId, gitpodHost }: SSHConnectionParams): Promise<{ destination: string; password?: string }> {
 		const serviceUrl = new URL(gitpodHost);
 
-		const workspaceInfo = await withServerApi(session.accessToken, serviceUrl.toString(), service => service.server.getWorkspace(workspaceId), this.logger);
+		const workspaceInfo = await withServerApi(accessToken, serviceUrl.toString(), service => service.server.getWorkspace(workspaceId), this.logger);
 		if (workspaceInfo.latestInstance?.status?.phase !== 'running') {
 			throw new NoRunningInstanceError(workspaceId);
 		}
@@ -441,7 +438,7 @@ export default class RemoteConnector extends Disposable {
 
 		const sshHostKeys: { type: string; host_key: string }[] = await sshHostKeyResponse.json();
 
-		const ownerToken = await withServerApi(session.accessToken, serviceUrl.toString(), service => service.server.getOwnerToken(workspaceId), this.logger);
+		const ownerToken = await withServerApi(accessToken, serviceUrl.toString(), service => service.server.getOwnerToken(workspaceId), this.logger);
 
 		let password: string | undefined = ownerToken;
 		const sshDestInfo = {
@@ -628,6 +625,14 @@ export default class RemoteConnector extends Disposable {
 		throw new Error('SSH password modal dialog, Canceled');
 	}
 
+	private async getGitpodSession() {
+		return vscode.authentication.getSession(
+			'gitpod',
+			['function:sendHeartBeat', 'function:getWorkspace', 'function:getOwnerToken', 'function:getLoggedInUser', 'resource:default'],
+			{ createIfNone: true }
+		);
+	}
+
 	public async handleUri(uri: vscode.Uri) {
 		if (uri.path === RemoteConnector.AUTH_COMPLETE_PATH) {
 			this.logger.info('auth completed');
@@ -638,6 +643,8 @@ export default class RemoteConnector extends Disposable {
 		if (!isRemoteSSHExtInstalled) {
 			return;
 		}
+
+		const session = await this.getGitpodSession();
 
 		const gitpodHost = vscode.workspace.getConfiguration('gitpod').get<string>('host')!;
 		const forceUseLocalApp = vscode.workspace.getConfiguration('gitpod').get<boolean>('remote.useLocalApp')!;
@@ -662,7 +669,7 @@ export default class RemoteConnector extends Disposable {
 			try {
 				this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'connecting', ...params });
 
-				const { destination, password } = await this.getWorkspaceSSHDestination(params.workspaceId, params.gitpodHost);
+				const { destination, password } = await this.getWorkspaceSSHDestination(session.accessToken, params);
 				sshDestination = destination;
 
 				if (password) {
@@ -736,7 +743,7 @@ export default class RemoteConnector extends Disposable {
 
 		await this.updateRemoteSSHConfig(usingSSHGateway, localAppSSHConfigPath);
 
-		await this.context.globalState.update(`${RemoteConnector.SSH_DEST_KEY}${sshDestination!}`, params);
+		await this.context.globalState.update(`${RemoteConnector.SSH_DEST_KEY}${sshDestination!}`, { ...params, isFirstConnection: true });
 
 		vscode.commands.executeCommand(
 			'vscode.openFolder',
@@ -798,7 +805,7 @@ export default class RemoteConnector extends Disposable {
 			const sshDest = parseSSHDest(sshDestStr);
 
 			const connectionSuccessful = await isRemoteExtensionHostRunning();
-			const connectionInfo = this.context.globalState.get<SSHConnectionParams>(`${RemoteConnector.SSH_DEST_KEY}${sshDestStr}`);
+			const connectionInfo = this.context.globalState.get<SSHConnectionParams & { isFirstConnection: boolean }>(`${RemoteConnector.SSH_DEST_KEY}${sshDestStr}`);
 			if (connectionInfo) {
 				sshDest;
 				// const usingSSHGateway = typeof sshDest !== 'string';
@@ -821,12 +828,25 @@ export default class RemoteConnector extends Disposable {
 				// 		gitpodHost: connectionInfo.gitpodHost
 				// 	});
 				// }
-				await this.context.globalState.update(`${RemoteConnector.SSH_DEST_KEY}${sshDestStr}`, undefined);
+
+				if (this.heartbeatManager?.instanceId !== connectionInfo.instanceId) {
+					await this.heartbeatManager?.dispose();
+					const session = await this.getGitpodSession();
+					this.heartbeatManager = new HeartbeatManager(connectionInfo.instanceId, session.accessToken, this.logger);
+					this.logger.trace(`Heartbeat manager for workspace ${connectionInfo.workspaceId} (${connectionInfo.instanceId}) started`);
+				}
+
+				await this.context.globalState.update(`${RemoteConnector.SSH_DEST_KEY}${sshDestStr}`, { ...connectionInfo, isFirstConnection: false });
 			}
 
 			return connectionSuccessful;
 		}
 
 		return false;
+	}
+
+	public override async dispose(): Promise<void> {
+		await this.heartbeatManager?.dispose();
+		super.dispose();
 	}
 }

@@ -11,7 +11,7 @@ import ReconnectingWebSocket from 'reconnecting-websocket';
 import * as vscode from 'vscode';
 import Log from './common/logger';
 
-type UsedGitpodFunction = ['getLoggedInUser', 'getGitpodTokenScopes', 'getWorkspace', 'getOwnerToken'];
+type UsedGitpodFunction = ['getLoggedInUser', 'getGitpodTokenScopes', 'getWorkspace', 'getOwnerToken', 'sendHeartBeat'];
 type Union<Tuple extends any[], Union = never> = Tuple[number] | Union;
 export type GitpodConnection = Omit<GitpodServiceImpl<GitpodClient, GitpodServer>, 'server'> & {
 	server: Pick<GitpodServer, Union<UsedGitpodFunction>>;
