@@ -77,9 +77,9 @@ export class HeartbeatManager extends Disposable {
 
     private async sendHeartBeat(wasClosed?: true) {
         const suffix = wasClosed ? 'was closed heartbeat' : 'heartbeat';
-        if (wasClosed) {
-            this.logger.trace('sending ' + suffix);
-        }
+        // if (wasClosed) {
+        this.logger.trace('sending ' + suffix);
+        // }
 
         try {
             await withServerApi(this.accessToken, this.gitpodHost, service => service.server.sendHeartBeat({ instanceId: this.instanceId, wasClosed }), this.logger);

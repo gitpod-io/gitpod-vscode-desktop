@@ -748,7 +748,7 @@ export default class RemoteConnector extends Disposable {
 		vscode.commands.executeCommand(
 			'vscode.openFolder',
 			vscode.Uri.parse(`vscode-remote://ssh-remote+${sshDestination}${uri.path || '/'}`),
-			{ forceNewWindow: false }
+			{ forceNewWindow: false } // REVERT THIS
 		);
 	}
 
