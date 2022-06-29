@@ -644,8 +644,6 @@ export default class RemoteConnector extends Disposable {
 			return;
 		}
 
-		const session = await this.getGitpodSession();
-
 		const gitpodHost = vscode.workspace.getConfiguration('gitpod').get<string>('host')!;
 		const forceUseLocalApp = vscode.workspace.getConfiguration('gitpod').get<boolean>('remote.useLocalApp')!;
 
@@ -661,6 +659,8 @@ export default class RemoteConnector extends Disposable {
 			await vscode.workspace.getConfiguration('gitpod').update('host', params.gitpodHost, vscode.ConfigurationTarget.Global);
 			this.logger.info(`Updated 'gitpod.host' setting to '${params.gitpodHost}' while trying to connect to a Gitpod workspace`);
 		}
+
+		const session = await this.getGitpodSession();
 
 		this.logger.info('Opening Gitpod workspace', uri.toString());
 
