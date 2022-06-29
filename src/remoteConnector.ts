@@ -625,7 +625,7 @@ export default class RemoteConnector extends Disposable {
 		throw new Error('SSH password modal dialog, Canceled');
 	}
 
-	private async getGitpodSession() {
+	private getGitpodSession() {
 		return vscode.authentication.getSession(
 			'gitpod',
 			['function:sendHeartBeat', 'function:getWorkspace', 'function:getOwnerToken', 'function:getLoggedInUser', 'resource:default'],
@@ -748,7 +748,7 @@ export default class RemoteConnector extends Disposable {
 		vscode.commands.executeCommand(
 			'vscode.openFolder',
 			vscode.Uri.parse(`vscode-remote://ssh-remote+${sshDestination}${uri.path || '/'}`),
-			{ forceNewWindow: true }
+			{ forceNewWindow: false }
 		);
 	}
 
@@ -775,6 +775,15 @@ export default class RemoteConnector extends Disposable {
 			});
 		} catch (e) {
 			this.logger.error('Failed to disable auto tunneling:', e);
+		}
+	}
+
+	private async startHeartBeat(connectionInfo: SSHConnectionParams) {
+		if (this.heartbeatManager?.instanceId !== connectionInfo.instanceId) {
+			await this.heartbeatManager?.dispose();
+			const session = await this.getGitpodSession();
+			this.heartbeatManager = new HeartbeatManager(connectionInfo.instanceId, session.accessToken, this.logger);
+			this.logger.trace(`Heartbeat manager for workspace ${connectionInfo.workspaceId} (${connectionInfo.instanceId}) started`);
 		}
 	}
 
@@ -829,12 +838,8 @@ export default class RemoteConnector extends Disposable {
 				// 	});
 				// }
 
-				if (this.heartbeatManager?.instanceId !== connectionInfo.instanceId) {
-					await this.heartbeatManager?.dispose();
-					const session = await this.getGitpodSession();
-					this.heartbeatManager = new HeartbeatManager(connectionInfo.instanceId, session.accessToken, this.logger);
-					this.logger.trace(`Heartbeat manager for workspace ${connectionInfo.workspaceId} (${connectionInfo.instanceId}) started`);
-				}
+				// Don't await this on purpose so it doesn't block extension activation
+				this.startHeartBeat(connectionInfo);
 
 				await this.context.globalState.update(`${RemoteConnector.SSH_DEST_KEY}${sshDestStr}`, { ...connectionInfo, isFirstConnection: false });
 			}
