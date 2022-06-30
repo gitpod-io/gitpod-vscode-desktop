@@ -102,6 +102,7 @@ export default class RemoteConnector extends Disposable {
 
 	public static AUTH_COMPLETE_PATH = '/auth-complete';
 	private static LOCK_COUNT = 0;
+	private static SSH_DEST_KEY = 'ssh-dest:';
 
 	constructor(private readonly context: vscode.ExtensionContext, private readonly logger: Log, private readonly telemetry: TelemetryReporter) {
 		super();
@@ -662,6 +663,8 @@ export default class RemoteConnector extends Disposable {
 				if (password) {
 					await this.showSSHPasswordModal(password);
 				}
+
+				this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'connected', ...params });
 			} catch (e) {
 				this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'failed', reason: e.toString(), ...params });
 				if (e instanceof NoSSHGatewayError) {
@@ -700,6 +703,8 @@ export default class RemoteConnector extends Disposable {
 				const localAppDestData = await this.getWorkspaceLocalAppSSHDestination(params);
 				sshDestination = localAppDestData.localAppSSHDest;
 				localAppSSHConfigPath = localAppDestData.localAppSSHConfigPath;
+
+				this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', { kind: 'local-app', status: 'connected', ...params });
 			} catch (e) {
 				this.logger.error(`Failed to connect ${params.workspaceId} Gitpod workspace:`, e);
 				if (e instanceof LocalAppError) {
@@ -726,7 +731,7 @@ export default class RemoteConnector extends Disposable {
 
 		await this.updateRemoteSSHConfig(usingSSHGateway, localAppSSHConfigPath);
 
-		await this.context.globalState.update(sshDestination!, params);
+		await this.context.globalState.update(`${RemoteConnector.SSH_DEST_KEY}${sshDestination!}`, params);
 
 		vscode.commands.executeCommand(
 			'vscode.openFolder',
@@ -786,31 +791,32 @@ export default class RemoteConnector extends Disposable {
 		if (vscode.env.remoteName === 'ssh-remote' && this.context.extension.extensionKind === vscode.ExtensionKind.UI && remoteUri) {
 			const [, sshDestStr] = remoteUri.authority.split('+');
 			const sshDest = parseSSHDest(sshDestStr);
-			const usingSSHGateway = typeof sshDest !== 'string';
 
 			const connectionSuccessful = await isRemoteExtensionHostRunning();
-			const connectionInfo = this.context.globalState.get<SSHConnectionParams>(sshDestStr);
+			const connectionInfo = this.context.globalState.get<SSHConnectionParams>(`${RemoteConnector.SSH_DEST_KEY}${sshDestStr}`);
 			if (connectionInfo) {
-				const kind = usingSSHGateway ? 'gateway' : 'local-app';
-				if (connectionSuccessful) {
-					this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', {
-						kind,
-						status: 'connected',
-						instanceId: connectionInfo.instanceId,
-						workspaceId: connectionInfo.workspaceId,
-						gitpodHost: connectionInfo.gitpodHost
-					});
-				} else {
-					this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', {
-						kind,
-						status: 'failed',
-						reason: 'remote-ssh extension: connection failed',
-						instanceId: connectionInfo.instanceId,
-						workspaceId: connectionInfo.workspaceId,
-						gitpodHost: connectionInfo.gitpodHost
-					});
-				}
-				await this.context.globalState.update(remoteUri.authority, undefined);
+				sshDest;
+				// const usingSSHGateway = typeof sshDest !== 'string';
+				// const kind = usingSSHGateway ? 'gateway' : 'local-app';
+				// if (connectionSuccessful) {
+				// 	this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', {
+				// 		kind,
+				// 		status: 'connected',
+				// 		instanceId: connectionInfo.instanceId,
+				// 		workspaceId: connectionInfo.workspaceId,
+				// 		gitpodHost: connectionInfo.gitpodHost
+				// 	});
+				// } else {
+				// 	this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', {
+				// 		kind,
+				// 		status: 'failed',
+				// 		reason: 'remote-ssh extension: connection failed',
+				// 		instanceId: connectionInfo.instanceId,
+				// 		workspaceId: connectionInfo.workspaceId,
+				// 		gitpodHost: connectionInfo.gitpodHost
+				// 	});
+				// }
+				await this.context.globalState.update(`${RemoteConnector.SSH_DEST_KEY}${sshDestStr}`, undefined);
 			}
 
 			return connectionSuccessful;
