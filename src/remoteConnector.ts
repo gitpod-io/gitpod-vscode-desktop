@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Gitpod. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { AutoTunnelRequest, ResolveSSHConnectionRequest, ResolveSSHConnectionResponse } from '@gitpod/local-app-api-grpcweb/lib/localapp_pb';
 import { LocalAppClient } from '@gitpod/local-app-api-grpcweb/lib/localapp_pb_service';
 import { NodeHttpTransport } from '@improbable-eng/grpc-web-node-http-transport';
