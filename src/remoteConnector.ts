@@ -819,7 +819,7 @@ export default class RemoteConnector extends Disposable {
 				sshDest;
 				// const usingSSHGateway = typeof sshDest !== 'string';
 				// const kind = usingSSHGateway ? 'gateway' : 'local-app';
-				// if (connectionSuccessful) {
+				// if (connectionInfo.isFirstConnection && connectionSuccessful) {
 				// 	this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', {
 				// 		kind,
 				// 		status: 'connected',
