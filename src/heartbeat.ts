@@ -7,13 +7,20 @@ import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
 import Log from './common/logger';
 import { withServerApi } from './internalApi';
+import TelemetryReporter from './telemetryReporter';
 
 export class HeartbeatManager extends Disposable {
 
     private lastActivity = new Date().getTime();
-    private gitpodHost = vscode.workspace.getConfiguration('gitpod').get<string>('host')!;
 
-    constructor(readonly instanceId: string, private readonly accessToken: string, private readonly logger: Log) {
+    constructor(
+        readonly gitpodHost: string,
+        readonly workspaceId: string,
+        readonly instanceId: string,
+        private readonly accessToken: string,
+        private readonly logger: Log,
+        private readonly telemetry: TelemetryReporter
+    ) {
         super();
 
         this.sendHeartBeat();
@@ -81,13 +88,13 @@ export class HeartbeatManager extends Disposable {
     }
 
     private async sendHeartBeat(wasClosed?: true) {
-        const suffix = wasClosed ? 'was closed heartbeat' : 'heartbeat';
-        // if (wasClosed) {
-        this.logger.trace('sending ' + suffix);
-        // }
-
+        const suffix = wasClosed ? 'closed heartbeat' : 'heartbeat';
         try {
             await withServerApi(this.accessToken, this.gitpodHost, service => service.server.sendHeartBeat({ instanceId: this.instanceId, wasClosed }), this.logger);
+            this.telemetry.sendTelemetryEvent('ide_close_signal', { workspaceId: this.workspaceId, instanceId: this.instanceId, clientKind: 'vscode' });
+            // if (wasClosed) {
+            this.logger.trace('send ' + suffix);
+            // }
         } catch (err) {
             this.logger.error(`failed to send ${suffix}:`, err);
         }

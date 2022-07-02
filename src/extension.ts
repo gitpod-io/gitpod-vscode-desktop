@@ -85,10 +85,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	}));
 
-	if (await remoteConnector.checkRemoteConnectionSuccessful()) {
-		context.subscriptions.push(vscode.commands.registerCommand('gitpod.api.autoTunnel', remoteConnector.autoTunnelCommand, remoteConnector));
-	}
-
 	if (!context.globalState.get<boolean>(FIRST_INSTALL_KEY, false)) {
 		await context.globalState.update(FIRST_INSTALL_KEY, true);
 		telemetry.sendTelemetryEvent('gitpod_desktop_installation', { kind: 'install' });
@@ -96,6 +92,6 @@ export async function activate(context: vscode.ExtensionContext) {
 }
 
 export async function deactivate() {
-	await telemetry?.dispose();
 	await remoteConnector?.dispose();
+	await telemetry?.dispose();
 }
