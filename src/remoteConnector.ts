@@ -641,7 +641,7 @@ export default class RemoteConnector extends Disposable {
 			const cancel = 'Cancel';
 			const action = await vscode.window.showInformationMessage(`Connecting to a Gitpod workspace in '${gitpodHost}'. Would you like to switch from '${currentGitpodHost}' and continue?`, yes, cancel);
 			if (action === cancel) {
-				throw new vscode.CancellationError();
+				return;
 			}
 
 			await config.update('host', gitpodHost, vscode.ConfigurationTarget.Global);
@@ -668,15 +668,9 @@ export default class RemoteConnector extends Disposable {
 
 		const params: SSHConnectionParams = JSON.parse(uri.query);
 
-		let session;
-		try {
-			session = await this.getGitpodSession(params.gitpodHost);
-		} catch (e) {
-			if (e instanceof vscode.CancellationError) {
-				return;
-			} else {
-				throw e;
-			}
+		const session = await this.getGitpodSession(params.gitpodHost);
+		if (!session) {
+			return;
 		}
 
 		this.logger.info('Opening Gitpod workspace', uri.toString());
@@ -821,7 +815,9 @@ export default class RemoteConnector extends Disposable {
 		await this.context.globalState.update(`${RemoteConnector.SSH_DEST_KEY}${sshDestStr}`, { ...connectionInfo, isFirstConnection: false });
 
 		const session = await this.getGitpodSession(connectionInfo.gitpodHost);
-		this.startHeartBeat(session.accessToken, connectionInfo);
+		if (session) {
+			this.startHeartBeat(session.accessToken, connectionInfo);
+		}
 
 		// const sshDest = parseSSHDest(sshDestStr);
 		// const connectionSuccessful = await isRemoteExtensionHostRunning();
