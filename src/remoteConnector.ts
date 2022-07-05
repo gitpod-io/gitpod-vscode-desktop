@@ -797,7 +797,6 @@ export default class RemoteConnector extends Disposable {
 		}
 
 		this.heartbeatManager = new HeartbeatManager(connectionInfo.gitpodHost, connectionInfo.workspaceId, connectionInfo.instanceId, accessToken, this.logger, this.telemetry);
-		this.logger.trace(`Heartbeat manager for workspace ${connectionInfo.workspaceId} (${connectionInfo.instanceId}) started`);
 	}
 
 	private async onGitpodRemoteConnection() {
