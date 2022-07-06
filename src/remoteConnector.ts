@@ -817,29 +817,6 @@ export default class RemoteConnector extends Disposable {
 		if (session) {
 			this.startHeartBeat(session.accessToken, connectionInfo);
 		}
-
-		// const sshDest = parseSSHDest(sshDestStr);
-		// const connectionSuccessful = await isRemoteExtensionHostRunning();
-		// const usingSSHGateway = typeof sshDest !== 'string';
-		// const kind = usingSSHGateway ? 'gateway' : 'local-app';
-		// if (connectionInfo.isFirstConnection && connectionSuccessful) {
-		// 	this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', {
-		// 		kind,
-		// 		status: 'connected',
-		// 		instanceId: connectionInfo.instanceId,
-		// 		workspaceId: connectionInfo.workspaceId,
-		// 		gitpodHost: connectionInfo.gitpodHost
-		// 	});
-		// } else {
-		// 	this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', {
-		// 		kind,
-		// 		status: 'failed',
-		// 		reason: 'remote-ssh extension: connection failed',
-		// 		instanceId: connectionInfo.instanceId,
-		// 		workspaceId: connectionInfo.workspaceId,
-		// 		gitpodHost: connectionInfo.gitpodHost
-		// 	});
-		// }
 	}
 
 	public override async dispose(): Promise<void> {
@@ -859,23 +836,3 @@ function isGitpodRemoteWindow(context: vscode.ExtensionContext) {
 
 	return false;
 }
-
-// async function isRemoteExtensionHostRunning() {
-// 	try {
-// 		// Invoke command from gitpot-remote extension to test if connection is successful
-// 		await vscode.commands.executeCommand('__gitpod.getGitpodRemoteLogsUri');
-// 		return true;
-// 	} catch {
-// 		return false;
-// 	}
-// }
-
-// function parseSSHDest(sshDestStr: string): { user: string; hostName: string } | string {
-// 	let decoded;
-// 	try {
-// 		decoded = JSON.parse(Buffer.from(sshDestStr, 'hex').toString('utf8'));
-// 	} catch {
-// 		// no-op
-// 	}
-// 	return decoded && typeof decoded.hostName === 'string' ? decoded : sshDestStr;
-// }

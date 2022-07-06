@@ -11,7 +11,7 @@ import TelemetryReporter from './telemetryReporter';
 
 export class HeartbeatManager extends Disposable {
 
-    static HEARTBEAT_INTERVAL = 10000;
+    static HEARTBEAT_INTERVAL = 30000;
 
     private lastActivity = new Date().getTime();
     private isWorkspaceRunning = true;
@@ -79,7 +79,9 @@ export class HeartbeatManager extends Disposable {
         // Start heatbeating interval
         this.sendHeartBeat();
         this.heartBeatHandle = setInterval(() => {
-            if (this.lastActivity + HeartbeatManager.HEARTBEAT_INTERVAL < new Date().getTime()) {
+            // Add an additional random value between 5 and 15 seconds. See https://github.com/gitpod-io/gitpod/pull/5613
+            const randomInterval = Math.floor(Math.random() * (15000 - 5000 + 1)) + 5000;
+            if (this.lastActivity + HeartbeatManager.HEARTBEAT_INTERVAL + randomInterval < new Date().getTime()) {
                 // no activity, no heartbeat
                 return;
             }
@@ -97,17 +99,17 @@ export class HeartbeatManager extends Disposable {
         try {
             await withServerApi(this.accessToken, this.gitpodHost, async service => {
                 const workspaceInfo = await service.server.getWorkspace(this.workspaceId);
-                this.isWorkspaceRunning = workspaceInfo.latestInstance?.status?.phase === 'running';
+                this.isWorkspaceRunning = workspaceInfo.latestInstance?.status?.phase === 'running' && workspaceInfo.latestInstance?.id === this.instanceId;
                 if (this.isWorkspaceRunning) {
                     await service.server.sendHeartBeat({ instanceId: this.instanceId, wasClosed });
+                    if (wasClosed) {
+                        this.telemetry.sendTelemetryEvent('ide_close_signal', { workspaceId: this.workspaceId, instanceId: this.instanceId, gitpodHost: this.gitpodHost, clientKind: 'vscode' });
+                        this.logger.trace('send ' + suffix);
+                    }
                 } else {
                     this.stopHeartbeat();
                 }
             }, this.logger);
-            if (wasClosed) {
-                this.telemetry.sendTelemetryEvent('ide_close_signal', { workspaceId: this.workspaceId, instanceId: this.instanceId, clientKind: 'vscode' });
-                this.logger.trace('send ' + suffix);
-            }
         } catch (err) {
             this.logger.error(`failed to send ${suffix}:`, err);
         }
