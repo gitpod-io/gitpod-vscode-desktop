@@ -16,7 +16,6 @@ import { Client as sshClient, utils as sshUtils } from 'ssh2';
 import * as tmp from 'tmp';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import * as semver from 'semver';
 import Log from './common/logger';
 import { Disposable } from './common/dispose';
 import { withServerApi } from './internalApi';
@@ -815,13 +814,14 @@ export default class RemoteConnector extends Disposable {
 		await this.context.globalState.update(`${RemoteConnector.SSH_DEST_KEY}${sshDestStr}`, { ...connectionInfo, isFirstConnection: false });
 
 		// Check for gitpod remote extension version to avoid sending heartbeat in both extensions at the same time
-		const gitpodRemoteVersion = await getGitpodRemoteVersion();
-		if (gitpodRemoteVersion && semver.gte(gitpodRemoteVersion, '0.0.40')) {
+		const isGitpodRemoteHeartbeatCancelled = await cancelGitpodRemoteHeartbeat();
+		if (isGitpodRemoteHeartbeatCancelled) {
 			const session = await this.getGitpodSession(connectionInfo.gitpodHost);
 			if (session) {
 				this.startHeartBeat(session.accessToken, connectionInfo);
 			}
 		}
+		this.telemetry.sendTelemetryEvent('vscode_desktop_heartbeat_state', { enabled: String(!!this.heartbeatManager), gitpodHost: connectionInfo.gitpodHost, workspaceId: connectionInfo.workspaceId, instanceId: connectionInfo.instanceId });
 	}
 
 	public override async dispose(): Promise<void> {
@@ -842,13 +842,13 @@ function isGitpodRemoteWindow(context: vscode.ExtensionContext) {
 	return false;
 }
 
-async function getGitpodRemoteVersion() {
-	let extVersion: string | undefined;
+async function cancelGitpodRemoteHeartbeat() {
+	let result = false;
 	try {
 		// Invoke command from gitpot-remote extension
-		extVersion = await vscode.commands.executeCommand('__gitpod.getGitpodRemoteVersion');
+		result = await vscode.commands.executeCommand('__gitpod.cancelGitpodRemoteHeartbeat');
 	} catch {
 		// Ignore if not found
 	}
-	return extVersion;
+	return result;
 }
