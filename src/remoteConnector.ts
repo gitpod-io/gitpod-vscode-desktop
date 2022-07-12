@@ -11,6 +11,7 @@ import * as cp from 'child_process';
 import * as fs from 'fs';
 import * as http from 'http';
 import * as net from 'net';
+import * as crypto from 'crypto';
 import fetch, { Response } from 'node-fetch';
 import { Client as sshClient, utils as sshUtils } from 'ssh2';
 import * as tmp from 'tmp';
@@ -419,13 +420,19 @@ export default class RemoteConnector extends Disposable {
 	private async getWorkspaceSSHDestination(workspaceId: string, gitpodHost: string): Promise<{ destination: string; password?: string }> {
 		const session = await vscode.authentication.getSession(
 			'gitpod',
-			['function:getWorkspace', 'function:getOwnerToken', 'function:getLoggedInUser', 'resource:default'],
+			['function:getWorkspace', 'function:getOwnerToken', 'function:getLoggedInUser', 'function:getSSHPublicKeys', 'resource:default'],
 			{ createIfNone: true }
 		);
 
 		const serviceUrl = new URL(gitpodHost);
 
-		const workspaceInfo = await withServerApi(session.accessToken, serviceUrl.toString(), service => service.server.getWorkspace(workspaceId), this.logger);
+		const [workspaceInfo, ownerToken, registeredSSHKeys] = await withServerApi(session.accessToken, serviceUrl.toString(), service => Promise.all([
+			service.server.getWorkspace(workspaceId),
+			service.server.getOwnerToken(workspaceId),
+			service.server.getSSHPublicKeys()
+		]), this.logger);
+
+
 		if (workspaceInfo.latestInstance?.status?.phase !== 'running') {
 			throw new NoRunningInstanceError(workspaceId);
 		}
@@ -441,9 +448,6 @@ export default class RemoteConnector extends Disposable {
 
 		const sshHostKeys: { type: string; host_key: string }[] = await sshHostKeyResponse.json();
 
-		const ownerToken = await withServerApi(session.accessToken, serviceUrl.toString(), service => service.server.getOwnerToken(workspaceId), this.logger);
-
-		let password: string | undefined = ownerToken;
 		const sshDestInfo = {
 			user: workspaceId,
 			// See https://github.com/gitpod-io/gitpod/pull/9786 for reasoning about `.ssh` suffix
@@ -494,8 +498,28 @@ export default class RemoteConnector extends Disposable {
 			this.logger.error(`Couldn't write '${sshDestInfo.hostName}' host to known_hosts file:`, e);
 		}
 
-		const identityFiles = await checkDefaultIdentityFiles();
-		this.logger.trace(`Default identity files:`, identityFiles.length ? identityFiles.toString() : 'None');
+		let identityFilePaths = await checkDefaultIdentityFiles();
+		this.logger.trace(`Default identity files:`, identityFilePaths.length ? identityFilePaths.toString() : 'None');
+
+		const keyFingerprints = registeredSSHKeys.map(i => i.fingerprint);
+		const publickKeyFiles = await Promise.allSettled(identityFilePaths.map(path => fs.promises.readFile(path + '.pub')));
+		identityFilePaths = identityFilePaths.filter((_, index) => {
+			const result = publickKeyFiles[index];
+			if (result.status === 'rejected') {
+				return false;
+			}
+
+			const parsedResult = sshUtils.parseKey(result.value);
+			if (parsedResult instanceof Error || !parsedResult) {
+				this.logger.error(`Error while parsing SSH public key${identityFilePaths[index] + '.pub'}:`, parsedResult);
+				return false;
+			}
+
+			const parsedKey = Array.isArray(parsedResult) ? parsedResult[0] : parsedResult;
+			const fingerprint = crypto.createHash('sha256').update(parsedKey.getPublicSSH()).digest('base64');
+			return keyFingerprints.includes(fingerprint);
+		});
+		this.logger.trace(`Registered public keys in Gitpod account:`, identityFilePaths.length ? identityFilePaths.toString() : 'None');
 
 		// Commented this for now as `checkDefaultIdentityFiles` seems enough
 		// Connect to the OpenSSH agent and check for registered keys
@@ -519,16 +543,9 @@ export default class RemoteConnector extends Disposable {
 		// 	this.logger.error(`Couldn't get identities from OpenSSH agent`, e);
 		// }
 
-		// If user has default identity files or agent have registered keys,
-		// then use public key authentication
-		if (identityFiles.length) {
-			sshDestInfo.user = `${workspaceId}#${ownerToken}`;
-			password = undefined;
-		}
-
 		return {
 			destination: Buffer.from(JSON.stringify(sshDestInfo), 'utf8').toString('hex'),
-			password
+			password: identityFilePaths.length === 0 ? ownerToken : undefined
 		};
 	}
 
@@ -615,13 +632,13 @@ export default class RemoteConnector extends Disposable {
 
 		const copy = 'Copy';
 		const configureSSH = 'Configure SSH';
-		const action = await vscode.window.showInformationMessage(`An SSH key is required for passwordless authentication.\nAlternatively, copy and use this password: ${maskedPassword}`, { modal: true }, copy, configureSSH);
+		const action = await vscode.window.showWarningMessage(`You don't have registered any SSH public key for this machine in your Gitpod account.\nAlternatively, copy and use this temporary password until workspace restart: ${maskedPassword}`, { modal: true }, copy, configureSSH);
 		if (action === copy) {
 			await vscode.env.clipboard.writeText(password);
 			return;
 		}
 		if (action === configureSSH) {
-			await vscode.env.openExternal(vscode.Uri.parse('https://www.gitpod.io/docs/configure/ssh#create-an-ssh-key'));
+			await vscode.env.openExternal(vscode.Uri.parse('https://gitpod.io/keys'));
 			throw new Error(`SSH password modal dialog, ${configureSSH}`);
 		}
 
