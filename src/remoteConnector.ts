@@ -632,7 +632,7 @@ export default class RemoteConnector extends Disposable {
 
 		const copy = 'Copy';
 		const configureSSH = 'Configure SSH';
-		const action = await vscode.window.showInformationMessage(`You don't have registered any SSH public key for this machine in your Gitpod account.\nAlternatively, copy and use this password: ${maskedPassword}`, { modal: true }, copy, configureSSH);
+		const action = await vscode.window.showWarningMessage(`You don't have registered any SSH public key for this machine in your Gitpod account.\nAlternatively, copy and use this temporary password until workspace restart: ${maskedPassword}`, { modal: true }, copy, configureSSH);
 		if (action === copy) {
 			await vscode.env.clipboard.writeText(password);
 			return;
