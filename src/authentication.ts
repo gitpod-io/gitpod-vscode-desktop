@@ -144,6 +144,7 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 				if (e.message === 'Unexpected server response: 401') {
 					return undefined;
 				}
+				this._logger.error(`Error while verifying session with the following scopes: ${scopesStr}`, e);
 			}
 
 			this._logger.trace(`Read the following session from the keychain with the following scopes: ${scopesStr}`);
