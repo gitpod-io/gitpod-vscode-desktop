@@ -26,6 +26,11 @@
 	"extensionKind": [
 		"ui"
 	],
+	"capabilities": {
+		"untrustedWorkspaces": {
+			"supported": true
+		}
+	},
 	"activationEvents": [
 		"onCommand:gitpod.syncProvider.add",
 		"onCommand:gitpod.syncProvider.remove",
