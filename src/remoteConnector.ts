@@ -23,6 +23,7 @@ import { withServerApi } from './internalApi';
 import TelemetryReporter from './telemetryReporter';
 import { addHostToHostFile, checkNewHostInHostkeys } from './ssh/hostfile';
 import { checkDefaultIdentityFiles } from './ssh/identityFiles';
+import { HeartbeatManager } from './heartbeat';
 
 interface SSHConnectionParams {
 	workspaceId: string;
@@ -106,12 +107,22 @@ class NoSSHGatewayError extends Error {
 
 export default class RemoteConnector extends Disposable {
 
+	public static SSH_DEST_KEY = 'ssh-dest:';
 	public static AUTH_COMPLETE_PATH = '/auth-complete';
 	private static LOCK_COUNT = 0;
-	private static SSH_DEST_KEY = 'ssh-dest:';
+
+	private heartbeatManager: HeartbeatManager | undefined;
 
 	constructor(private readonly context: vscode.ExtensionContext, private readonly logger: Log, private readonly telemetry: TelemetryReporter) {
 		super();
+
+		if (isGitpodRemoteWindow(context)) {
+			context.subscriptions.push(vscode.commands.registerCommand('gitpod.api.autoTunnel', this.autoTunnelCommand, this));
+
+			// Don't await this on purpose so it doesn't block extension activation.
+			// Internally requesting a Gitpod Session requires the extension to be already activated.
+			this.onGitpodRemoteConnection();
+		}
 
 		this.releaseStaleLocks();
 	}
@@ -417,21 +428,14 @@ export default class RemoteConnector extends Disposable {
 		}
 	}
 
-	private async getWorkspaceSSHDestination(workspaceId: string, gitpodHost: string): Promise<{ destination: string; password?: string }> {
-		const session = await vscode.authentication.getSession(
-			'gitpod',
-			['function:getWorkspace', 'function:getOwnerToken', 'function:getLoggedInUser', 'function:getSSHPublicKeys', 'resource:default'],
-			{ createIfNone: true }
-		);
-
+	private async getWorkspaceSSHDestination(accessToken: string, { workspaceId, gitpodHost }: SSHConnectionParams): Promise<{ destination: string; password?: string }> {
 		const serviceUrl = new URL(gitpodHost);
 
-		const [workspaceInfo, ownerToken, registeredSSHKeys] = await withServerApi(session.accessToken, serviceUrl.toString(), service => Promise.all([
+		const [workspaceInfo, ownerToken, registeredSSHKeys] = await withServerApi(accessToken, serviceUrl.toString(), service => Promise.all([
 			service.server.getWorkspace(workspaceId),
 			service.server.getOwnerToken(workspaceId),
 			service.server.getSSHPublicKeys()
 		]), this.logger);
-
 
 		if (workspaceInfo.latestInstance?.status?.phase !== 'running') {
 			throw new NoRunningInstanceError(workspaceId);
@@ -645,6 +649,28 @@ export default class RemoteConnector extends Disposable {
 		throw new Error('SSH password modal dialog, Canceled');
 	}
 
+	private async getGitpodSession(gitpodHost: string) {
+		const config = vscode.workspace.getConfiguration('gitpod');
+		const currentGitpodHost = config.get<string>('host')!;
+		if (new URL(gitpodHost).host !== new URL(currentGitpodHost).host) {
+			const yes = 'Yes';
+			const cancel = 'Cancel';
+			const action = await vscode.window.showInformationMessage(`Connecting to a Gitpod workspace in '${gitpodHost}'. Would you like to switch from '${currentGitpodHost}' and continue?`, yes, cancel);
+			if (action === cancel) {
+				return;
+			}
+
+			await config.update('host', gitpodHost, vscode.ConfigurationTarget.Global);
+			this.logger.info(`Updated 'gitpod.host' setting to '${gitpodHost}' while trying to connect to a Gitpod workspace`);
+		}
+
+		return vscode.authentication.getSession(
+			'gitpod',
+			['function:getWorkspace', 'function:getOwnerToken', 'function:getLoggedInUser', 'function:getSSHPublicKeys', 'function:sendHeartBeat', 'resource:default'],
+			{ createIfNone: true }
+		);
+	}
+
 	public async handleUri(uri: vscode.Uri) {
 		if (uri.path === RemoteConnector.AUTH_COMPLETE_PATH) {
 			this.logger.info('auth completed');
@@ -656,30 +682,22 @@ export default class RemoteConnector extends Disposable {
 			return;
 		}
 
-		const gitpodHost = vscode.workspace.getConfiguration('gitpod').get<string>('host')!;
-		const forceUseLocalApp = vscode.workspace.getConfiguration('gitpod').get<boolean>('remote.useLocalApp')!;
-
 		const params: SSHConnectionParams = JSON.parse(uri.query);
-		if (new URL(params.gitpodHost).host !== new URL(gitpodHost).host) {
-			const yes = 'Yes';
-			const cancel = 'Cancel';
-			const action = await vscode.window.showInformationMessage(`Connecting to a Gitpod workspace in '${params.gitpodHost}'. Would you like to switch from '${gitpodHost}' and continue?`, yes, cancel);
-			if (action === cancel) {
-				return;
-			}
 
-			await vscode.workspace.getConfiguration('gitpod').update('host', params.gitpodHost, vscode.ConfigurationTarget.Global);
-			this.logger.info(`Updated 'gitpod.host' setting to '${params.gitpodHost}' while trying to connect to a Gitpod workspace`);
+		const session = await this.getGitpodSession(params.gitpodHost);
+		if (!session) {
+			return;
 		}
 
 		this.logger.info('Opening Gitpod workspace', uri.toString());
 
+		const forceUseLocalApp = vscode.workspace.getConfiguration('gitpod').get<boolean>('remote.useLocalApp')!;
 		let sshDestination: string | undefined;
 		if (!forceUseLocalApp) {
 			try {
 				this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'connecting', ...params });
 
-				const { destination, password } = await this.getWorkspaceSSHDestination(params.workspaceId, params.gitpodHost);
+				const { destination, password } = await this.getWorkspaceSSHDestination(session.accessToken, params);
 				sshDestination = destination;
 
 				if (password) {
@@ -753,12 +771,13 @@ export default class RemoteConnector extends Disposable {
 
 		await this.updateRemoteSSHConfig(usingSSHGateway, localAppSSHConfigPath);
 
-		await this.context.globalState.update(`${RemoteConnector.SSH_DEST_KEY}${sshDestination!}`, params);
+		await this.context.globalState.update(`${RemoteConnector.SSH_DEST_KEY}${sshDestination!}`, { ...params, isFirstConnection: true });
 
+		const forceNewWindow = this.context.extensionMode === vscode.ExtensionMode.Production;
 		vscode.commands.executeCommand(
 			'vscode.openFolder',
 			vscode.Uri.parse(`vscode-remote://ssh-remote+${sshDestination}${uri.path || '/'}`),
-			{ forceNewWindow: true }
+			{ forceNewWindow }
 		);
 	}
 
@@ -788,62 +807,68 @@ export default class RemoteConnector extends Disposable {
 		}
 	}
 
-	public async checkRemoteConnectionSuccessful() {
-		const isRemoteExtensionHostRunning = async () => {
-			try {
-				// Invoke command from gitpot-remote extension to test if connection is successful
-				await vscode.commands.executeCommand('__gitpod.getGitpodRemoteLogsUri');
-				return true;
-			} catch {
-				return false;
-			}
-		};
-
-		const parseSSHDest = (sshDestStr: string): { user: string; hostName: string } | string => {
-			let decoded;
-			try {
-				decoded = JSON.parse(Buffer.from(sshDestStr, 'hex').toString('utf8'));
-			} catch {
-				// no-op
-			}
-			return decoded && typeof decoded.hostName === 'string' ? decoded : sshDestStr;
-		};
-
-		const remoteUri = vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.[0].uri;
-		if (vscode.env.remoteName === 'ssh-remote' && this.context.extension.extensionKind === vscode.ExtensionKind.UI && remoteUri) {
-			const [, sshDestStr] = remoteUri.authority.split('+');
-			const sshDest = parseSSHDest(sshDestStr);
-
-			const connectionSuccessful = await isRemoteExtensionHostRunning();
-			const connectionInfo = this.context.globalState.get<SSHConnectionParams>(`${RemoteConnector.SSH_DEST_KEY}${sshDestStr}`);
-			if (connectionInfo) {
-				sshDest;
-				// const usingSSHGateway = typeof sshDest !== 'string';
-				// const kind = usingSSHGateway ? 'gateway' : 'local-app';
-				// if (connectionSuccessful) {
-				// 	this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', {
-				// 		kind,
-				// 		status: 'connected',
-				// 		instanceId: connectionInfo.instanceId,
-				// 		workspaceId: connectionInfo.workspaceId,
-				// 		gitpodHost: connectionInfo.gitpodHost
-				// 	});
-				// } else {
-				// 	this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', {
-				// 		kind,
-				// 		status: 'failed',
-				// 		reason: 'remote-ssh extension: connection failed',
-				// 		instanceId: connectionInfo.instanceId,
-				// 		workspaceId: connectionInfo.workspaceId,
-				// 		gitpodHost: connectionInfo.gitpodHost
-				// 	});
-				// }
-				await this.context.globalState.update(`${RemoteConnector.SSH_DEST_KEY}${sshDestStr}`, undefined);
-			}
-
-			return connectionSuccessful;
+	private startHeartBeat(accessToken: string, connectionInfo: SSHConnectionParams) {
+		if (this.heartbeatManager) {
+			return;
 		}
 
-		return false;
+		this.heartbeatManager = new HeartbeatManager(connectionInfo.gitpodHost, connectionInfo.workspaceId, connectionInfo.instanceId, accessToken, this.logger, this.telemetry);
 	}
+
+	private async onGitpodRemoteConnection() {
+		const remoteUri = vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.[0].uri;
+		if (!remoteUri) {
+			return;
+		}
+
+		const [, sshDestStr] = remoteUri.authority.split('+');
+		const connectionInfo = this.context.globalState.get<SSHConnectionParams & { isFirstConnection: boolean }>(`${RemoteConnector.SSH_DEST_KEY}${sshDestStr}`);
+		if (!connectionInfo) {
+			return;
+		}
+
+		await this.context.globalState.update(`${RemoteConnector.SSH_DEST_KEY}${sshDestStr}`, { ...connectionInfo, isFirstConnection: false });
+
+		// gitpod remote extension installation is async so sometimes gitpod-desktop will activate before gitpod-remote
+		// let's wait a few seconds for it to finish install
+		setTimeout(async () => {
+			// Check for gitpod remote extension version to avoid sending heartbeat in both extensions at the same time
+			const isGitpodRemoteHeartbeatCancelled = await cancelGitpodRemoteHeartbeat();
+			if (isGitpodRemoteHeartbeatCancelled) {
+				const session = await this.getGitpodSession(connectionInfo.gitpodHost);
+				if (session) {
+					this.startHeartBeat(session.accessToken, connectionInfo);
+				}
+			}
+			this.telemetry.sendTelemetryEvent('vscode_desktop_heartbeat_state', { enabled: String(!!this.heartbeatManager), gitpodHost: connectionInfo.gitpodHost, workspaceId: connectionInfo.workspaceId, instanceId: connectionInfo.instanceId });
+		}, 7000);
+	}
+
+	public override async dispose(): Promise<void> {
+		await this.heartbeatManager?.dispose();
+		super.dispose();
+	}
+}
+
+function isGitpodRemoteWindow(context: vscode.ExtensionContext) {
+	const remoteUri = vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.[0].uri;
+	if (vscode.env.remoteName === 'ssh-remote' && context.extension.extensionKind === vscode.ExtensionKind.UI && remoteUri) {
+		const [, sshDestStr] = remoteUri.authority.split('+');
+		const connectionInfo = context.globalState.get<SSHConnectionParams & { isFirstConnection: boolean }>(`${RemoteConnector.SSH_DEST_KEY}${sshDestStr}`);
+
+		return !!connectionInfo;
+	}
+
+	return false;
+}
+
+async function cancelGitpodRemoteHeartbeat() {
+	let result = false;
+	try {
+		// Invoke command from gitpot-remote extension
+		result = await vscode.commands.executeCommand('__gitpod.cancelGitpodRemoteHeartbeat');
+	} catch {
+		// Ignore if not found
+	}
+	return result;
 }
