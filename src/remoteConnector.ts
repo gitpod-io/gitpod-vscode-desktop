@@ -666,7 +666,7 @@ export default class RemoteConnector extends Disposable {
 
 		return vscode.authentication.getSession(
 			'gitpod',
-			['function:sendHeartBeat', 'function:getWorkspace', 'function:getOwnerToken', 'function:getLoggedInUser', 'resource:default'],
+			['function:getWorkspace', 'function:getOwnerToken', 'function:getLoggedInUser', 'function:getSSHPublicKeys', 'function:sendHeartBeat', 'resource:default'],
 			{ createIfNone: true }
 		);
 	}
