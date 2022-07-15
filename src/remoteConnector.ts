@@ -829,15 +829,19 @@ export default class RemoteConnector extends Disposable {
 
 		await this.context.globalState.update(`${RemoteConnector.SSH_DEST_KEY}${sshDestStr}`, { ...connectionInfo, isFirstConnection: false });
 
-		// Check for gitpod remote extension version to avoid sending heartbeat in both extensions at the same time
-		const isGitpodRemoteHeartbeatCancelled = await cancelGitpodRemoteHeartbeat();
-		if (isGitpodRemoteHeartbeatCancelled) {
-			const session = await this.getGitpodSession(connectionInfo.gitpodHost);
-			if (session) {
-				this.startHeartBeat(session.accessToken, connectionInfo);
+		// gitpod remote extension installation is async so sometimes gitpod-desktop will activate before gitpod-remote
+		// let's wait a few seconds for it to finish install
+		setTimeout(async () => {
+			// Check for gitpod remote extension version to avoid sending heartbeat in both extensions at the same time
+			const isGitpodRemoteHeartbeatCancelled = await cancelGitpodRemoteHeartbeat();
+			if (isGitpodRemoteHeartbeatCancelled) {
+				const session = await this.getGitpodSession(connectionInfo.gitpodHost);
+				if (session) {
+					this.startHeartBeat(session.accessToken, connectionInfo);
+				}
 			}
-		}
-		this.telemetry.sendTelemetryEvent('vscode_desktop_heartbeat_state', { enabled: String(!!this.heartbeatManager), gitpodHost: connectionInfo.gitpodHost, workspaceId: connectionInfo.workspaceId, instanceId: connectionInfo.instanceId });
+			this.telemetry.sendTelemetryEvent('vscode_desktop_heartbeat_state', { enabled: String(!!this.heartbeatManager), gitpodHost: connectionInfo.gitpodHost, workspaceId: connectionInfo.workspaceId, instanceId: connectionInfo.instanceId });
+		}, 7000);
 	}
 
 	public override async dispose(): Promise<void> {
