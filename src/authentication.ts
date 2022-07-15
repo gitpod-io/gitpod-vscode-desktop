@@ -136,16 +136,15 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 			const scopesStr = sortedScopes.join(' ');
 
 			let userInfo: { id: string; accountName: string } | undefined;
-			if (!session.account) {
-				try {
-					userInfo = await this._gitpodServer.getUserInfo(session.accessToken);
-					this._logger.info(`Verified session with the following scopes: ${scopesStr}`);
-				} catch (e) {
-					// Remove sessions that return unauthorized response
-					if (e.message === 'Unauthorized') {
-						return undefined;
-					}
+			try {
+				userInfo = await this._gitpodServer.getUserInfo(session.accessToken);
+				this._logger.info(`Verified session with the following scopes: ${scopesStr}`);
+			} catch (e) {
+				// Remove sessions that return unauthorized response
+				if (e.message === 'Unexpected server response: 401') {
+					return undefined;
 				}
+				this._logger.error(`Error while verifying session with the following scopes: ${scopesStr}`, e);
 			}
 
 			this._logger.trace(`Read the following session from the keychain with the following scopes: ${scopesStr}`);

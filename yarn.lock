@@ -22,10 +22,10 @@
     minimatch "^3.1.2"
     strip-json-comments "^3.1.1"
 
-"@gitpod/gitpod-protocol@^0.1.5-main.3838":
-  version "0.1.5-main.3838"
-  resolved "https://registry.yarnpkg.com/@gitpod/gitpod-protocol/-/gitpod-protocol-0.1.5-main.3838.tgz#06c0237a919c3758acca0e0257090892b35414a6"
-  integrity sha512-7OC73XcZgilmOKxjVPPygkkbsVugumjF3tBvLuLPt1LJbmws48X5KUqtlhnws3epwcfrU3JJXS2uJRxSizS9pQ==
+"@gitpod/gitpod-protocol@main":
+  version "0.1.5-main.3891"
+  resolved "https://registry.yarnpkg.com/@gitpod/gitpod-protocol/-/gitpod-protocol-0.1.5-main.3891.tgz#59f8e6e7a6d883a5188fb73543c0b9601f1f5d83"
+  integrity sha512-6skfczMYFoVd5McPJM0213toT+66ISBtymvByQD5GhQIC167Yx3bgCvWkKVqELb0kKy2Pf74GB1Ex9ECgoOVFQ==
   dependencies:
     "@types/react" "17.0.32"
     ajv "^6.5.4"

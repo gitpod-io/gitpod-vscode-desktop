@@ -3,7 +3,7 @@
 	"displayName": "Gitpod",
 	"description": "Gitpod Support",
 	"publisher": "gitpod",
-	"version": "0.0.40",
+	"version": "0.0.41",
 	"license": "MIT",
 	"icon": "resources/gitpod.png",
 	"repository": {
@@ -26,6 +26,11 @@
 	"extensionKind": [
 		"ui"
 	],
+	"capabilities": {
+		"untrustedWorkspaces": {
+			"supported": true
+		}
+	},
 	"activationEvents": [
 		"onCommand:gitpod.syncProvider.add",
 		"onCommand:gitpod.syncProvider.remove",
