@@ -24,6 +24,7 @@ import TelemetryReporter from './telemetryReporter';
 import { addHostToHostFile, checkNewHostInHostkeys } from './ssh/hostfile';
 import { checkDefaultIdentityFiles } from './ssh/identityFiles';
 import { HeartbeatManager } from './heartbeat';
+import { getGitpodVersion, isFeatureSupported } from './featureSupport';
 
 interface SSHConnectionParams {
 	workspaceId: string;
@@ -430,11 +431,12 @@ export default class RemoteConnector extends Disposable {
 
 	private async getWorkspaceSSHDestination(accessToken: string, { workspaceId, gitpodHost }: SSHConnectionParams): Promise<{ destination: string; password?: string }> {
 		const serviceUrl = new URL(gitpodHost);
+		const gitpodVersion = await getGitpodVersion(gitpodHost);
 
 		const [workspaceInfo, ownerToken, registeredSSHKeys] = await withServerApi(accessToken, serviceUrl.toString(), service => Promise.all([
 			service.server.getWorkspace(workspaceId),
 			service.server.getOwnerToken(workspaceId),
-			service.server.getSSHPublicKeys()
+			isFeatureSupported(gitpodVersion, 'SSHPublicKeys') ? service.server.getSSHPublicKeys() : undefined
 		]), this.logger);
 
 		if (workspaceInfo.latestInstance?.status?.phase !== 'running') {
@@ -505,47 +507,32 @@ export default class RemoteConnector extends Disposable {
 		let identityFilePaths = await checkDefaultIdentityFiles();
 		this.logger.trace(`Default identity files:`, identityFilePaths.length ? identityFilePaths.toString() : 'None');
 
-		const keyFingerprints = registeredSSHKeys.map(i => i.fingerprint);
-		const publickKeyFiles = await Promise.allSettled(identityFilePaths.map(path => fs.promises.readFile(path + '.pub')));
-		identityFilePaths = identityFilePaths.filter((_, index) => {
-			const result = publickKeyFiles[index];
-			if (result.status === 'rejected') {
-				return false;
+		if (registeredSSHKeys) {
+			const keyFingerprints = registeredSSHKeys.map(i => i.fingerprint);
+			const publickKeyFiles = await Promise.allSettled(identityFilePaths.map(path => fs.promises.readFile(path + '.pub')));
+			identityFilePaths = identityFilePaths.filter((_, index) => {
+				const result = publickKeyFiles[index];
+				if (result.status === 'rejected') {
+					return false;
+				}
+
+				const parsedResult = sshUtils.parseKey(result.value);
+				if (parsedResult instanceof Error || !parsedResult) {
+					this.logger.error(`Error while parsing SSH public key${identityFilePaths[index] + '.pub'}:`, parsedResult);
+					return false;
+				}
+
+				const parsedKey = Array.isArray(parsedResult) ? parsedResult[0] : parsedResult;
+				const fingerprint = crypto.createHash('sha256').update(parsedKey.getPublicSSH()).digest('base64');
+				return keyFingerprints.includes(fingerprint);
+			});
+			this.logger.trace(`Registered public keys in Gitpod account:`, identityFilePaths.length ? identityFilePaths.toString() : 'None');
+		} else {
+			if (identityFilePaths.length) {
+				sshDestInfo.user = `${workspaceId}#${ownerToken}`;
 			}
-
-			const parsedResult = sshUtils.parseKey(result.value);
-			if (parsedResult instanceof Error || !parsedResult) {
-				this.logger.error(`Error while parsing SSH public key${identityFilePaths[index] + '.pub'}:`, parsedResult);
-				return false;
-			}
-
-			const parsedKey = Array.isArray(parsedResult) ? parsedResult[0] : parsedResult;
-			const fingerprint = crypto.createHash('sha256').update(parsedKey.getPublicSSH()).digest('base64');
-			return keyFingerprints.includes(fingerprint);
-		});
-		this.logger.trace(`Registered public keys in Gitpod account:`, identityFilePaths.length ? identityFilePaths.toString() : 'None');
-
-		// Commented this for now as `checkDefaultIdentityFiles` seems enough
-		// Connect to the OpenSSH agent and check for registered keys
-		// let sshKeys: ParsedKey[] | undefined;
-		// try {
-		// 	if (process.env['SSH_AUTH_SOCK']) {
-		// 		sshKeys = await new Promise<ParsedKey[]>((resolve, reject) => {
-		// 			const sshAgent = new OpenSSHAgent(process.env['SSH_AUTH_SOCK']!);
-		// 			sshAgent.getIdentities((err, publicKeys) => {
-		// 				if (err) {
-		// 					reject(err);
-		// 				} else {
-		// 					resolve(publicKeys!);
-		// 				}
-		// 			});
-		// 		});
-		// 	} else {
-		// 		this.logger.error(`'SSH_AUTH_SOCK' env variable not defined, cannot connect to OpenSSH agent`);
-		// 	}
-		// } catch (e) {
-		// 	this.logger.error(`Couldn't get identities from OpenSSH agent`, e);
-		// }
+			this.logger.warn(`Registered SSH public keys not supported in ${gitpodHost}, using version ${gitpodVersion}`);
+		}
 
 		return {
 			destination: Buffer.from(JSON.stringify(sshDestInfo), 'utf8').toString('hex'),
@@ -664,9 +651,15 @@ export default class RemoteConnector extends Disposable {
 			this.logger.info(`Updated 'gitpod.host' setting to '${gitpodHost}' while trying to connect to a Gitpod workspace`);
 		}
 
+		const gitpodVersion = await getGitpodVersion(gitpodHost);
+		const sessionScopes = ['function:getWorkspace', 'function:getOwnerToken', 'function:getLoggedInUser', 'resource:default'];
+		if (isFeatureSupported(gitpodVersion, 'SSHPublicKeys') /* && isFeatureSupported('', 'sendHeartBeat') */) {
+			sessionScopes.push('function:getSSHPublicKeys', 'function:sendHeartBeat');
+		}
+
 		return vscode.authentication.getSession(
 			'gitpod',
-			['function:getWorkspace', 'function:getOwnerToken', 'function:getLoggedInUser', 'function:getSSHPublicKeys', 'function:sendHeartBeat', 'resource:default'],
+			sessionScopes,
 			{ createIfNone: true }
 		);
 	}
@@ -829,19 +822,31 @@ export default class RemoteConnector extends Disposable {
 
 		await this.context.globalState.update(`${RemoteConnector.SSH_DEST_KEY}${sshDestStr}`, { ...connectionInfo, isFirstConnection: false });
 
-		// gitpod remote extension installation is async so sometimes gitpod-desktop will activate before gitpod-remote
-		// let's wait a few seconds for it to finish install
-		setTimeout(async () => {
-			// Check for gitpod remote extension version to avoid sending heartbeat in both extensions at the same time
-			const isGitpodRemoteHeartbeatCancelled = await cancelGitpodRemoteHeartbeat();
-			if (isGitpodRemoteHeartbeatCancelled) {
-				const session = await this.getGitpodSession(connectionInfo.gitpodHost);
-				if (session) {
-					this.startHeartBeat(session.accessToken, connectionInfo);
+		const gitpodVersion = await getGitpodVersion(connectionInfo.gitpodHost);
+		if (isFeatureSupported(gitpodVersion, 'localHeartbeat')) {
+			// gitpod remote extension installation is async so sometimes gitpod-desktop will activate before gitpod-remote
+			// let's try a few times for it to finish install
+			let retryCount = 10;
+			const tryStartHeartbeat = async () => {
+				// Check for gitpod remote extension version to avoid sending heartbeat in both extensions at the same time
+				const isGitpodRemoteHeartbeatCancelled = await cancelGitpodRemoteHeartbeat();
+				if (isGitpodRemoteHeartbeatCancelled) {
+					const session = await this.getGitpodSession(connectionInfo.gitpodHost);
+					if (session) {
+						this.startHeartBeat(session.accessToken, connectionInfo);
+					}
+					this.telemetry.sendTelemetryEvent('vscode_desktop_heartbeat_state', { enabled: String(!!this.heartbeatManager), gitpodHost: connectionInfo.gitpodHost, workspaceId: connectionInfo.workspaceId, instanceId: connectionInfo.instanceId });
+				} else if (retryCount > 0) {
+					retryCount--;
+					setTimeout(tryStartHeartbeat, 3000);
+				} else {
+					this.telemetry.sendTelemetryEvent('vscode_desktop_heartbeat_state', { enabled: String(false), gitpodHost: connectionInfo.gitpodHost, workspaceId: connectionInfo.workspaceId, instanceId: connectionInfo.instanceId });
 				}
-			}
-			this.telemetry.sendTelemetryEvent('vscode_desktop_heartbeat_state', { enabled: String(!!this.heartbeatManager), gitpodHost: connectionInfo.gitpodHost, workspaceId: connectionInfo.workspaceId, instanceId: connectionInfo.instanceId });
-		}, 7000);
+			};
+			tryStartHeartbeat();
+		} else {
+			this.logger.warn(`Local heatbeat not supported in ${connectionInfo.gitpodHost}, using version ${gitpodVersion}`);
+		}
 	}
 
 	public override async dispose(): Promise<void> {
