@@ -36,6 +36,7 @@
 		"onCommand:gitpod.syncProvider.remove",
 		"onCommand:gitpod.exportLogs",
 		"onCommand:gitpod.api.autoTunnel",
+		"onCommand:gitpod.showReleaseNotes",
 		"onAuthenticationRequest:gitpod",
 		"onUri"
 	],
@@ -92,6 +93,11 @@
 				"command": "gitpod.exportLogs",
 				"category": "Gitpod",
 				"title": "Export all logs"
+			},
+			{
+				"command": "gitpod.showReleaseNotes",
+				"category": "Gitpod",
+				"title": "Show Release Notes"
 			}
 		]
 	},
@@ -109,6 +115,7 @@
 		"@types/analytics-node": "^3.1.9",
 		"@types/crypto-js": "4.1.1",
 		"@types/google-protobuf": "^3.7.4",
+		"@types/js-yaml": "^4.0.5",
 		"@types/node": "16.x",
 		"@types/node-fetch": "^2.5.12",
 		"@types/semver": "^7.3.10",
@@ -135,6 +142,7 @@
 		"@gitpod/local-app-api-grpcweb": "main",
 		"@improbable-eng/grpc-web-node-http-transport": "^0.14.0",
 		"analytics-node": "^6.0.0",
+		"js-yaml": "^4.1.0",
 		"node-fetch": "2.6.7",
 		"pkce-challenge": "^3.0.0",
 		"semver": "^7.3.7",
