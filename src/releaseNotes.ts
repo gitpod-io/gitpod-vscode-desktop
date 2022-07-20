@@ -3,23 +3,25 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import fetch from 'node-fetch';
+import fetch, { Response } from 'node-fetch';
 import * as vscode from 'vscode';
 import { load } from 'js-yaml';
+import { CacheHelper } from './common/cache';
 
 const LAST_READ_RELEASE_NOTES_ID = 'gitpod.lastReadReleaseNotesId';
 
 export function registerReleaseNotesView(context: vscode.ExtensionContext) {
+	const cacheHelper = new CacheHelper(context);
 
 	async function shouldShowReleaseNotes(lastReadId: string | undefined) {
-		const releaseId = await getLastPublish();
+		const releaseId = await getLastPublish(cacheHelper);
 		console.log(`gitpod release notes lastReadId: ${lastReadId}, latestReleaseId: ${releaseId}`);
 		return releaseId !== lastReadId;
 	}
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('gitpod.showReleaseNotes', () => {
-			ReleaseNotesPanel.createOrShow(context);
+			ReleaseNotesPanel.createOrShow(context, cacheHelper);
 		})
 	);
 
@@ -29,18 +31,37 @@ export function registerReleaseNotesView(context: vscode.ExtensionContext) {
 	const lastReadId = context.globalState.get<string>(LAST_READ_RELEASE_NOTES_ID);
 	shouldShowReleaseNotes(lastReadId).then(shouldShow => {
 		if (shouldShow) {
-			ReleaseNotesPanel.createOrShow(context);
+			ReleaseNotesPanel.createOrShow(context, cacheHelper);
 		}
 	});
 }
 
-async function getLastPublish() {
-	const resp = await fetch(`${websiteHost}/changelog/latest`);
-	if (!resp.ok) {
-		throw new Error(`Getting latest releaseId failed: ${resp.statusText}`);
+function getResponseCacheTime(resp: Response) {
+	const v = resp.headers.get('Cache-Control');
+	if (!v) {
+		return undefined;
 	}
-	const { releaseId } = JSON.parse(await resp.text());
-	return releaseId as string;
+	const t = /max-age=(\d+)/.exec(v);
+	if (!t) {
+		return undefined;
+	}
+	return Number(t[1]);
+}
+
+async function getLastPublish(cacheHelper: CacheHelper) {
+	const url = `${websiteHost}/changelog/latest`;
+	return cacheHelper.handy(url, async () => {
+		const resp = await fetch(url);
+		if (!resp.ok) {
+			throw new Error(`Getting latest releaseId failed: ${resp.statusText}`);
+		}
+		const { releaseId } = JSON.parse(await resp.text());
+		return {
+			value: releaseId as string,
+			ttl: getResponseCacheTime(resp),
+		};
+	});
+
 }
 
 const websiteHost = 'https://www.gitpod.io';
@@ -53,11 +74,18 @@ class ReleaseNotesPanel {
 	private _disposables: vscode.Disposable[] = [];
 
 	private async loadChangelog(releaseId: string) {
-		const resp = await fetch(`${websiteHost}/changelog/raw-markdown?releaseId=${releaseId}`);
-		if (!resp.ok) {
-			throw new Error(`Getting raw markdown content failed: ${resp.statusText}`);
-		}
-		const md = await resp.text();
+		const url = `${websiteHost}/changelog/raw-markdown?releaseId=${releaseId}`;
+		const md = await this.cacheHelper.handy(url, async () => {
+			const resp = await fetch(url);
+			if (!resp.ok) {
+				throw new Error(`Getting raw markdown content failed: ${resp.statusText}`);
+			}
+			const md = await resp.text();
+			return {
+				value: md,
+				ttl: getResponseCacheTime(resp),
+			};
+		});
 
 		const parseInfo = (md: string) => {
 			if (!md.startsWith('---')) {
@@ -96,7 +124,7 @@ class ReleaseNotesPanel {
 
 	public async updateHtml(releaseId?: string) {
 		if (!releaseId) {
-			releaseId = await getLastPublish();
+			releaseId = await getLastPublish(this.cacheHelper);
 		}
 		const mdContent = await this.loadChangelog(releaseId);
 		const html = await vscode.commands.executeCommand('markdown.api.render', mdContent) as string;
@@ -120,7 +148,7 @@ class ReleaseNotesPanel {
 		}
 	}
 
-	public static createOrShow(context: vscode.ExtensionContext) {
+	public static createOrShow(context: vscode.ExtensionContext, cacheHelper: CacheHelper) {
 		const column = vscode.window.activeTextEditor
 			? vscode.window.activeTextEditor.viewColumn
 			: undefined;
@@ -137,15 +165,16 @@ class ReleaseNotesPanel {
 			{ enableScripts: true },
 		);
 
-		ReleaseNotesPanel.currentPanel = new ReleaseNotesPanel(context, panel);
+		ReleaseNotesPanel.currentPanel = new ReleaseNotesPanel(context, cacheHelper, panel);
 	}
 
-	public static revive(context: vscode.ExtensionContext, panel: vscode.WebviewPanel) {
-		ReleaseNotesPanel.currentPanel = new ReleaseNotesPanel(context, panel);
+	public static revive(context: vscode.ExtensionContext, cacheHelper: CacheHelper, panel: vscode.WebviewPanel) {
+		ReleaseNotesPanel.currentPanel = new ReleaseNotesPanel(context, cacheHelper, panel);
 	}
 
 	private constructor(
 		private readonly context: vscode.ExtensionContext,
+		private readonly cacheHelper: CacheHelper,
 		panel: vscode.WebviewPanel
 	) {
 		this.lastReadId = this.context.globalState.get<string>(LAST_READ_RELEASE_NOTES_ID);
