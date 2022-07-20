@@ -12,6 +12,7 @@ import { enableSettingsSync, updateSyncContext } from './settingsSync';
 import { GitpodServer } from './gitpodServer';
 import TelemetryReporter from './telemetryReporter';
 import { exportLogs } from './exportLogs';
+import { registerReleaseNotesView } from './releaseNotes';
 
 const EXTENSION_ID = 'gitpod.gitpod-desktop';
 const FIRST_INSTALL_KEY = 'gitpod-desktop.firstInstall';
@@ -89,6 +90,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		await context.globalState.update(FIRST_INSTALL_KEY, true);
 		telemetry.sendTelemetryEvent('gitpod_desktop_installation', { kind: 'install' });
 	}
+
+	registerReleaseNotesView(context);
 }
 
 export async function deactivate() {
