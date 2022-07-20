@@ -22,12 +22,12 @@ export class CacheHelper {
 		if (!obj) {
 			obj = {};
 		}
-		const exp = expiration ? ((+ new Date()) / 1000 + expiration) : undefined;
+		const exp = expiration ? (Date.now() / 1000 + expiration) : undefined;
 		obj[key] = { value, expiration: exp };
 		return this.context.globalState.update(CACHE_KEY, obj);
 	}
 
-	get(key: string) {
+	get<T>(key: string): T | undefined {
 		const value = this.context.globalState.get<CacheMap>(CACHE_KEY);
 		if (!value || !value[key]) {
 			return undefined;
@@ -36,17 +36,17 @@ export class CacheHelper {
 		if (!data.expiration) {
 			return data.value;
 		}
-		const now = (+ new Date()) / 1000;
+		const now = Date.now() / 1000;
 		return now > data.expiration ? undefined : data.value;
 	}
 
-	async handy<T>(key: string, cb: () => Thenable<{ value: T; ttl?: number }>) {
-		let d = this.get(key);
-		if (d === undefined) {
-			const tmp = await cb();
-			await this.set(key, tmp.value, tmp.ttl);
-			d = tmp.value;
+	async getOrRefresh<T>(key: string, refreshCallback: () => Thenable<{ value: T; ttl?: number }>): Promise<T> {
+		let value = this.get<T>(key);
+		if (value === undefined) {
+			const result = await refreshCallback();
+			await this.set(key, result.value, result.ttl);
+			value = result.value;
 		}
-		return d as T;
+		return value;
 	}
 }

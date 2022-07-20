@@ -50,7 +50,7 @@ function getResponseCacheTime(resp: Response) {
 
 async function getLastPublish(cacheHelper: CacheHelper) {
 	const url = `${websiteHost}/changelog/latest`;
-	return cacheHelper.handy(url, async () => {
+	return cacheHelper.getOrRefresh(url, async () => {
 		const resp = await fetch(url);
 		if (!resp.ok) {
 			throw new Error(`Getting latest releaseId failed: ${resp.statusText}`);
@@ -75,7 +75,7 @@ class ReleaseNotesPanel {
 
 	private async loadChangelog(releaseId: string) {
 		const url = `${websiteHost}/changelog/raw-markdown?releaseId=${releaseId}`;
-		const md = await this.cacheHelper.handy(url, async () => {
+		const md = await this.cacheHelper.getOrRefresh(url, async () => {
 			const resp = await fetch(url);
 			if (!resp.ok) {
 				throw new Error(`Getting raw markdown content failed: ${resp.statusText}`);
