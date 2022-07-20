@@ -131,16 +131,16 @@ class ReleaseNotesPanel {
 		this.panel.webview.html = `<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gitpod Release Notes</title>
-    <style>
-        ${DEFAULT_MARKDOWN_STYLES}
-    </style>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Gitpod Release Notes</title>
+	<style>
+		${DEFAULT_MARKDOWN_STYLES}
+	</style>
 </head>
-<body>
-    ${html}
-</body>
+	<body>
+		${html}
+	</body>
 </html>`;
 		if (!this.lastReadId || releaseId > this.lastReadId) {
 			await this.context.globalState.update(LAST_READ_RELEASE_NOTES_ID, releaseId);
