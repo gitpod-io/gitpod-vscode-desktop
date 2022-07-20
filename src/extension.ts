@@ -12,7 +12,7 @@ import { SettingsSync } from './settingsSync';
 import GitpodServer from './gitpodServer';
 import TelemetryReporter from './telemetryReporter';
 import { exportLogs } from './exportLogs';
-import { registerReleaseNotesView } from './releaseNotes';
+import { ReleaseNotes } from './releaseNotes';
 import { ExperimentalSettings } from './experiments';
 
 const FIRST_INSTALL_KEY = 'gitpod-desktop.firstInstall';
@@ -23,6 +23,9 @@ let remoteConnector: RemoteConnector;
 export async function activate(context: vscode.ExtensionContext) {
 	const extensionId = context.extension.id;
 	const packageJSON = context.extension.packageJSON;
+
+	// sync between machines
+	context.globalState.setKeysForSync([ReleaseNotes.RELEASE_NOTES_LAST_READ_KEY]);
 
 	const logger = new Log('Gitpod');
 	logger.info(`${extensionId}/${packageJSON.version} (${os.release()} ${os.platform()} ${os.arch()}) vscode/${vscode.version} (${vscode.env.appName})`);
@@ -59,12 +62,12 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	}));
 
+	context.subscriptions.push(new ReleaseNotes(context));
+
 	if (!context.globalState.get<boolean>(FIRST_INSTALL_KEY, false)) {
 		await context.globalState.update(FIRST_INSTALL_KEY, true);
 		telemetry.sendTelemetryEvent('gitpod_desktop_installation', { kind: 'install' });
 	}
-
-	registerReleaseNotesView(context);
 }
 
 export async function deactivate() {
