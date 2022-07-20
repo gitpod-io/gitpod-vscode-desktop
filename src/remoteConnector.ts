@@ -655,6 +655,8 @@ export default class RemoteConnector extends Disposable {
 		const sessionScopes = ['function:getWorkspace', 'function:getOwnerToken', 'function:getLoggedInUser', 'resource:default'];
 		if (isFeatureSupported(gitpodVersion, 'SSHPublicKeys') /* && isFeatureSupported('', 'sendHeartBeat') */) {
 			sessionScopes.push('function:getSSHPublicKeys', 'function:sendHeartBeat');
+		} else {
+			this.logger.warn(`function:getSSHPublicKeys and function:sendHeartBeat session scopes not supported in ${gitpodHost}, using version ${gitpodVersion}`);
 		}
 
 		return vscode.authentication.getSession(
