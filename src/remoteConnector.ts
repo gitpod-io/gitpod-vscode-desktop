@@ -621,9 +621,10 @@ export default class RemoteConnector extends Disposable {
 	private async showSSHPasswordModal(password: string) {
 		const maskedPassword = '•'.repeat(password.length - 3) + password.substring(password.length - 3);
 
-		const copy = 'Copy';
-		const configureSSH = 'Configure SSH';
-		const action = await vscode.window.showWarningMessage(`You don't have registered any SSH public key for this machine in your Gitpod account.\nAlternatively, copy and use this temporary password until workspace restart: ${maskedPassword}`, { modal: true }, copy, configureSSH);
+		const copy: vscode.MessageItem = { title: 'Copy' };
+		const configureSSH: vscode.MessageItem = { title: 'Configure SSH' };
+		const showLogs: vscode.MessageItem = { title: 'Show logs', isCloseAffordance: true };
+		const action = await vscode.window.showWarningMessage(`You don't have registered any SSH public key for this machine in your Gitpod account.\nAlternatively, copy and use this temporary password until workspace restart: ${maskedPassword}`, { modal: true }, copy, configureSSH, showLogs);
 		if (action === copy) {
 			await vscode.env.clipboard.writeText(password);
 			return;
@@ -633,6 +634,7 @@ export default class RemoteConnector extends Disposable {
 			throw new Error(`SSH password modal dialog, ${configureSSH}`);
 		}
 
+		this.logger.show();
 		throw new Error('SSH password modal dialog, Canceled');
 	}
 
