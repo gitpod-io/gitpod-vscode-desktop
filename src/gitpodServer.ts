@@ -28,7 +28,7 @@ async function getUserInfo(token: string, serviceUrl: string, logger: Log) {
 	};
 }
 
-export class GitpodServer extends Disposable {
+export default class GitpodServer extends Disposable {
 
 	public static AUTH_COMPLETE_PATH = '/complete-gitpod-auth';
 

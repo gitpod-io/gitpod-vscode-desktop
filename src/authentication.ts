@@ -5,8 +5,8 @@
 
 import * as vscode from 'vscode';
 import { v4 as uuid } from 'uuid';
-import { Keychain } from './common/keychain';
-import { GitpodServer } from './gitpodServer';
+import Keychain from './common/keychain';
+import GitpodServer from './gitpodServer';
 import Log from './common/logger';
 import { arrayEquals } from './common/utils';
 import { Disposable } from './common/dispose';

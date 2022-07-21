@@ -8,7 +8,7 @@
 import * as vscode from 'vscode';
 import Log from './logger';
 
-export class Keychain {
+export default class Keychain {
 	constructor(
 		private readonly context: vscode.ExtensionContext,
 		private readonly serviceId: string,
