@@ -701,7 +701,7 @@ export default class RemoteConnector extends Disposable {
 
 				this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'connected', ...params });
 			} catch (e) {
-				this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'failed', reason: e.toString(), ...params });
+				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'failed', reason: e.toString(), ...params });
 				if (e instanceof NoSSHGatewayError) {
 					this.logger.error('No SSH gateway:', e);
 					vscode.window.showWarningMessage(`${e.host} does not support [direct SSH access](https://github.com/gitpod-io/gitpod/blob/main/install/installer/docs/workspace-ssh-access.md), connecting via the deprecated SSH tunnel over WebSocket.`);
@@ -741,9 +741,9 @@ export default class RemoteConnector extends Disposable {
 
 				this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', { kind: 'local-app', status: 'connected', ...params });
 			} catch (e) {
+				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'local-app', status: 'failed', reason: e.toString(), ...params });
 				this.logger.error(`Failed to connect ${params.workspaceId} Gitpod workspace:`, e);
 				if (e instanceof LocalAppError) {
-					this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', { kind: 'local-app', status: 'failed', reason: e.toString(), ...params });
 					const seeLogs = 'See Logs';
 					const showTroubleshooting = 'Show Troubleshooting';
 					const action = await vscode.window.showErrorMessage(`Failed to connect to ${params.workspaceId} Gitpod workspace`, seeLogs, showTroubleshooting);
@@ -758,7 +758,6 @@ export default class RemoteConnector extends Disposable {
 					}
 				} else {
 					// Do nothing, user cancelled the operation
-					this.telemetry.sendTelemetryEvent('vscode_desktop_ssh', { kind: 'local-app', status: 'failed', reason: 'cancelled' });
 				}
 				return;
 			}

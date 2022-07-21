@@ -186,7 +186,7 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 			// For the Gitpod scope list, order doesn't matter so we immediately sort the scopes
 			const sortedScopes = scopes.sort();
 
-			this._telemetry.sendTelemetryEvent('gitpod_desktop_auth', {
+			this._telemetry.sendRawTelemetryEvent('gitpod_desktop_auth', {
 				kind: 'login',
 				scopes: JSON.stringify(sortedScopes),
 			});
@@ -208,17 +208,17 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 
 			this._logger.info('Login success!');
 
-			this._telemetry.sendTelemetryEvent('gitpod_desktop_auth', { kind: 'login_successful' });
+			this._telemetry.sendRawTelemetryEvent('gitpod_desktop_auth', { kind: 'login_successful' });
 
 			return session;
 		} catch (e) {
 			// If login was cancelled, do not notify user.
 			if (e === 'Cancelled' || e.message === 'Cancelled') {
-				this._telemetry.sendTelemetryEvent('gitpod_desktop_auth', { kind: 'login_cancelled' });
+				this._telemetry.sendRawTelemetryEvent('gitpod_desktop_auth', { kind: 'login_cancelled' });
 				throw e;
 			}
 
-			this._telemetry.sendTelemetryEvent('gitpod_desktop_auth', { kind: 'login_failed' });
+			this._telemetry.sendRawTelemetryEvent('gitpod_desktop_auth', { kind: 'login_failed' });
 
 			vscode.window.showErrorMessage(`Sign in failed: ${e}`);
 			this._logger.error(e);
@@ -238,7 +238,7 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 
 	public async removeSession(id: string) {
 		try {
-			this._telemetry.sendTelemetryEvent('gitpod_desktop_auth', { kind: 'logout' });
+			this._telemetry.sendRawTelemetryEvent('gitpod_desktop_auth', { kind: 'logout' });
 
 			this._logger.info(`Logging out of ${id}`);
 
@@ -255,7 +255,7 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 				this._logger.error('Session not found');
 			}
 		} catch (e) {
-			this._telemetry.sendTelemetryEvent('gitpod_desktop_auth', { kind: 'logout_failed' });
+			this._telemetry.sendRawTelemetryEvent('gitpod_desktop_auth', { kind: 'logout_failed' });
 
 			vscode.window.showErrorMessage(`Sign out failed: ${e}`);
 			this._logger.error(e);
