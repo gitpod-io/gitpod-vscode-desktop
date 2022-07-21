@@ -113,10 +113,10 @@ class ReleaseNotesPanel {
 		if (!info) {
 			return content;
 		}
-
+		const releaseDate = Intl.DateTimeFormat('en-US', { dateStyle: 'long' }).format(new Date(releaseId));
 		return [
 			`# ${info.title}`,
-			`> Published at ${releaseId}, see also https://gitpod.io/changelog`,
+			`> Published on ${releaseDate}, see also https://www.gitpod.io/changelog`,
 			`![${info.alt ?? 'image'}](https://www.gitpod.io/images/changelog/${info.image})`,
 			content,
 		].join('\n\n');
