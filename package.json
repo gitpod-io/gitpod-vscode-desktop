@@ -38,7 +38,8 @@
 		"onCommand:gitpod.api.autoTunnel",
 		"onCommand:gitpod.showReleaseNotes",
 		"onAuthenticationRequest:gitpod",
-		"onUri"
+		"onUri",
+		"onStartupFinished"
 	],
 	"contributes": {
 		"authentication": [
