@@ -733,7 +733,7 @@ export default class RemoteConnector extends Disposable {
 					if (action === seeLogs) {
 						this.logger.show();
 					} else if (action === showTroubleshooting) {
-						vscode.env.openExternal(vscode.Uri.parse('https://www.gitpod.io/docs/ides-and-editors/vscode#vs-code-desktop-ssh-access'));
+						vscode.env.openExternal(vscode.Uri.parse('https://www.gitpod.io/docs/ides-and-editors/vscode#connecting-to-vs-code-desktop-ssh'));
 					}
 					return;
 				}
@@ -765,7 +765,7 @@ export default class RemoteConnector extends Disposable {
 							vscode.window.showTextDocument(document);
 						}
 					} else if (action === showTroubleshooting) {
-						vscode.env.openExternal(vscode.Uri.parse('https://www.gitpod.io/docs/ides-and-editors/vscode#vs-code-desktop-ssh-access'));
+						vscode.env.openExternal(vscode.Uri.parse('https://www.gitpod.io/docs/ides-and-editors/vscode#connecting-to-vs-code-desktop-ssh'));
 					}
 				} else {
 					// Do nothing, user cancelled the operation
