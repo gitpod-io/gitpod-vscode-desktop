@@ -42,6 +42,7 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 		const serviceUrl = new URL(gitpodHost);
 		this._gitpodServer = new GitpodServer(serviceUrl.toString(), this._logger);
 		this._keychain = new Keychain(this.context, `gitpod.auth.${serviceUrl.hostname}`, this._logger);
+		this._logger.info(`Started authentication provider for ${gitpodHost}`);
 		this._register(vscode.workspace.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration('gitpod.host')) {
 				const gitpodHost = vscode.workspace.getConfiguration('gitpod').get<string>('host')!;
@@ -49,6 +50,7 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 				this._gitpodServer.dispose();
 				this._gitpodServer = new GitpodServer(serviceUrl.toString(), this._logger);
 				this._keychain = new Keychain(this.context, `gitpod.auth.${serviceUrl.hostname}`, this._logger);
+				this._logger.info(`Started authentication provider for ${gitpodHost}`);
 
 				this.checkForUpdates();
 			}
