@@ -832,6 +832,21 @@ export default class RemoteConnector extends Disposable {
 			return;
 		}
 
+		const session = await this.getGitpodSession(connectionInfo.gitpodHost);
+		if (!session) {
+			return;
+		}
+
+		const workspaceInfo = await withServerApi(session.accessToken, connectionInfo.gitpodHost, service => service.server.getWorkspace(connectionInfo.workspaceId), this.logger);
+		if (workspaceInfo.latestInstance?.status?.phase !== 'running') {
+			return;
+		}
+
+		if (workspaceInfo.latestInstance.id !== connectionInfo.instanceId) {
+			this.logger.info(`Updating workspaces latest instance id ${connectionInfo.instanceId} => ${workspaceInfo.latestInstance.id}`);
+			connectionInfo.instanceId = workspaceInfo.latestInstance.id;
+		}
+
 		await this.context.globalState.update(`${RemoteConnector.SSH_DEST_KEY}${sshDestStr}`, { ...connectionInfo, isFirstConnection: false });
 
 		const gitpodVersion = await getGitpodVersion(connectionInfo.gitpodHost);
@@ -852,11 +867,8 @@ export default class RemoteConnector extends Disposable {
 				}
 			};
 
-			const session = await this.getGitpodSession(connectionInfo.gitpodHost);
-			if (session) {
-				this.startHeartBeat(session.accessToken, connectionInfo);
-				tryStopRemoteHeartbeat();
-			}
+			this.startHeartBeat(session.accessToken, connectionInfo);
+			tryStopRemoteHeartbeat();
 		} else {
 			this.logger.warn(`Local heatbeat not supported in ${connectionInfo.gitpodHost}, using version ${gitpodVersion.version}`);
 		}

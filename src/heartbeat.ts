@@ -104,14 +104,15 @@ export class HeartbeatManager extends Disposable {
                     await service.server.sendHeartBeat({ instanceId: this.instanceId, wasClosed });
                     if (wasClosed) {
                         this.telemetry.sendTelemetryEvent('ide_close_signal', { workspaceId: this.workspaceId, instanceId: this.instanceId, gitpodHost: this.gitpodHost, clientKind: 'vscode' });
-                        this.logger.trace('send ' + suffix);
+                        this.logger.trace('Send ' + suffix);
                     }
                 } else {
+                    this.logger.trace('Stopping heartbeat as workspace is not running');
                     this.stopHeartbeat();
                 }
             }, this.logger);
         } catch (err) {
-            this.logger.error(`failed to send ${suffix}:`, err);
+            this.logger.error(`Failed to send ${suffix}:`, err);
         }
     }
 
