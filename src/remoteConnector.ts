@@ -843,7 +843,7 @@ export default class RemoteConnector extends Disposable {
 		}
 
 		if (workspaceInfo.latestInstance.id !== connectionInfo.instanceId) {
-			this.logger.info(`Updating workspaces latest instance id ${connectionInfo.instanceId} => ${workspaceInfo.latestInstance.id}`);
+			this.logger.info(`Updating workspace ${connectionInfo.workspaceId} latest instance id ${connectionInfo.instanceId} => ${workspaceInfo.latestInstance.id}`);
 			connectionInfo.instanceId = workspaceInfo.latestInstance.id;
 		}
 
