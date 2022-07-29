@@ -25,6 +25,7 @@ import { addHostToHostFile, checkNewHostInHostkeys } from './ssh/hostfile';
 import { checkDefaultIdentityFiles } from './ssh/identityFiles';
 import { HeartbeatManager } from './heartbeat';
 import { getGitpodVersion, isFeatureSupported } from './featureSupport';
+import SSHConfiguration from './ssh/sshConfig';
 
 interface SSHConnectionParams {
 	workspaceId: string;
@@ -429,6 +430,16 @@ export default class RemoteConnector extends Disposable {
 		}
 	}
 
+	private async getIdentityFilePaths(gitpodHost: string) {
+		const list = await checkDefaultIdentityFiles();
+		const sshConfiguration = await SSHConfiguration.loadFromFS();
+		const hostConfiguration = sshConfiguration.getHostConfiguration(new URL(gitpodHost).host);
+		if (!!hostConfiguration.IdentityFile) {
+			list.unshift(hostConfiguration.IdentityFile);
+		}
+		return list;
+	}
+
 	private async getWorkspaceSSHDestination(accessToken: string, { workspaceId, gitpodHost }: SSHConnectionParams): Promise<{ destination: string; password?: string }> {
 		const serviceUrl = new URL(gitpodHost);
 		const gitpodVersion = await getGitpodVersion(gitpodHost);
@@ -504,7 +515,7 @@ export default class RemoteConnector extends Disposable {
 			this.logger.error(`Couldn't write '${sshDestInfo.hostName}' host to known_hosts file:`, e);
 		}
 
-		let identityFilePaths = await checkDefaultIdentityFiles();
+		let identityFilePaths = await this.getIdentityFilePaths(gitpodHost);
 		this.logger.trace(`Default identity files:`, identityFilePaths.length ? identityFilePaths.toString() : 'None');
 
 		if (registeredSSHKeys) {
