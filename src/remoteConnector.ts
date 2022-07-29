@@ -618,10 +618,10 @@ export default class RemoteConnector extends Disposable {
 		return true;
 	}
 
-	private async showSSHPasswordModal(password: string, gitpodHost: string, sshParams: SSHConnectionParams) {
+	private async showSSHPasswordModal(password: string, sshParams: SSHConnectionParams) {
 		const maskedPassword = '•'.repeat(password.length - 3) + password.substring(password.length - 3);
 
-		const gitpodVersion = await getGitpodVersion(gitpodHost);
+		const gitpodVersion = await getGitpodVersion(sshParams.gitpodHost);
 		const sshKeysSupported = isFeatureSupported(gitpodVersion, 'SSHPublicKeys');
 
 		const copy: vscode.MessageItem = { title: 'Copy' };
@@ -631,13 +631,15 @@ export default class RemoteConnector extends Disposable {
 			? `You don't have registered any SSH public key for this machine in your Gitpod account.\nAlternatively, copy and use this temporary password until workspace restart: ${maskedPassword}`
 			: `An SSH key is required for passwordless authentication.\nAlternatively, copy and use this password: ${maskedPassword}`;
 		const action = await vscode.window.showWarningMessage(message, { modal: true }, copy, configureSSH, showLogs);
-        this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh_gateway_modal', { action: action?.title ?? 'Cancelled', ...sshParams, gitpodVersion: gitpodVersion.raw });
+
+		this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh_gateway_modal', { action: action?.title ?? 'Canceled', ...sshParams, gitpodVersion: gitpodVersion.raw });
+
 		if (action === copy) {
 			await vscode.env.clipboard.writeText(password);
 			return;
 		}
 		if (action === configureSSH) {
-			const serviceUrl = new URL(gitpodHost).toString().replace(/\/$/, '');
+			const serviceUrl = new URL(sshParams.gitpodHost).toString().replace(/\/$/, '');
 			const externalUrl = sshKeysSupported ? `${serviceUrl}/keys` : 'https://www.gitpod.io/docs/configure/ssh#create-an-ssh-key';
 			await vscode.env.openExternal(vscode.Uri.parse(externalUrl));
 			throw new Error(`SSH password modal dialog, Configure SSH`);
@@ -708,7 +710,7 @@ export default class RemoteConnector extends Disposable {
 				sshDestination = destination;
 
 				if (password) {
-					await this.showSSHPasswordModal(password, params.gitpodHost, params);
+					await this.showSSHPasswordModal(password, params);
 				}
 
 				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'connected', ...params, gitpodVersion: gitpodVersion.raw });
