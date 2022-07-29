@@ -618,7 +618,7 @@ export default class RemoteConnector extends Disposable {
 		return true;
 	}
 
-	private async showSSHPasswordModal(password: string, gitpodHost: string) {
+	private async showSSHPasswordModal(password: string, gitpodHost: string, sshParams: SSHConnectionParams) {
 		const maskedPassword = '•'.repeat(password.length - 3) + password.substring(password.length - 3);
 
 		const gitpodVersion = await getGitpodVersion(gitpodHost);
@@ -631,6 +631,7 @@ export default class RemoteConnector extends Disposable {
 			? `You don't have registered any SSH public key for this machine in your Gitpod account.\nAlternatively, copy and use this temporary password until workspace restart: ${maskedPassword}`
 			: `An SSH key is required for passwordless authentication.\nAlternatively, copy and use this password: ${maskedPassword}`;
 		const action = await vscode.window.showWarningMessage(message, { modal: true }, copy, configureSSH, showLogs);
+        this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh_gateway_modal', { action: action?.title ?? 'Cancelled', ...sshParams, gitpodVersion: gitpodVersion.raw });
 		if (action === copy) {
 			await vscode.env.clipboard.writeText(password);
 			return;
@@ -707,7 +708,7 @@ export default class RemoteConnector extends Disposable {
 				sshDestination = destination;
 
 				if (password) {
-					await this.showSSHPasswordModal(password, params.gitpodHost);
+					await this.showSSHPasswordModal(password, params.gitpodHost, params);
 				}
 
 				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'connected', ...params, gitpodVersion: gitpodVersion.raw });
