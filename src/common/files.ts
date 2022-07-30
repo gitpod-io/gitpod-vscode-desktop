@@ -4,6 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as fs from 'fs';
+import * as os from 'os';
+
+const homeDir = os.homedir();
 
 export async function exists(path: string) {
     try {
@@ -12,4 +15,8 @@ export async function exists(path: string) {
     } catch {
         return false;
     }
+}
+
+export function untildify(path: string){
+	return path.replace(/^~(?=$|\/|\\)/, homeDir);
 }
