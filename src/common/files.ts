@@ -5,6 +5,7 @@
 
 import * as fs from 'fs';
 import * as os from 'os';
+import * as path from 'path';
 
 const homeDir = os.homedir();
 
@@ -19,4 +20,18 @@ export async function exists(path: string) {
 
 export function untildify(path: string){
 	return path.replace(/^~(?=$|\/|\\)/, homeDir);
+}
+
+export function resolveHomeDir(filepath: string | undefined) {
+    if (!filepath) {
+        return filepath;
+    }
+    const homedir = os.homedir();
+    if (filepath === '~') {
+        return homedir;
+    }
+    if (filepath.startsWith('~/')) {
+        return path.join(homedir, filepath.slice(2));
+    }
+    return filepath;
 }
