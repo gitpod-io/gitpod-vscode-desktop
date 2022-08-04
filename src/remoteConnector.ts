@@ -28,7 +28,7 @@ import { HeartbeatManager } from './heartbeat';
 import { getGitpodVersion, isFeatureSupported } from './featureSupport';
 import SSHConfiguration from './ssh/sshConfig';
 import { isWindows } from './common/platform';
-import { resolveHomeDir, untildify } from './common/files';
+import { untildify } from './common/files';
 
 interface SSHConnectionParams {
 	workspaceId: string;
@@ -440,7 +440,7 @@ export default class RemoteConnector extends Disposable {
 			identityFiles.push(...DEFAULT_IDENTITY_FILES);
 		}
 
-		const identityFileContentsResult = await Promise.allSettled(identityFiles.map(async path => fs.promises.readFile(resolveHomeDir(path) + '.pub')));
+		const identityFileContentsResult = await Promise.allSettled(identityFiles.map(async path => fs.promises.readFile(path + '.pub')));
 		const fileKeys = identityFileContentsResult.map((result, i) => {
 			if (result.status === 'rejected') {
 				return undefined;
@@ -462,20 +462,14 @@ export default class RemoteConnector extends Disposable {
 			};
 		}).filter(<T>(v: T | undefined): v is T => !!v);
 
-		let sshAgentSock: string | undefined;
-		if (isWindows) {
-			sshAgentSock = `\\.\pipe\openssh-ssh-agent`;
-		} else {
-			sshAgentSock = (hostConfig['IdentityAgent'] || process.env['SSH_AUTH_SOCK']);
-			sshAgentSock = resolveHomeDir(sshAgentSock);
-		}
+		const sshAgentSock = isWindows ? `\\.\pipe\openssh-ssh-agent` : (hostConfig['IdentityAgent'] || process.env['SSH_AUTH_SOCK']);
 		let sshAgentParsedKeys: ParsedKey[] = [];
 		try {
+			if (!sshAgentSock) {
+				throw new Error(`SSH_AUTH_SOCK environment variable not defined`);
+			}
+
 			sshAgentParsedKeys = await new Promise<ParsedKey[]>((resolve, reject) => {
-				if (!sshAgentSock) {
-					reject(new Error(`SSH_AUTH_SOCK environment variable not defined`));
-					return;
-				}
 				const sshAgent = new OpenSSHAgent(sshAgentSock);
 				sshAgent.getIdentities((err, publicKeys) => {
 					if (err) {
