@@ -117,7 +117,7 @@ class ReleaseNotesPanel {
 		return [
 			`# ${info.title}`,
 			`> Published on ${releaseDate}, see also https://www.gitpod.io/changelog`,
-			`![${info.alt ?? 'image'}](https://www.gitpod.io/images/changelog/${info.image})`,
+			`![${info.alt ?? 'image'}](/images/changelog/${info.image})`,
 			content,
 		].join('\n\n');
 	}
@@ -131,6 +131,7 @@ class ReleaseNotesPanel {
 		this.panel.webview.html = `<!DOCTYPE html>
 <html lang="en">
 <head>
+	<base href="https://www.gitpod.io/">
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Gitpod Release Notes</title>
