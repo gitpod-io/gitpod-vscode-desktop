@@ -464,7 +464,7 @@ export default class RemoteConnector extends Disposable {
 
 		let sshAgentParsedKeys: ParsedKey[] = [];
 		try {
-			let sshAgentSock = isWindows ? `\\.\pipe\openssh-ssh-agent` : (hostConfig['IdentityAgent'] || process.env['SSH_AUTH_SOCK']);
+			let sshAgentSock = isWindows ? '\\\\.\\pipe\\openssh-ssh-agent' : (hostConfig['IdentityAgent'] || process.env['SSH_AUTH_SOCK']);
 			if (!sshAgentSock) {
 				throw new Error(`SSH_AUTH_SOCK environment variable not defined`);
 			}
