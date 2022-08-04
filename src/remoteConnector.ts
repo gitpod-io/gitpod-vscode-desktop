@@ -462,15 +462,16 @@ export default class RemoteConnector extends Disposable {
 			};
 		}).filter(<T>(v: T | undefined): v is T => !!v);
 
-		const sshAgentSock = isWindows ? `\\.\pipe\openssh-ssh-agent` : (hostConfig['IdentityAgent'] || process.env['SSH_AUTH_SOCK']);
 		let sshAgentParsedKeys: ParsedKey[] = [];
 		try {
+			let sshAgentSock = isWindows ? `\\.\pipe\openssh-ssh-agent` : (hostConfig['IdentityAgent'] || process.env['SSH_AUTH_SOCK']);
 			if (!sshAgentSock) {
 				throw new Error(`SSH_AUTH_SOCK environment variable not defined`);
 			}
+			sshAgentSock = untildify(sshAgentSock);
 
 			sshAgentParsedKeys = await new Promise<ParsedKey[]>((resolve, reject) => {
-				const sshAgent = new OpenSSHAgent(sshAgentSock);
+				const sshAgent = new OpenSSHAgent(sshAgentSock!);
 				sshAgent.getIdentities((err, publicKeys) => {
 					if (err) {
 						reject(err);
@@ -593,8 +594,9 @@ export default class RemoteConnector extends Disposable {
 		let identityKeys = await this.getIdentityKeys(hostConfiguration);
 
 		if (registeredSSHKeys) {
+			this.logger.trace(`Registered public keys in Gitpod account:`, registeredSSHKeys.length ? registeredSSHKeys.map(k => `${k.name} SHA256:${k.fingerprint}`).join('\n') : 'None');
+
 			identityKeys = identityKeys.filter(k => !!registeredSSHKeys.find(regKey => regKey.fingerprint === k.fingerprint));
-			this.logger.trace(`Registered public keys in Gitpod account:`, identityKeys.length ? identityKeys.map(k => `${k.filename} ${k.parsedKey.type} SHA256:${k.fingerprint}`).join('\n') : 'None');
 		} else {
 			if (identityKeys.length) {
 				sshDestInfo.user = `${workspaceId}#${ownerToken}`;
