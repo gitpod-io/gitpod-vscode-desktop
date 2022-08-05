@@ -515,7 +515,7 @@ export default class RemoteConnector extends Disposable {
 
 	private async getWorkspaceSSHDestination(accessToken: string, { workspaceId, gitpodHost }: SSHConnectionParams): Promise<{ destination: string; password?: string }> {
 		const serviceUrl = new URL(gitpodHost);
-		const gitpodVersion = await getGitpodVersion(gitpodHost);
+		const gitpodVersion = await getGitpodVersion(gitpodHost, this.logger);
 
 		const [workspaceInfo, ownerToken, registeredSSHKeys] = await withServerApi(accessToken, serviceUrl.toString(), service => Promise.all([
 			service.server.getWorkspace(workspaceId),
@@ -691,7 +691,7 @@ export default class RemoteConnector extends Disposable {
 	private async showSSHPasswordModal(password: string, sshParams: SSHConnectionParams) {
 		const maskedPassword = '•'.repeat(password.length - 3) + password.substring(password.length - 3);
 
-		const gitpodVersion = await getGitpodVersion(sshParams.gitpodHost);
+		const gitpodVersion = await getGitpodVersion(sshParams.gitpodHost, this.logger);
 		const sshKeysSupported = isFeatureSupported(gitpodVersion, 'SSHPublicKeys');
 
 		const copy: vscode.MessageItem = { title: 'Copy' };
@@ -734,7 +734,7 @@ export default class RemoteConnector extends Disposable {
 			this.logger.info(`Updated 'gitpod.host' setting to '${gitpodHost}' while trying to connect to a Gitpod workspace`);
 		}
 
-		const gitpodVersion = await getGitpodVersion(gitpodHost);
+		const gitpodVersion = await getGitpodVersion(gitpodHost, this.logger);
 		const sessionScopes = ['function:getWorkspace', 'function:getOwnerToken', 'function:getLoggedInUser', 'resource:default'];
 		if (isFeatureSupported(gitpodVersion, 'SSHPublicKeys') /* && isFeatureSupported('', 'sendHeartBeat') */) {
 			sessionScopes.push('function:getSSHPublicKeys', 'function:sendHeartBeat');
@@ -761,7 +761,7 @@ export default class RemoteConnector extends Disposable {
 		}
 
 		const params: SSHConnectionParams = JSON.parse(uri.query);
-		const gitpodVersion = await getGitpodVersion(params.gitpodHost);
+		const gitpodVersion = await getGitpodVersion(params.gitpodHost, this.logger);
 
 		const session = await this.getGitpodSession(params.gitpodHost);
 		if (!session) {
@@ -922,7 +922,7 @@ export default class RemoteConnector extends Disposable {
 
 		await this.context.globalState.update(`${RemoteConnector.SSH_DEST_KEY}${sshDestStr}`, { ...connectionInfo, isFirstConnection: false });
 
-		const gitpodVersion = await getGitpodVersion(connectionInfo.gitpodHost);
+		const gitpodVersion = await getGitpodVersion(connectionInfo.gitpodHost, this.logger);
 		if (isFeatureSupported(gitpodVersion, 'localHeartbeat')) {
 			// gitpod remote extension installation is async so sometimes gitpod-desktop will activate before gitpod-remote
 			// let's try a few times for it to finish install
