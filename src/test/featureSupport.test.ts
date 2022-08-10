@@ -6,8 +6,8 @@ import { equal } from 'assert';
 import Log from '../common/logger';
 import { getGitpodVersion, GitpodVersion, isFeatureSupported } from '../featureSupport';
 
-describe('feature support', () => {
-    it('isFeatureSupported with versions', () => {
+suite('feature support', () => {
+    test('isFeatureSupported with versions', () => {
         const cases: Array<{ str?: string; version: GitpodVersion; supported: boolean }> = [
             { version: new GitpodVersion('release-2022.06.1.7'), str: '2022.6.1', supported: false },
             { version: new GitpodVersion('release-2022.06.1.0'), str: '2022.6.1', supported: false },
@@ -36,21 +36,21 @@ describe('feature support', () => {
             }
         }
     });
+});
 
-    describe('fetch version info', function () {
-        this.timeout(10000);
-        // const logger = { info: console.log, error: console.error } as Log;
-        // @ts-ignore
-        const logger = { info: (...args: any) => { }, error: (...args: any) => { } } as Log;
+suite('fetch version info', function () {
+    // this.timeout(10000);
+    // const logger = { info: console.log, error: console.error } as Log;
+    // @ts-ignore
+    const logger = { info: (...args: any) => { }, error: (...args: any) => { } } as Log;
 
-        it.skip('unknown host retry and fallback to min', async () => {
-            const version = await getGitpodVersion('https://unknown.gitpod.io', logger);
-            equal(version.version, GitpodVersion.Min.version);
-        });
+    test.skip('unknown host retry and fallback to min', async () => {
+        const version = await getGitpodVersion('https://unknown.gitpod.io', logger);
+        equal(version.version, GitpodVersion.Min.version);
+    });
 
-        it('SaaS Gitpod return max', async () => {
-            const version = await getGitpodVersion('https://gitpod.io', logger);
-            equal(version.version, GitpodVersion.Max.version);
-        });
+    test('SaaS Gitpod return max', async () => {
+        const version = await getGitpodVersion('https://gitpod.io', logger);
+        equal(version.version, GitpodVersion.Max.version);
     });
 });

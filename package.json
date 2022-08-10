@@ -111,7 +111,7 @@
 		"watch": "tsc -b -w",
 		"package": "npx vsce package --yarn",
 		"lint": "eslint . --ext .ts",
-		"test": "mocha"
+		"test": "mocha -u tdd"
 	},
 	"devDependencies": {
 		"@types/analytics-node": "^3.1.9",
