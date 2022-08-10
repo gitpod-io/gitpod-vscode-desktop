@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import { equal } from 'assert';
-import Log from './common/logger';
-import { getGitpodVersion, GitpodVersion, isFeatureSupported } from './featureSupport';
+import Log from '../common/logger';
+import { getGitpodVersion, GitpodVersion, isFeatureSupported } from '../featureSupport';
 
 describe('feature support', () => {
     it('isFeatureSupported with versions', () => {
