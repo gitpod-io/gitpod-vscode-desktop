@@ -5,6 +5,7 @@
 import * as semver from 'semver';
 import fetch from 'node-fetch';
 import Log from './common/logger';
+import { retry } from './common/async';
 
 export class GitpodVersion {
     static MAX_VERSION = '9999.99.99';
@@ -16,16 +17,15 @@ export class GitpodVersion {
     readonly version: string;
     readonly raw: string;
 
-    constructor(gitpodVersion: string = '') {
+    constructor(gitpodVersion: string) {
         this.raw = gitpodVersion;
         this.version = GitpodVersion.MIN_VERSION;
 
-        if (gitpodVersion.startsWith('release-')) {
-            gitpodVersion = gitpodVersion.replace('release-', '');
-            gitpodVersion = gitpodVersion.replace(/\.\d+$/, '');
-
+        // Check for yyyy.mm.dd format
+        const match = /(?:\.|-|^)(\d{4}\.\d{1,2}\.\d{1,2})(?:\.|-|$)/.exec(gitpodVersion);
+        if (match) {
             // Remove leading zeros to make it a valid semver
-            const [yy, mm, dd] = gitpodVersion.split('.');
+            const [yy, mm, dd] = match[1].split('.');
             gitpodVersion = `${parseInt(yy, 10)}.${parseInt(mm, 10)}.${parseInt(dd, 10)}`;
 
         }
@@ -39,40 +39,33 @@ export class GitpodVersion {
 let cacheGitpodVersion: { host: string; version: GitpodVersion } | undefined;
 async function getOrFetchVersionInfo(serviceUrl: string, logger: Log) {
     if (serviceUrl === 'https://gitpod.io') {
-        logger.info(`Using SaaS, constant Max version ${GitpodVersion.Max.version}`);
+        // SaaS default allow all features, should proper handle SaaS feature support if needed in the future
         return {
-            // SaaS default allow all features, should proper handle SaaS feature support if needed in the future
+            host: serviceUrl,
             version: GitpodVersion.Max,
         };
     }
 
     if (serviceUrl === cacheGitpodVersion?.host) {
-        logger.info(`Using cached version ${cacheGitpodVersion.version} for ${serviceUrl}`);
         return cacheGitpodVersion;
     }
 
-    const fetchVersion = async (times: number = 3): Promise<string | undefined> => {
-        try {
-            const versionEndPoint = `${serviceUrl}/api/version`;
+    let gitpodRawVersion: string | undefined;
+    try {
+        const versionEndPoint = `${serviceUrl}/api/version`;
+        gitpodRawVersion = await retry(async () => {
             const resp = await fetch(versionEndPoint, { timeout: 1500 });
             if (!resp.ok) {
-                throw new Error(`Response with ${resp.status} ${resp.statusText}`);
+                throw new Error(`Responded with ${resp.status} ${resp.statusText}`);
             }
-            return await resp.text();
-        } catch (e) {
-            logger.error(`Failed to fetch version with from: ${serviceUrl} left attempt: ${times - 1}`, e);
-            if (times - 1 > 0) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                return fetchVersion(times - 1);
-            } else {
-                return undefined;
-            }
-        }
-    };
+            return resp.text();
+        }, 1000, 3);
+    } catch (e) {
+        logger.error(`Error while fetching ${serviceUrl}`, e);
+    }
 
-    const gitpodRawVersion = await fetchVersion();
     if (!gitpodRawVersion) {
-        logger.info(`Failed to fetch version from: ${serviceUrl} fallback to Min: ${GitpodVersion.Min.version}`);
+        logger.info(`Failed to fetch version from ${serviceUrl}, some feature will be disabled`);
         return {
             host: serviceUrl,
             version: GitpodVersion.Min,
@@ -91,7 +84,7 @@ async function getOrFetchVersionInfo(serviceUrl: string, logger: Log) {
 export async function getGitpodVersion(gitpodHost: string, logger: Log) {
     const serviceUrl = new URL(gitpodHost).toString().replace(/\/$/, '');
     const versionInfo = await getOrFetchVersionInfo(serviceUrl, logger);
-    return versionInfo.version || new GitpodVersion();
+    return versionInfo.version;
 }
 
 type Feature = |
