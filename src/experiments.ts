@@ -42,7 +42,8 @@ export class ExperimentalSettings {
         }
 
         const user = userId ? new configcatcommon.User(userId) : undefined;
-        const experimentValue = (await this.configcatClient.getValueAsync(key, undefined, user)) as T | undefined;
+        const configcatKey = key.replace('.', '_'); // '.' are not allowed in configcat
+        const experimentValue = (await this.configcatClient.getValueAsync(configcatKey, undefined, user)) as T | undefined;
 
         return experimentValue ?? values?.defaultValue;
     }
@@ -57,7 +58,8 @@ export class ExperimentalSettings {
         const values = config.inspect<T>(key.substring('gitpod.'.length));
 
         const user = userId ? new configcatcommon.User(userId) : undefined;
-        const experimentValue = (await this.configcatClient.getValueAsync(key, undefined, user)) as T | undefined;
+        const configcatKey = key.replace('.', '_'); // '.' are not allowed in configcat
+        const experimentValue = (await this.configcatClient.getValueAsync(configcatKey, undefined, user)) as T | undefined;
 
         return { key, defaultValue: values?.defaultValue, globalValue: values?.globalValue, experimentValue };
     }
