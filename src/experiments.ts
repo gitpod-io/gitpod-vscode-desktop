@@ -33,43 +33,41 @@ export class ExperimentalSettings {
     }
 
     async get<T>(key: string, userId?: string): Promise<T | undefined> {
-        if (!EXPERTIMENTAL_SETTINGS.includes(key)) {
-            this.logger.error(`Cannot get invalid experimental setting '${key}'`);
-            return undefined;
-        }
-
         const config = vscode.workspace.getConfiguration('gitpod');
         const values = config.inspect<T>(key.substring('gitpod.'.length));
-        if (this.isPreRelease()) {
-            // PreRelease versions always have experiments enabled by default
+        if (!values || !EXPERTIMENTAL_SETTINGS.includes(key)) {
+            this.logger.error(`Cannot get invalid experimental setting '${key}'`);
             return values?.globalValue ?? values?.defaultValue;
         }
-        if (values?.globalValue !== undefined) {
+        if (this.isPreRelease()) {
+            // PreRelease versions always have experiments enabled by default
+            return values.globalValue ?? values.defaultValue;
+        }
+        if (values.globalValue !== undefined) {
             // User setting have priority over configcat so return early
-            return values?.globalValue;
+            return values.globalValue;
         }
 
         const user = userId ? new configcatcommon.User(userId) : undefined;
         const configcatKey = key.replace(/\./g, '_'); // '.' are not allowed in configcat
         const experimentValue = (await this.configcatClient.getValueAsync(configcatKey, undefined, user)) as T | undefined;
 
-        return experimentValue ?? values?.defaultValue;
+        return experimentValue ?? values.defaultValue;
     }
 
-    async inspect<T>(key: string, userId?: string): Promise<{ key: string; defaultValue?: T; globalValue?: T; experimentValue?: T }> {
-        if (!EXPERTIMENTAL_SETTINGS.includes(key)) {
-            this.logger.error(`Cannot inspect invalid experimental setting '${key}'`);
-            return { key };
-        }
-
+    async inspect<T>(key: string, userId?: string): Promise<{ key: string; defaultValue?: T; globalValue?: T; experimentValue?: T } | undefined> {
         const config = vscode.workspace.getConfiguration('gitpod');
         const values = config.inspect<T>(key.substring('gitpod.'.length));
+        if (!values || !EXPERTIMENTAL_SETTINGS.includes(key)) {
+            this.logger.error(`Cannot inspect invalid experimental setting '${key}'`);
+            return values;
+        }
 
         const user = userId ? new configcatcommon.User(userId) : undefined;
         const configcatKey = key.replace(/\./g, '_'); // '.' are not allowed in configcat
         const experimentValue = (await this.configcatClient.getValueAsync(configcatKey, undefined, user)) as T | undefined;
 
-        return { key, defaultValue: values?.defaultValue, globalValue: values?.globalValue, experimentValue };
+        return { key, defaultValue: values.defaultValue, globalValue: values.globalValue, experimentValue };
     }
 
     isUserOverride(key: string): boolean {
