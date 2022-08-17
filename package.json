@@ -146,7 +146,7 @@
 		"@gitpod/gitpod-protocol": "main",
 		"@gitpod/local-app-api-grpcweb": "main",
 		"@improbable-eng/grpc-web-node-http-transport": "^0.14.0",
-		"analytics-node": "^6.0.0",
+		"analytics-node": "^6.2.0",
 		"configcat-node": "^8.0.0",
 		"js-yaml": "^4.1.0",
 		"node-fetch": "2.6.7",

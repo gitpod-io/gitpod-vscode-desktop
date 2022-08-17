@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import * as configcat from 'configcat-node';
 import * as configcatcommon from 'configcat-common';
+import * as semver from 'semver';
 import Log from './common/logger';
 
 const EXPERTIMENTAL_SETTINGS = [
@@ -14,8 +15,9 @@ const EXPERTIMENTAL_SETTINGS = [
 
 export class ExperimentalSettings {
     private configcatClient: configcatcommon.IConfigCatClient;
+    private extensionVersion: semver.SemVer;
 
-    constructor(key: string, private logger: Log) {
+    constructor(key: string, extensionVersion: string, private logger: Log) {
         this.configcatClient = configcat.createClientWithLazyLoad(key, {
             logger: {
                 debug(): void { },
@@ -27,6 +29,7 @@ export class ExperimentalSettings {
             requestTimeoutMs: 1500,
             cacheTimeToLiveSeconds: 60
         });
+        this.extensionVersion = new semver.SemVer(extensionVersion);
     }
 
     async get<T>(key: string, userId?: string): Promise<T | undefined> {
@@ -37,7 +40,12 @@ export class ExperimentalSettings {
 
         const config = vscode.workspace.getConfiguration('gitpod');
         const values = config.inspect<T>(key.substring('gitpod.'.length));
+        if (this.isPreRelease()) {
+            // PreRelease versions always have experiments enabled by default
+            return values?.globalValue ?? values?.defaultValue;
+        }
         if (values?.globalValue !== undefined) {
+            // User setting have priority over configcat so return early
             return values?.globalValue;
         }
 
@@ -72,6 +80,10 @@ export class ExperimentalSettings {
 
     forceRefreshAsync(): Promise<void> {
         return this.configcatClient.forceRefreshAsync();
+    }
+
+    private isPreRelease() {
+        return this.extensionVersion.minor % 2 === 1;
     }
 
     dispose(): void {
