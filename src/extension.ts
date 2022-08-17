@@ -13,6 +13,7 @@ import GitpodServer from './gitpodServer';
 import TelemetryReporter from './telemetryReporter';
 import { exportLogs } from './exportLogs';
 import { registerReleaseNotesView } from './releaseNotes';
+import { ExperimentalSettings } from './experiments';
 
 const FIRST_INSTALL_KEY = 'gitpod-desktop.firstInstall';
 
@@ -25,6 +26,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const logger = new Log('Gitpod');
 	logger.info(`${extensionId}/${packageJSON.version} (${os.release()} ${os.platform()} ${os.arch()}) vscode/${vscode.version} (${vscode.env.appName})`);
+
+	const experiments = new ExperimentalSettings(packageJSON.configcatKey, logger);
+	context.subscriptions.push(experiments);
 
 	telemetry = new TelemetryReporter(extensionId, packageJSON.version, packageJSON.segmentKey);
 
@@ -41,7 +45,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(new SettingsSync(logger, telemetry));
 
 	const authProvider = new GitpodAuthenticationProvider(context, logger, telemetry);
-	remoteConnector = new RemoteConnector(context, logger, telemetry);
+	remoteConnector = new RemoteConnector(context, experiments, logger, telemetry);
 	context.subscriptions.push(authProvider);
 	context.subscriptions.push(vscode.window.registerUriHandler({
 		handleUri(uri: vscode.Uri) {

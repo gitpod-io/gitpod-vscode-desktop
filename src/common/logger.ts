@@ -40,8 +40,11 @@ export default class Log {
 		this.logLevel('Warn', message, data);
 	}
 
+	/**
+	 * @deprecated Use `Log.trace` instead
+	 */
 	public log(message: string, data?: any): void {
-		this.logLevel('Log', message, data);
+		this.trace(message, data);
 	}
 
 	public logLevel(level: LogLevel, message: string, data?: any): void {
