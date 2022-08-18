@@ -29,7 +29,7 @@ import { getGitpodVersion, isFeatureSupported } from './featureSupport';
 import SSHConfiguration from './ssh/sshConfig';
 import { isWindows } from './common/platform';
 import { untildify } from './common/files';
-import { ExperimentalSettings } from './experiments';
+import { ExperimentalSettings, isUserOverrideSetting } from './experiments';
 
 interface SSHConnectionParams {
 	workspaceId: string;
@@ -715,7 +715,7 @@ export default class RemoteConnector extends Disposable {
 			return;
 		}
 		if (action === configureSSH) {
-			const serviceUrl = new URL(sshParams.gitpodHost).toString().replace(/\/$/, '');
+			const serviceUrl = getServiceURL(sshParams.gitpodHost);
 			const externalUrl = sshKeysSupported ? `${serviceUrl}/keys` : 'https://www.gitpod.io/docs/configure/ssh#create-an-ssh-key';
 			await vscode.env.openExternal(vscode.Uri.parse(externalUrl));
 			throw new Error(`SSH password modal dialog, Configure SSH`);
@@ -776,9 +776,11 @@ export default class RemoteConnector extends Disposable {
 
 		this.logger.info('Opening Gitpod workspace', uri.toString());
 
-		const userOverride = this.experiments.isUserOverride('gitpod.remote.useLocalApp');
-		// const forceUseLocalApp = vscode.workspace.getConfiguration('gitpod').get<boolean>('remote.useLocalApp')!;
-		const forceUseLocalApp = (await this.experiments.get<boolean>('gitpod.remote.useLocalApp', session.account.id))!;
+		// Only use experiment for SaaS
+		const forceUseLocalApp = getServiceURL(params.gitpodHost) === 'https://gitpod.io'
+			? (await this.experiments.get<boolean>('gitpod.remote.useLocalApp', session.account.id))!
+			: vscode.workspace.getConfiguration('gitpod').get<boolean>('remote.useLocalApp')!;
+		const userOverride = isUserOverrideSetting('gitpod.remote.useLocalApp');
 		let sshDestination: string | undefined;
 		if (!forceUseLocalApp) {
 			try {
@@ -982,4 +984,8 @@ async function cancelGitpodRemoteHeartbeat() {
 		// Ignore if not found
 	}
 	return result;
+}
+
+function getServiceURL(gitpodHost: string): string {
+	return new URL(gitpodHost).toString().replace(/\/$/, '');
 }

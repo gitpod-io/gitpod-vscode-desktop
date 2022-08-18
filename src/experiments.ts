@@ -70,12 +70,6 @@ export class ExperimentalSettings {
         return { key, defaultValue: values.defaultValue, globalValue: values.globalValue, experimentValue };
     }
 
-    isUserOverride(key: string): boolean {
-        const config = vscode.workspace.getConfiguration('gitpod');
-        const values = config.inspect(key.substring('gitpod.'.length));
-        return values?.globalValue !== undefined;
-    }
-
     forceRefreshAsync(): Promise<void> {
         return this.configcatClient.forceRefreshAsync();
     }
@@ -87,4 +81,10 @@ export class ExperimentalSettings {
     dispose(): void {
         this.configcatClient.dispose();
     }
+}
+
+export function isUserOverrideSetting(key: string): boolean {
+    const config = vscode.workspace.getConfiguration('gitpod');
+    const values = config.inspect(key.substring('gitpod.'.length));
+    return values?.globalValue !== undefined;
 }
