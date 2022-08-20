@@ -714,13 +714,18 @@ export default class RemoteConnector extends Disposable {
 			await vscode.env.clipboard.writeText(password);
 			return;
 		}
+
+		const serviceUrl = getServiceURL(sshParams.gitpodHost);
+		const externalUrl = sshKeysSupported ? `${serviceUrl}/keys` : 'https://www.gitpod.io/docs/configure/ssh#create-an-ssh-key';
 		if (action === configureSSH) {
-			const serviceUrl = getServiceURL(sshParams.gitpodHost);
-			const externalUrl = sshKeysSupported ? `${serviceUrl}/keys` : 'https://www.gitpod.io/docs/configure/ssh#create-an-ssh-key';
 			await vscode.env.openExternal(vscode.Uri.parse(externalUrl));
 			throw new Error(`SSH password modal dialog, Configure SSH`);
 		}
 
+		const logMessage = sshKeysSupported
+			? `Configure your SSH keys in ${externalUrl} and try again. Or try again and select 'Copy' to connect using a temporary password until workspace restart`
+			: `Create an SSH key (${externalUrl}) and try again. Or try again and select 'Copy' to connect using a temporary password until workspace restart`;
+		this.logger.info(logMessage);
 		this.logger.show();
 		throw new Error('SSH password modal dialog, Canceled');
 	}
@@ -793,7 +798,7 @@ export default class RemoteConnector extends Disposable {
 					await this.showSSHPasswordModal(password, params);
 				}
 
-				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'connected', ...params, gitpodVersion: gitpodVersion.raw, userOverride });
+				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'connected', ...params, gitpodVersion: gitpodVersion.raw, auth: password ? 'password' : 'key', userOverride });
 			} catch (e) {
 				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'failed', reason: e.toString(), ...params, gitpodVersion: gitpodVersion.raw, userOverride });
 				if (e instanceof NoSSHGatewayError) {
