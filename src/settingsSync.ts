@@ -3,10 +3,29 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import fetch from 'node-fetch';
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
 import Log from './common/logger';
 import TelemetryReporter from './telemetryReporter';
+
+export class NoSyncStoreError extends Error {
+	constructor() {
+		super('No settings sync store url configured');
+	}
+}
+
+export class NoSettingsSyncSession extends Error {
+	constructor() {
+		super('No settings sync session available');
+	}
+}
+
+export class UserDataSyncStoreError extends Error {
+	constructor(message: string) {
+		super(message);
+	}
+}
 
 interface ConfigurationSyncStore {
 	url: string;
@@ -16,7 +35,75 @@ interface ConfigurationSyncStore {
 	authenticationProviders: Record<string, { scopes: string[] }>;
 }
 
-export default class SettingsSync extends Disposable {
+export const enum SyncResource {
+	Settings = 'settings',
+	Keybindings = 'keybindings',
+	Snippets = 'snippets',
+	Tasks = 'tasks',
+	Extensions = 'extensions',
+	GlobalState = 'globalState',
+}
+
+export interface IExtensionIdentifier {
+	id: string;
+	uuid?: string;
+}
+
+export interface ISyncExtension {
+	identifier: IExtensionIdentifier;
+	preRelease?: boolean;
+	version?: string;
+	disabled?: boolean;
+	installed?: boolean;
+	state?: Record<string, any>;
+}
+
+export interface ISyncData {
+	version: number;
+	machineId?: string;
+	content: string;
+}
+
+export function isSyncData(thing: any): thing is ISyncData {
+	if (thing
+		&& (thing.version !== undefined && typeof thing.version === 'number')
+		&& (thing.content !== undefined && typeof thing.content === 'string')) {
+
+		// backward compatibility
+		if (Object.keys(thing).length === 2) {
+			return true;
+		}
+
+		if (Object.keys(thing).length === 3
+			&& (thing.machineId !== undefined && typeof thing.machineId === 'string')) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+export function parseSyncData(content: string): ISyncData | undefined {
+	try {
+		const syncData: ISyncData = JSON.parse(content);
+		if (isSyncData(syncData)) {
+			return syncData;
+		}
+	} catch {
+	}
+
+	return undefined;
+}
+
+export class SettingsSync extends Disposable {
+	public static SCOPES = [
+		'function:accessCodeSyncStorage',
+		'function:getLoggedInUser',
+		'resource:default'
+	];
+
+	private session: vscode.AuthenticationSession | undefined;
+
 	constructor(private readonly logger: Log, private readonly telemetry: TelemetryReporter) {
 		super();
 
@@ -38,15 +125,19 @@ export default class SettingsSync extends Disposable {
 		this.updateSyncContext();
 	}
 
+	private isSyncStoreConfigured() {
+		const config = vscode.workspace.getConfiguration();
+		const syncProviderConfig = config.get('configurationSync.store');
+		const gitpodSyncProviderConfig = this.getGitpodSyncProviderConfig();
+		const addedSyncProvider = !!syncProviderConfig && JSON.stringify(syncProviderConfig) === JSON.stringify(gitpodSyncProviderConfig);
+		return addedSyncProvider;
+	}
+
 	/**
 	 * Updates the VS Code context to reflect whether the user added Gitpod as their Settings Sync provider.
 	 */
 	private async updateSyncContext(): Promise<boolean> {
-		const config = vscode.workspace.getConfiguration();
-		const syncProviderConfig = config.get('configurationSync.store');
-		const serviceUrl = config.get<string>('gitpod.host')!;
-		const gitpodSyncProviderConfig = this.getGitpodSyncProviderConfig(serviceUrl);
-		const addedSyncProvider = !!syncProviderConfig && JSON.stringify(syncProviderConfig) === JSON.stringify(gitpodSyncProviderConfig);
+		const addedSyncProvider = this.isSyncStoreConfigured();
 		await vscode.commands.executeCommand('setContext', 'gitpod.addedSyncProvider', addedSyncProvider);
 		return addedSyncProvider;
 	}
@@ -63,8 +154,7 @@ export default class SettingsSync extends Disposable {
 			const config = vscode.workspace.getConfiguration();
 			const currentSyncProviderConfig: ConfigurationSyncStore | undefined = config.get('configurationSync.store');
 			const currentIgnoredSettingsConfig: string[] | undefined = config.get('settingsSync.ignoredSettings');
-			const serviceUrl = config.get<string>('gitpod.host')!;
-			const gitpodSyncProviderConfig = this.getGitpodSyncProviderConfig(serviceUrl);
+			const gitpodSyncProviderConfig = this.getGitpodSyncProviderConfig();
 			if (enabled) {
 				if (JSON.stringify(currentSyncProviderConfig) === JSON.stringify(gitpodSyncProviderConfig)) {
 					return;
@@ -95,8 +185,8 @@ export default class SettingsSync extends Disposable {
 		}
 	}
 
-	private getGitpodSyncProviderConfig(serviceUrl: string): ConfigurationSyncStore {
-		const syncStoreURL = `${new URL(serviceUrl).toString().replace(/\/$/, '')}/code-sync`;
+	private getGitpodSyncProviderConfig(): ConfigurationSyncStore {
+		const syncStoreURL = this.getServiceUrl();
 		return {
 			url: syncStoreURL,
 			stableUrl: syncStoreURL,
@@ -104,13 +194,73 @@ export default class SettingsSync extends Disposable {
 			canSwitch: false,
 			authenticationProviders: {
 				gitpod: {
-					scopes: [
-						'function:accessCodeSyncStorage',
-						'function:getLoggedInUser',
-						'resource:default'
-					]
+					scopes: SettingsSync.SCOPES
 				}
 			}
 		};
 	}
+
+	private getServiceUrl() {
+		const config = vscode.workspace.getConfiguration();
+		const serviceUrl = config.get<string>('gitpod.host')!;
+		return `${new URL(serviceUrl).toString().replace(/\/$/, '')}/code-sync`;
+	}
+
+	public async readResource(path: string) {
+		if (!this.isSyncStoreConfigured()) {
+			throw new NoSyncStoreError();
+		}
+
+		const syncStoreURL = this.getServiceUrl();
+		const resourceURL = `${syncStoreURL}/v1/resource/${path}/latest`;
+
+		const resp = await this.request(resourceURL);
+		const ref = resp.headers.get('etag');
+		if (!ref) {
+			throw new UserDataSyncStoreError('Server did not return the ref');
+		}
+		const content = await resp.text();
+
+		return { ref, content };
+	}
+
+	private async tryGetSession() {
+		if (!this.session) {
+			this.session = await vscode.authentication.getSession(
+				'gitpod',
+				SettingsSync.SCOPES,
+				{ createIfNone: false }
+			);
+		}
+
+		return this.session;
+	}
+
+	private async request(url: string) {
+		const session = await this.tryGetSession();
+		if (!session) {
+			throw new NoSettingsSyncSession();
+		}
+
+		let resp;
+		try {
+			resp = await fetch(url, {
+				method: 'GET',
+				headers: {
+					'X-Account-Type': 'gitpod',
+					'authorization': `Bearer ${session.accessToken}`,
+				},
+				timeout: 1500
+			});
+		} catch (e) {
+			throw e;
+		}
+
+		if (!resp.ok) {
+			throw new UserDataSyncStoreError(`GET request '${url}' failed, server returned ${resp.status}`);
+		}
+
+		return resp;
+	}
+
 }

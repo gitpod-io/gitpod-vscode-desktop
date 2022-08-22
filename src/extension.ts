@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import Log from './common/logger';
 import GitpodAuthenticationProvider from './authentication';
 import RemoteConnector from './remoteConnector';
-import SettingsSync from './settingsSync';
+import { SettingsSync } from './settingsSync';
 import GitpodServer from './gitpodServer';
 import TelemetryReporter from './telemetryReporter';
 import { exportLogs } from './exportLogs';
@@ -42,10 +42,11 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	}));
 
-	context.subscriptions.push(new SettingsSync(logger, telemetry));
+	const settingsSync = new SettingsSync(logger, telemetry);
+	context.subscriptions.push(settingsSync);
 
 	const authProvider = new GitpodAuthenticationProvider(context, logger, telemetry);
-	remoteConnector = new RemoteConnector(context, experiments, logger, telemetry);
+	remoteConnector = new RemoteConnector(context, settingsSync, experiments, logger, telemetry);
 	context.subscriptions.push(authProvider);
 	context.subscriptions.push(vscode.window.registerUriHandler({
 		handleUri(uri: vscode.Uri) {
