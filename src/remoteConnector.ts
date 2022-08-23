@@ -941,7 +941,13 @@ export default class RemoteConnector extends Disposable {
 					vscode.commands.executeCommand('workbench.userDataSync.actions.turnOn');
 				}
 			} else {
-				this.logger.error('Error while fetching settings sync extension data', e);
+				this.logger.error('Error while fetching settings sync extension data:', e);
+
+				const seeLogs = 'See Logs';
+				const action = await vscode.window.showErrorMessage(`Error while fetching settings sync extension data.`, seeLogs);
+				if (action === seeLogs) {
+					this.logger.show();
+				}
 			}
 			return;
 		}
@@ -966,12 +972,26 @@ export default class RemoteConnector extends Disposable {
 		}
 
 		try {
-			this.logger.trace(`Try installing extensions on remote: `, extensions.map(e => e.identifier.id).join('\n'));
-			await retry(async () => {
-				await vscode.commands.executeCommand('__gitpod.initializeRemoteExtensions', extensions);
-			}, 3000, 15);
+			await vscode.window.withProgress<void>({
+				title: 'Installing extensions on remote',
+				location: vscode.ProgressLocation.Notification
+			}, async () => {
+				try {
+					this.logger.trace(`Installing extensions on remote: `, extensions.map(e => e.identifier.id).join('\n'));
+					await retry(async () => {
+						await vscode.commands.executeCommand('__gitpod.initializeRemoteExtensions', extensions);
+					}, 3000, 15);
+				} catch (e) {
+					this.logger.error(`Could not execute '__gitpod.initializeRemoteExtensions' command`);
+					throw e;
+				}
+			});
 		} catch {
-			this.logger.error(`Could not execute '__gitpod.initializeRemoteExtensions' command`);
+			const seeLogs = 'See Logs';
+			const action = await vscode.window.showErrorMessage(`Error while installing extensions on remote.`, seeLogs);
+			if (action === seeLogs) {
+				this.logger.show();
+			}
 		}
 	}
 

@@ -64,7 +64,7 @@ export interface ISyncData {
 	content: string;
 }
 
-export function isSyncData(thing: any): thing is ISyncData {
+function isSyncData(thing: any): thing is ISyncData {
 	if (thing
 		&& (thing.version !== undefined && typeof thing.version === 'number')
 		&& (thing.content !== undefined && typeof thing.content === 'string')) {
