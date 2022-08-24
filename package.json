@@ -63,6 +63,12 @@
 						"description": "Use the local companion app to connect to a remote workspace.\nWarning: Connecting to a remote workspace using local companion app will be removed in the near future.",
 						"default": false,
 						"scope": "application"
+					},
+					"gitpod.remote.syncExtensions": {
+						"type": "boolean",
+						"description": "Automatically install sync extensions from Gitpod Sync Server on the remote machine.",
+						"default": true,
+						"scope": "application"
 					}
 				}
 			},

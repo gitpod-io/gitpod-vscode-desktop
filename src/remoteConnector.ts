@@ -25,11 +25,13 @@ import TelemetryReporter from './telemetryReporter';
 import { addHostToHostFile, checkNewHostInHostkeys } from './ssh/hostfile';
 import { DEFAULT_IDENTITY_FILES } from './ssh/identityFiles';
 import { HeartbeatManager } from './heartbeat';
-import { getGitpodVersion, isFeatureSupported } from './featureSupport';
+import { getGitpodVersion, GitpodVersion, isFeatureSupported } from './featureSupport';
 import SSHConfiguration from './ssh/sshConfig';
 import { isWindows } from './common/platform';
 import { untildify } from './common/files';
 import { ExperimentalSettings, isUserOverrideSetting } from './experiments';
+import { ISyncExtension, NoSettingsSyncSession, NoSyncStoreError, parseSyncData, SettingsSync, SyncResource } from './settingsSync';
+import { retry } from './common/async';
 
 interface SSHConnectionParams {
 	workspaceId: string;
@@ -121,6 +123,7 @@ export default class RemoteConnector extends Disposable {
 
 	constructor(
 		private readonly context: vscode.ExtensionContext,
+		private readonly settingsSync: SettingsSync,
 		private readonly experiments: ExperimentalSettings,
 		private readonly logger: Log,
 		private readonly telemetry: TelemetryReporter
@@ -900,12 +903,96 @@ export default class RemoteConnector extends Disposable {
 		}
 	}
 
-	private startHeartBeat(accessToken: string, connectionInfo: SSHConnectionParams) {
+	private async startHeartBeat(accessToken: string, connectionInfo: SSHConnectionParams, gitpodVersion: GitpodVersion) {
 		if (this.heartbeatManager) {
 			return;
 		}
 
 		this.heartbeatManager = new HeartbeatManager(connectionInfo.gitpodHost, connectionInfo.workspaceId, connectionInfo.instanceId, accessToken, this.logger, this.telemetry);
+
+		// gitpod remote extension installation is async so sometimes gitpod-desktop will activate before gitpod-remote
+		// let's try a few times for it to finish install
+		try {
+			await retry(async () => {
+				await vscode.commands.executeCommand('__gitpod.cancelGitpodRemoteHeartbeat');
+			}, 3000, 15);
+			this.telemetry.sendTelemetryEvent('vscode_desktop_heartbeat_state', { enabled: String(true), gitpodHost: connectionInfo.gitpodHost, workspaceId: connectionInfo.workspaceId, instanceId: connectionInfo.instanceId, gitpodVersion: gitpodVersion.raw });
+		} catch {
+			this.logger.error(`Could not execute '__gitpod.cancelGitpodRemoteHeartbeat' command`);
+			this.telemetry.sendTelemetryEvent('vscode_desktop_heartbeat_state', { enabled: String(false), gitpodHost: connectionInfo.gitpodHost, workspaceId: connectionInfo.workspaceId, instanceId: connectionInfo.instanceId, gitpodVersion: gitpodVersion.raw });
+		}
+	}
+
+	private async initializeRemoteExtensions() {
+		let syncData: { ref: string; content: string } | undefined;
+		try {
+			syncData = await this.settingsSync.readResource(SyncResource.Extensions);
+		} catch (e) {
+			if (e instanceof NoSyncStoreError) {
+				const action = 'Settings Sync: Enable Sign In with Gitpod';
+				const result = await vscode.window.showInformationMessage(`Couldn't initialize remote extensions, Settings Sync with Gitpod is required.`, action);
+				if (result === action) {
+					vscode.commands.executeCommand('gitpod.syncProvider.add');
+				}
+			} else if (e instanceof NoSettingsSyncSession) {
+				const action = 'Enable Settings Sync';
+				const result = await vscode.window.showInformationMessage(`Couldn't initialize remote extensions, please enable Settings Sync.`, action);
+				if (result === action) {
+					vscode.commands.executeCommand('workbench.userDataSync.actions.turnOn');
+				}
+			} else {
+				this.logger.error('Error while fetching settings sync extension data:', e);
+
+				const seeLogs = 'See Logs';
+				const action = await vscode.window.showErrorMessage(`Error while fetching settings sync extension data.`, seeLogs);
+				if (action === seeLogs) {
+					this.logger.show();
+				}
+			}
+			return;
+		}
+
+		const syncDataContent = parseSyncData(syncData.content);
+		if (!syncDataContent) {
+			this.logger.error('Error while parsing sync data');
+			return;
+		}
+
+		let extensions: ISyncExtension[];
+		try {
+			extensions = JSON.parse(syncDataContent.content);
+		} catch {
+			this.logger.error('Error while parsing settings sync extension data, malformed json');
+			return;
+		}
+
+		extensions = extensions.filter(e => e.installed);
+		if (!extensions.length) {
+			return;
+		}
+
+		try {
+			await vscode.window.withProgress<void>({
+				title: 'Installing extensions on remote',
+				location: vscode.ProgressLocation.Notification
+			}, async () => {
+				try {
+					this.logger.trace(`Installing extensions on remote: `, extensions.map(e => e.identifier.id).join('\n'));
+					await retry(async () => {
+						await vscode.commands.executeCommand('__gitpod.initializeRemoteExtensions', extensions);
+					}, 3000, 15);
+				} catch (e) {
+					this.logger.error(`Could not execute '__gitpod.initializeRemoteExtensions' command`);
+					throw e;
+				}
+			});
+		} catch {
+			const seeLogs = 'See Logs';
+			const action = await vscode.window.showErrorMessage(`Error while installing extensions on remote.`, seeLogs);
+			if (action === seeLogs) {
+				this.logger.show();
+			}
+		}
 	}
 
 	private async onGitpodRemoteConnection() {
@@ -939,26 +1026,14 @@ export default class RemoteConnector extends Disposable {
 
 		const gitpodVersion = await getGitpodVersion(connectionInfo.gitpodHost, this.logger);
 		if (isFeatureSupported(gitpodVersion, 'localHeartbeat')) {
-			// gitpod remote extension installation is async so sometimes gitpod-desktop will activate before gitpod-remote
-			// let's try a few times for it to finish install
-			let retryCount = 15;
-			const tryStopRemoteHeartbeat = async () => {
-				// Check for gitpod remote extension version to avoid sending heartbeat in both extensions at the same time
-				const isGitpodRemoteHeartbeatCancelled = await cancelGitpodRemoteHeartbeat();
-				if (isGitpodRemoteHeartbeatCancelled) {
-					this.telemetry.sendTelemetryEvent('vscode_desktop_heartbeat_state', { enabled: String(true), gitpodHost: connectionInfo.gitpodHost, workspaceId: connectionInfo.workspaceId, instanceId: connectionInfo.instanceId, gitpodVersion: gitpodVersion.raw });
-				} else if (retryCount > 0) {
-					retryCount--;
-					setTimeout(tryStopRemoteHeartbeat, 3000);
-				} else {
-					this.telemetry.sendTelemetryEvent('vscode_desktop_heartbeat_state', { enabled: String(false), gitpodHost: connectionInfo.gitpodHost, workspaceId: connectionInfo.workspaceId, instanceId: connectionInfo.instanceId, gitpodVersion: gitpodVersion.raw });
-				}
-			};
-
-			this.startHeartBeat(session.accessToken, connectionInfo);
-			tryStopRemoteHeartbeat();
+			this.startHeartBeat(session.accessToken, connectionInfo, gitpodVersion);
 		} else {
 			this.logger.warn(`Local heatbeat not supported in ${connectionInfo.gitpodHost}, using version ${gitpodVersion.version}`);
+		}
+
+		const syncExtensions = vscode.workspace.getConfiguration('gitpod').get<boolean>('remote.syncExtensions')!;
+		if (syncExtensions) {
+			this.initializeRemoteExtensions();
 		}
 	}
 
@@ -978,17 +1053,6 @@ function isGitpodRemoteWindow(context: vscode.ExtensionContext) {
 	}
 
 	return false;
-}
-
-async function cancelGitpodRemoteHeartbeat() {
-	let result = false;
-	try {
-		// Invoke command from gitpot-remote extension
-		result = await vscode.commands.executeCommand('__gitpod.cancelGitpodRemoteHeartbeat');
-	} catch {
-		// Ignore if not found
-	}
-	return result;
 }
 
 function getServiceURL(gitpodHost: string): string {
