@@ -250,7 +250,7 @@ export class SettingsSync extends Disposable {
 					'X-Account-Type': 'gitpod',
 					'authorization': `Bearer ${session.accessToken}`,
 				},
-				timeout: 1500
+				timeout: 5000
 			});
 		} catch (e) {
 			throw e;
