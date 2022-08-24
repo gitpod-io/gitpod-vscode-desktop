@@ -929,16 +929,22 @@ export default class RemoteConnector extends Disposable {
 			syncData = await this.settingsSync.readResource(SyncResource.Extensions);
 		} catch (e) {
 			if (e instanceof NoSyncStoreError) {
-				const action = 'Settings Sync: Enable Sign In with Gitpod';
-				const result = await vscode.window.showInformationMessage(`Couldn't initialize remote extensions, Settings Sync with Gitpod is required.`, action);
-				if (result === action) {
+				const addSyncProvider = 'Settings Sync: Enable Sign In with Gitpod';
+				const config = 'Configure';
+				const action = await vscode.window.showInformationMessage(`Couldn't install user sync extensions on remote workspace, Settings Sync with Gitpod is required.`, addSyncProvider, config);
+				if (action === addSyncProvider) {
 					vscode.commands.executeCommand('gitpod.syncProvider.add');
+				} else if(action === config) {
+					vscode.commands.executeCommand('workbench.action.openSettings',`@ext:${this.context.extension.id} sync extensions`);
 				}
 			} else if (e instanceof NoSettingsSyncSession) {
-				const action = 'Enable Settings Sync';
-				const result = await vscode.window.showInformationMessage(`Couldn't initialize remote extensions, please enable Settings Sync.`, action);
-				if (result === action) {
+				const enableSettingsSync = 'Enable Settings Sync';
+				const config = 'Configure';
+				const action = await vscode.window.showInformationMessage(`Couldn't install user sync extensions on remote workspace, please enable Settings Sync.`, enableSettingsSync, config);
+				if (action === enableSettingsSync) {
 					vscode.commands.executeCommand('workbench.userDataSync.actions.turnOn');
+				} else if(action === config) {
+					vscode.commands.executeCommand('workbench.action.openSettings',`@ext:${this.context.extension.id} sync extensions`);
 				}
 			} else {
 				this.logger.error('Error while fetching settings sync extension data:', e);
@@ -973,11 +979,11 @@ export default class RemoteConnector extends Disposable {
 
 		try {
 			await vscode.window.withProgress<void>({
-				title: 'Installing extensions on remote',
+				title: 'Installing sync extensions on remote',
 				location: vscode.ProgressLocation.Notification
 			}, async () => {
 				try {
-					this.logger.trace(`Installing extensions on remote: `, extensions.map(e => e.identifier.id).join('\n'));
+					this.logger.trace(`Installing sync extensions on remote: `, extensions.map(e => e.identifier.id).join('\n'));
 					await retry(async () => {
 						await vscode.commands.executeCommand('__gitpod.initializeRemoteExtensions', extensions);
 					}, 3000, 15);
@@ -988,7 +994,7 @@ export default class RemoteConnector extends Disposable {
 			});
 		} catch {
 			const seeLogs = 'See Logs';
-			const action = await vscode.window.showErrorMessage(`Error while installing extensions on remote.`, seeLogs);
+			const action = await vscode.window.showErrorMessage(`Error while installing sync extensions on remote.`, seeLogs);
 			if (action === seeLogs) {
 				this.logger.show();
 			}

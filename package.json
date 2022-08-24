@@ -66,7 +66,7 @@
 					},
 					"gitpod.remote.syncExtensions": {
 						"type": "boolean",
-						"description": "Automatically install sync extensions from Gitpod Sync Server on the remote machine.",
+						"description": "Automatically install sync extensions from Gitpod Sync Server on the remote workspace.",
 						"default": true,
 						"scope": "application"
 					}
