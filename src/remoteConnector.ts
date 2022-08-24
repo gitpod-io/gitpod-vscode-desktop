@@ -1031,7 +1031,10 @@ export default class RemoteConnector extends Disposable {
 			this.logger.warn(`Local heatbeat not supported in ${connectionInfo.gitpodHost}, using version ${gitpodVersion.version}`);
 		}
 
-		this.initializeRemoteExtensions();
+		const syncExtensions = vscode.workspace.getConfiguration('gitpod').get<boolean>('remote.syncExtensions')!;
+		if (syncExtensions) {
+			this.initializeRemoteExtensions();
+		}
 	}
 
 	public override async dispose(): Promise<void> {
