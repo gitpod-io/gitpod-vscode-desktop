@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { v4 as uuid } from 'uuid';
+import fetch from 'node-fetch';
 import Keychain from './common/keychain';
 import GitpodServer from './gitpodServer';
 import Log from './common/logger';
@@ -30,6 +31,8 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 	private _gitpodServer: GitpodServer;
 	private _keychain: Keychain;
 
+	private _serviceUrl: string;
+
 	private _sessionsPromise: Promise<vscode.AuthenticationSession[]>;
 
 	constructor(private readonly context: vscode.ExtensionContext, logger: Log, telemetry: TelemetryReporter) {
@@ -39,17 +42,19 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 		this._telemetry = telemetry;
 
 		const gitpodHost = vscode.workspace.getConfiguration('gitpod').get<string>('host')!;
-		const serviceUrl = new URL(gitpodHost);
-		this._gitpodServer = new GitpodServer(serviceUrl.toString(), this._logger);
-		this._keychain = new Keychain(this.context, `gitpod.auth.${serviceUrl.hostname}`, this._logger);
+		const gitpodHostUrl = new URL(gitpodHost);
+		this._serviceUrl = gitpodHostUrl.toString().replace(/\/$/, '');
+		this._gitpodServer = new GitpodServer(this._serviceUrl, this._logger);
+		this._keychain = new Keychain(this.context, `gitpod.auth.${gitpodHostUrl.hostname}`, this._logger);
 		this._logger.info(`Started authentication provider for ${gitpodHost}`);
 		this._register(vscode.workspace.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration('gitpod.host')) {
 				const gitpodHost = vscode.workspace.getConfiguration('gitpod').get<string>('host')!;
-				const serviceUrl = new URL(gitpodHost);
+				const gitpodHostUrl = new URL(gitpodHost);
+				this._serviceUrl = gitpodHostUrl.toString().replace(/\/$/, '');
 				this._gitpodServer.dispose();
-				this._gitpodServer = new GitpodServer(serviceUrl.toString(), this._logger);
-				this._keychain = new Keychain(this.context, `gitpod.auth.${serviceUrl.hostname}`, this._logger);
+				this._gitpodServer = new GitpodServer(this._serviceUrl, this._logger);
+				this._keychain = new Keychain(this.context, `gitpod.auth.${gitpodHostUrl.hostname}`, this._logger);
 				this._logger.info(`Started authentication provider for ${gitpodHost}`);
 
 				this.checkForUpdates();
@@ -70,14 +75,33 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 	async getSessions(scopes?: string[]): Promise<vscode.AuthenticationSession[]> {
 		// For the Gitpod scope list, order doesn't matter so we immediately sort the scopes
 		const sortedScopes = scopes?.sort() || [];
-		this._logger.info(`Getting sessions for ${sortedScopes.length ? sortedScopes.join(',') : 'all scopes'}...`);
+		const validScopes = await this.fetchValidScopes();
+		const sortedFilteredScopes = sortedScopes.filter(s => !validScopes || validScopes.includes(s));
+		this._logger.info(`Getting sessions for ${sortedScopes.length ? sortedScopes.join(',') : 'all scopes'}${sortedScopes.length !== sortedFilteredScopes.length ? `, but valid scopes are ${sortedFilteredScopes.join(',')}` : ''}...`);
+		if (sortedScopes.length !== sortedFilteredScopes.length) {
+			this._logger.warn(`But valid scopes are ${sortedFilteredScopes.join(',')}, returning session with only valid scopes...`);
+		}
 		const sessions = await this._sessionsPromise;
-		const finalSessions = sortedScopes.length
-			? sessions.filter(session => arrayEquals([...session.scopes].sort(), sortedScopes))
+		const finalSessions = sortedFilteredScopes.length
+			? sessions.filter(session => arrayEquals([...session.scopes].sort(), sortedFilteredScopes))
 			: sessions;
 
-		this._logger.info(`Got ${finalSessions.length} sessions for ${sortedScopes?.join(',') ?? 'all scopes'}...`);
+		this._logger.info(`Got ${finalSessions.length} sessions for ${sortedFilteredScopes?.join(',') ?? 'all scopes'}...`);
 		return finalSessions;
+	}
+
+	private async fetchValidScopes(): Promise<string[] | undefined> {
+		const endpoint = `${this._serviceUrl}/api/oauth/inspect?client=${vscode.env.uriScheme}-gitpod`;
+		try {
+			const resp = await fetch(endpoint, { timeout: 1500 });
+			if (resp.ok) {
+				const validScopes: string[] = await resp.json();
+				return validScopes;
+			}
+		} catch (e) {
+			this._logger.error(`Error fetching endpoint ${endpoint}`, e);
+		}
+		return undefined;
 	}
 
 	private async checkForUpdates() {
@@ -187,18 +211,23 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 		try {
 			// For the Gitpod scope list, order doesn't matter so we immediately sort the scopes
 			const sortedScopes = scopes.sort();
+			const validScopes = await this.fetchValidScopes();
+			const sortedFilteredScopes = sortedScopes.filter(s => !validScopes || validScopes.includes(s));
+			if (sortedScopes.length !== sortedFilteredScopes.length) {
+				this._logger.warn(`Creating session with only valid scopes ${sortedFilteredScopes.join(',')}, original scopes were ${sortedScopes.join(',')}`);
+			}
 
 			this._telemetry.sendRawTelemetryEvent('gitpod_desktop_auth', {
 				kind: 'login',
-				scopes: JSON.stringify(sortedScopes),
+				scopes: JSON.stringify(sortedFilteredScopes),
 			});
 
-			const scopeString = sortedScopes.join(' ');
-			const token = await this._gitpodServer.login(scopeString);
-			const session = await this.tokenToSession(token, sortedScopes);
+			const scopeString = sortedFilteredScopes.join(' ');
+			const tokenResp = await this._gitpodServer.login(scopeString);
+			const session = await this.tokenToSession(tokenResp.token, sortedFilteredScopes);
 
 			const sessions = await this._sessionsPromise;
-			const sessionIndex = sessions.findIndex(s => s.id === session.id || arrayEquals([...s.scopes].sort(), sortedScopes));
+			const sessionIndex = sessions.findIndex(s => s.id === session.id || arrayEquals([...s.scopes].sort(), sortedFilteredScopes));
 			if (sessionIndex > -1) {
 				sessions.splice(sessionIndex, 1, session);
 			} else {

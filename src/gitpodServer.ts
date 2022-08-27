@@ -20,6 +20,11 @@ interface ExchangeTokenResponse {
 	scope: string;
 }
 
+interface GrantedToken {
+	token: string;
+	scopes: string;
+}
+
 async function getUserInfo(token: string, serviceUrl: string, logger: Log) {
 	const user = await withServerApi(token, serviceUrl, service => service.server.getLoggedInUser(), logger);
 	return {
@@ -35,7 +40,7 @@ export default class GitpodServer extends Disposable {
 	private _serviceUrl: string;
 	private _pendingStates = new Map<string, string[]>();
 	private _pendingVerifiers = new Map<string, string>();
-	private _codeExchangePromises = new Map<string, { promise: Promise<string>; cancel: vscode.EventEmitter<void> }>();
+	private _codeExchangePromises = new Map<string, { promise: Promise<GrantedToken>; cancel: vscode.EventEmitter<void> }>();
 	private _uriEmitter = this._register(new vscode.EventEmitter<vscode.Uri>());
 
 	constructor(serviceUrl: string, private readonly _logger: Log) {
@@ -44,7 +49,7 @@ export default class GitpodServer extends Disposable {
 		this._serviceUrl = serviceUrl.replace(/\/$/, '');
 	}
 
-	public async login(scopes: string): Promise<string> {
+	public async login(scopes: string): Promise<GrantedToken> {
 		this._logger.info(`Logging in for the following scopes: ${scopes}`);
 
 		const callbackUri = await vscode.env.asExternalUri(vscode.Uri.parse(`${vscode.env.uriScheme}://gitpod.gitpod-desktop/complete-gitpod-auth`));
@@ -84,7 +89,7 @@ export default class GitpodServer extends Disposable {
 
 			return Promise.race([
 				codeExchangePromise.promise,
-				new Promise<string>((_, reject) => setTimeout(() => reject('Cancelled'), 60000))
+				new Promise<GrantedToken>((_, reject) => setTimeout(() => reject('Cancelled'), 60000))
 			]).finally(() => {
 				const states = this._pendingStates.get(scopes);
 				if (states) {
@@ -97,7 +102,7 @@ export default class GitpodServer extends Disposable {
 		});
 	}
 
-	private exchangeCodeForToken: (scopes: string) => PromiseAdapter<vscode.Uri, string> =
+	private exchangeCodeForToken: (scopes: string) => PromiseAdapter<vscode.Uri, GrantedToken> =
 		(scopes) => async (uri, resolve, reject) => {
 			const query = new URLSearchParams(uri.query);
 			const code = query.get('code');
@@ -154,7 +159,7 @@ export default class GitpodServer extends Disposable {
 				const exchangeTokenData: ExchangeTokenResponse = await exchangeTokenResponse.json();
 				const jwtToken = exchangeTokenData.access_token;
 				const accessToken = JSON.parse(Buffer.from(jwtToken.split('.')[1], 'base64').toString())['jti'];
-				resolve(accessToken);
+				resolve({token: accessToken, scopes: exchangeTokenData.scope});
 			} catch (err) {
 				reject(err);
 			}
