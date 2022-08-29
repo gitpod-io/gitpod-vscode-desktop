@@ -223,8 +223,8 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 			});
 
 			const scopeString = sortedFilteredScopes.join(' ');
-			const tokenResp = await this._gitpodServer.login(scopeString);
-			const session = await this.tokenToSession(tokenResp.token, sortedFilteredScopes);
+			const token = await this._gitpodServer.login(scopeString);
+			const session = await this.tokenToSession(token, sortedFilteredScopes);
 
 			const sessions = await this._sessionsPromise;
 			const sessionIndex = sessions.findIndex(s => s.id === session.id || arrayEquals([...s.scopes].sort(), sortedFilteredScopes));
