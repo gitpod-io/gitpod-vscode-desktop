@@ -2,16 +2,16 @@
 
 const fs = require("fs");
 
-const manifestPath = "./package.json";
-const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
+const releasePackageJson = JSON.parse(fs.readFileSync('./package.json').toString());
 
-const releaseConfig = new Map([
+const releaseDefaultConfig = new Map([
     ["gitpod.remote.useLocalApp", true],
     ["gitpod.remote.syncExtensions", false],
 ]);
 
-for (const [setting, value] of releaseConfig) {
-    manifest.contributes.configuration[0].properties[setting].default = value;
+const gitpodConfig = releasePackageJson.contributes.configuration.find(e => e.title.toLowerCase() === 'gitpod');
+for (const [setting, value] of releaseDefaultConfig) {
+    gitpodConfig.properties[setting].default = value;
 }
 
-fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, "\t") + "\n");
+fs.writeFileSync('./package.release.json', JSON.stringify(releasePackageJson, undefined, '\t') + '\n');

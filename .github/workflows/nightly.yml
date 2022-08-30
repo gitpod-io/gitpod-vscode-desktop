@@ -30,12 +30,9 @@ jobs:
 
       - name: Generate package.json
         run: |
+          set -e
           node ./scripts/prepare-nightly-build.js -v ${{ github.event.inputs.patchVersion }}
-
-      - name: Override package.json
-        run: |
-          mv ./package.json ./package.json.bak
-          mv ./package.insiders.json ./package.json
+          mv package.insiders.json package.json
 
       - name: Package extension
         id: package_vsix

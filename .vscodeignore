@@ -12,4 +12,4 @@ yarn.lock
 .eslintrc.json
 .gitpod.yml
 webpack.config.js
-package.insiders.json
+package.*.json

@@ -24,7 +24,12 @@ jobs:
           jqCommands="${setSegmentKey} | ${setConfigcatKey}"
           cat package.json | jq "${jqCommands}" > package.json.tmp
           mv package.json.tmp package.json
-          node scripts/prepare-release-build
+
+      - name: Generate package.json
+        run: |
+          set -e
+          node ./scripts/prepare-release-build.js
+          mv package.release.json package.json
 
       - name: Package extension
         id: package_vsix
