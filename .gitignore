@@ -3,4 +3,4 @@ out/
 .vscode-test/
 *.vsix
 .DS_Store
-package.insiders.json
+package.*.json
