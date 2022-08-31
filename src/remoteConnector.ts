@@ -565,6 +565,7 @@ export default class RemoteConnector extends Disposable {
 			}).connect({
 				host: sshDestInfo.hostName,
 				username: sshDestInfo.user,
+				readyTimeout: 40000,
 				authHandler(_methodsLeft, _partialSuccess, _callback) {
 					return {
 						type: 'password',
@@ -786,7 +787,7 @@ export default class RemoteConnector extends Disposable {
 
 		// Only use experiment for SaaS
 		const forceUseLocalApp = getServiceURL(params.gitpodHost) === 'https://gitpod.io'
-			? (await this.experiments.get<boolean>('gitpod.remote.useLocalApp', session.account.id))!
+			? (await this.experiments.get<boolean>('gitpod.remote.useLocalApp', session.account.id, { gitpodHost: params.gitpodHost }))!
 			: vscode.workspace.getConfiguration('gitpod').get<boolean>('remote.useLocalApp')!;
 		const userOverride = isUserOverrideSetting('gitpod.remote.useLocalApp');
 		let sshDestination: string | undefined;
@@ -806,8 +807,22 @@ export default class RemoteConnector extends Disposable {
 				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'failed', reason: e.toString(), ...params, gitpodVersion: gitpodVersion.raw, userOverride });
 				if (e instanceof NoSSHGatewayError) {
 					this.logger.error('No SSH gateway:', e);
-					vscode.window.showWarningMessage(`${e.host} does not support [direct SSH access](https://github.com/gitpod-io/gitpod/blob/main/install/installer/docs/workspace-ssh-access.md), connecting via the deprecated SSH tunnel over WebSocket.`);
-					// Do nothing and continue execution
+					const ok = 'Ok';
+					const action = await vscode.window.showWarningMessage(`${e.host} does not support [direct SSH access](https://github.com/gitpod-io/gitpod/blob/main/install/installer/docs/workspace-ssh-access.md), connecting via the deprecated SSH tunnel over WebSocket.`, ok);
+					if (action === ok) {
+						// Do nothing and continue execution
+					} else {
+						return;
+					}
+				} else if (e instanceof SSHError && e.message === 'Timed out while waiting for handshake') {
+					this.logger.error('SSH test connection error:', e);
+					const ok = 'Ok';
+					const action = await vscode.window.showWarningMessage(`Timed out while waiting for SSH handshake, it's possible SSH connections on port 22 are blocked or your network is too slow, connecting via the deprecated SSH tunnel over WebSocket.`, ok);
+					if (action === ok) {
+						// Do nothing and continue execution
+					} else {
+						return;
+					}
 				} else if (e instanceof NoRunningInstanceError) {
 					this.logger.error('No Running instance:', e);
 					vscode.window.showErrorMessage(`Failed to connect to ${e.workspaceId} Gitpod workspace: workspace not running`);
@@ -934,8 +949,8 @@ export default class RemoteConnector extends Disposable {
 				const action = await vscode.window.showInformationMessage(`Could not install local extensions on remote workspace, please enable Settings Sync with Gitpod.`, addSyncProvider, config);
 				if (action === addSyncProvider) {
 					vscode.commands.executeCommand('gitpod.syncProvider.add');
-				} else if(action === config) {
-					vscode.commands.executeCommand('workbench.action.openSettings',`@ext:${this.context.extension.id} sync extensions`);
+				} else if (action === config) {
+					vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${this.context.extension.id} sync extensions`);
 				}
 			} else if (e instanceof NoSettingsSyncSession) {
 				const enableSettingsSync = 'Enable Settings Sync';
@@ -943,8 +958,8 @@ export default class RemoteConnector extends Disposable {
 				const action = await vscode.window.showInformationMessage(`Could not install local extensions on remote workspace, please enable Settings Sync.`, enableSettingsSync, config);
 				if (action === enableSettingsSync) {
 					vscode.commands.executeCommand('workbench.userDataSync.actions.turnOn');
-				} else if(action === config) {
-					vscode.commands.executeCommand('workbench.action.openSettings',`@ext:${this.context.extension.id} sync extensions`);
+				} else if (action === config) {
+					vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${this.context.extension.id} sync extensions`);
 				}
 			} else {
 				this.logger.error('Error while fetching settings sync extension data:', e);
