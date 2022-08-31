@@ -803,9 +803,9 @@ export default class RemoteConnector extends Disposable {
 					await this.showSSHPasswordModal(password, params);
 				}
 
-				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'connected', ...params, gitpodVersion: gitpodVersion.raw, auth: password ? 'password' : 'key', userOverride, openSSHVersion});
+				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'connected', ...params, gitpodVersion: gitpodVersion.raw, auth: password ? 'password' : 'key', userOverride, openSSHVersion });
 			} catch (e) {
-				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'failed', reason: e.toString(), ...params, gitpodVersion: gitpodVersion.raw, userOverride, openSSHVersion});
+				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'failed', reason: e.toString(), ...params, gitpodVersion: gitpodVersion.raw, userOverride, openSSHVersion });
 				if (e instanceof NoSSHGatewayError) {
 					this.logger.error('No SSH gateway:', e);
 					vscode.window.showWarningMessage(`${e.host} does not support [direct SSH access](https://github.com/gitpod-io/gitpod/blob/main/install/installer/docs/workspace-ssh-access.md), connecting via the deprecated SSH tunnel over WebSocket.`);
@@ -936,8 +936,8 @@ export default class RemoteConnector extends Disposable {
 				const action = await vscode.window.showInformationMessage(`Could not install local extensions on remote workspace, please enable Settings Sync with Gitpod.`, addSyncProvider, config);
 				if (action === addSyncProvider) {
 					vscode.commands.executeCommand('gitpod.syncProvider.add');
-				} else if(action === config) {
-					vscode.commands.executeCommand('workbench.action.openSettings',`@ext:${this.context.extension.id} sync extensions`);
+				} else if (action === config) {
+					vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${this.context.extension.id} sync extensions`);
 				}
 			} else if (e instanceof NoSettingsSyncSession) {
 				const enableSettingsSync = 'Enable Settings Sync';
@@ -945,8 +945,8 @@ export default class RemoteConnector extends Disposable {
 				const action = await vscode.window.showInformationMessage(`Could not install local extensions on remote workspace, please enable Settings Sync.`, enableSettingsSync, config);
 				if (action === enableSettingsSync) {
 					vscode.commands.executeCommand('workbench.userDataSync.actions.turnOn');
-				} else if(action === config) {
-					vscode.commands.executeCommand('workbench.action.openSettings',`@ext:${this.context.extension.id} sync extensions`);
+				} else if (action === config) {
+					vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${this.context.extension.id} sync extensions`);
 				}
 			} else {
 				this.logger.error('Error while fetching settings sync extension data:', e);
