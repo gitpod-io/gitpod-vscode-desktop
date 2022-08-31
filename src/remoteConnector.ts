@@ -32,6 +32,7 @@ import { untildify } from './common/files';
 import { ExperimentalSettings, isUserOverrideSetting } from './experiments';
 import { ISyncExtension, NoSettingsSyncSession, NoSyncStoreError, parseSyncData, SettingsSync, SyncResource } from './settingsSync';
 import { retry } from './common/async';
+import { getOpenSSHVersion } from './ssh/sshVersion';
 
 interface SSHConnectionParams {
 	workspaceId: string;
@@ -791,8 +792,9 @@ export default class RemoteConnector extends Disposable {
 		const userOverride = isUserOverrideSetting('gitpod.remote.useLocalApp');
 		let sshDestination: string | undefined;
 		if (!forceUseLocalApp) {
+			const openSSHVersion = await getOpenSSHVersion();
 			try {
-				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'connecting', ...params, gitpodVersion: gitpodVersion.raw, userOverride });
+				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'connecting', ...params, gitpodVersion: gitpodVersion.raw, userOverride, openSSHVersion });
 
 				const { destination, password } = await this.getWorkspaceSSHDestination(session.accessToken, params);
 				sshDestination = destination;
@@ -801,9 +803,9 @@ export default class RemoteConnector extends Disposable {
 					await this.showSSHPasswordModal(password, params);
 				}
 
-				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'connected', ...params, gitpodVersion: gitpodVersion.raw, auth: password ? 'password' : 'key', userOverride });
+				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'connected', ...params, gitpodVersion: gitpodVersion.raw, auth: password ? 'password' : 'key', userOverride, openSSHVersion});
 			} catch (e) {
-				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'failed', reason: e.toString(), ...params, gitpodVersion: gitpodVersion.raw, userOverride });
+				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'failed', reason: e.toString(), ...params, gitpodVersion: gitpodVersion.raw, userOverride, openSSHVersion});
 				if (e instanceof NoSSHGatewayError) {
 					this.logger.error('No SSH gateway:', e);
 					vscode.window.showWarningMessage(`${e.host} does not support [direct SSH access](https://github.com/gitpod-io/gitpod/blob/main/install/installer/docs/workspace-ssh-access.md), connecting via the deprecated SSH tunnel over WebSocket.`);
