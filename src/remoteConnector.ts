@@ -807,7 +807,7 @@ export default class RemoteConnector extends Disposable {
 				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'failed', reason: e.toString(), ...params, gitpodVersion: gitpodVersion.raw, userOverride });
 				if (e instanceof NoSSHGatewayError) {
 					this.logger.error('No SSH gateway:', e);
-					const ok = 'Ok';
+					const ok = 'OK';
 					const action = await vscode.window.showWarningMessage(`${e.host} does not support [direct SSH access](https://github.com/gitpod-io/gitpod/blob/main/install/installer/docs/workspace-ssh-access.md), connecting via the deprecated SSH tunnel over WebSocket.`, ok);
 					if (action === ok) {
 						// Do nothing and continue execution
@@ -816,7 +816,7 @@ export default class RemoteConnector extends Disposable {
 					}
 				} else if (e instanceof SSHError && e.message === 'Timed out while waiting for handshake') {
 					this.logger.error('SSH test connection error:', e);
-					const ok = 'Ok';
+					const ok = 'OK';
 					const action = await vscode.window.showWarningMessage(`Timed out while waiting for SSH handshake, it's possible SSH connections on port 22 are blocked or your network is too slow, connecting via the deprecated SSH tunnel over WebSocket.`, ok);
 					if (action === ok) {
 						// Do nothing and continue execution
