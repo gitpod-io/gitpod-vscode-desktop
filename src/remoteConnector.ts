@@ -808,21 +808,13 @@ export default class RemoteConnector extends Disposable {
 				if (e instanceof NoSSHGatewayError) {
 					this.logger.error('No SSH gateway:', e);
 					const ok = 'OK';
-					const action = await vscode.window.showWarningMessage(`${e.host} does not support [direct SSH access](https://github.com/gitpod-io/gitpod/blob/main/install/installer/docs/workspace-ssh-access.md), connecting via the deprecated SSH tunnel over WebSocket.`, ok);
-					if (action === ok) {
-						// Do nothing and continue execution
-					} else {
-						return;
-					}
+					await vscode.window.showWarningMessage(`${e.host} does not support [direct SSH access](https://github.com/gitpod-io/gitpod/blob/main/install/installer/docs/workspace-ssh-access.md), connecting via the deprecated SSH tunnel over WebSocket.`, ok);
+					// Do nothing and continue execution
 				} else if (e instanceof SSHError && e.message === 'Timed out while waiting for handshake') {
 					this.logger.error('SSH test connection error:', e);
 					const ok = 'OK';
-					const action = await vscode.window.showWarningMessage(`Timed out while waiting for the SSH handshake. It's possible, that SSH connections on port 22 are blocked, or your network is too slow. Connecting via the deprecated SSH tunnel over WebSocket instead.`, ok);
-					if (action === ok) {
-						// Do nothing and continue execution
-					} else {
-						return;
-					}
+					await vscode.window.showWarningMessage(`Timed out while waiting for the SSH handshake. It's possible, that SSH connections on port 22 are blocked, or your network is too slow. Connecting via the deprecated SSH tunnel over WebSocket instead.`, ok);
+					// Do nothing and continue execution
 				} else if (e instanceof NoRunningInstanceError) {
 					this.logger.error('No Running instance:', e);
 					vscode.window.showErrorMessage(`Failed to connect to ${e.workspaceId} Gitpod workspace: workspace not running`);
