@@ -90,13 +90,18 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 		return finalSessions;
 	}
 
+	private _validScopes: string[] | undefined;
 	private async fetchValidScopes(): Promise<string[] | undefined> {
+		if (this._validScopes) {
+			return this._validScopes;
+		}
+
 		const endpoint = `${this._serviceUrl}/api/oauth/inspect?client=${vscode.env.uriScheme}-gitpod`;
 		try {
 			const resp = await fetch(endpoint, { timeout: 1500 });
 			if (resp.ok) {
-				const validScopes: string[] = await resp.json();
-				return validScopes;
+				this._validScopes = await resp.json();
+				return this._validScopes;
 			}
 		} catch (e) {
 			this._logger.error(`Error fetching endpoint ${endpoint}`, e);
