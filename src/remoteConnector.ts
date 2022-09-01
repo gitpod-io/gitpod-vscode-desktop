@@ -817,7 +817,7 @@ export default class RemoteConnector extends Disposable {
 				} else if (e instanceof SSHError && e.message === 'Timed out while waiting for handshake') {
 					this.logger.error('SSH test connection error:', e);
 					const ok = 'OK';
-					const action = await vscode.window.showWarningMessage(`Timed out while waiting for SSH handshake, it's possible SSH connections on port 22 are blocked or your network is too slow, connecting via the deprecated SSH tunnel over WebSocket.`, ok);
+					const action = await vscode.window.showWarningMessage(`Timed out while waiting for the SSH handshake. It's possible, that SSH connections on port 22 are blocked, or your network is too slow. Connecting via the deprecated SSH tunnel over WebSocket instead.`, ok);
 					if (action === ok) {
 						// Do nothing and continue execution
 					} else {
