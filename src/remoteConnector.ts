@@ -566,6 +566,7 @@ export default class RemoteConnector extends Disposable {
 			}).connect({
 				host: sshDestInfo.hostName,
 				username: sshDestInfo.user,
+				readyTimeout: 40000,
 				authHandler(_methodsLeft, _partialSuccess, _callback) {
 					return {
 						type: 'password',
@@ -787,7 +788,7 @@ export default class RemoteConnector extends Disposable {
 
 		// Only use experiment for SaaS
 		const forceUseLocalApp = getServiceURL(params.gitpodHost) === 'https://gitpod.io'
-			? (await this.experiments.get<boolean>('gitpod.remote.useLocalApp', session.account.id))!
+			? (await this.experiments.get<boolean>('gitpod.remote.useLocalApp', session.account.id, { gitpodHost: params.gitpodHost }))!
 			: vscode.workspace.getConfiguration('gitpod').get<boolean>('remote.useLocalApp')!;
 		const userOverride = isUserOverrideSetting('gitpod.remote.useLocalApp');
 		let sshDestination: string | undefined;
@@ -808,7 +809,13 @@ export default class RemoteConnector extends Disposable {
 				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'failed', reason: e.toString(), ...params, gitpodVersion: gitpodVersion.raw, userOverride, openSSHVersion });
 				if (e instanceof NoSSHGatewayError) {
 					this.logger.error('No SSH gateway:', e);
-					vscode.window.showWarningMessage(`${e.host} does not support [direct SSH access](https://github.com/gitpod-io/gitpod/blob/main/install/installer/docs/workspace-ssh-access.md), connecting via the deprecated SSH tunnel over WebSocket.`);
+					const ok = 'OK';
+					await vscode.window.showWarningMessage(`${e.host} does not support [direct SSH access](https://github.com/gitpod-io/gitpod/blob/main/install/installer/docs/workspace-ssh-access.md), connecting via the deprecated SSH tunnel over WebSocket.`, ok);
+					// Do nothing and continue execution
+				} else if (e instanceof SSHError && e.message === 'Timed out while waiting for handshake') {
+					this.logger.error('SSH test connection error:', e);
+					const ok = 'OK';
+					await vscode.window.showWarningMessage(`Timed out while waiting for the SSH handshake. It's possible, that SSH connections on port 22 are blocked, or your network is too slow. Connecting via the deprecated SSH tunnel over WebSocket instead.`, ok);
 					// Do nothing and continue execution
 				} else if (e instanceof NoRunningInstanceError) {
 					this.logger.error('No Running instance:', e);

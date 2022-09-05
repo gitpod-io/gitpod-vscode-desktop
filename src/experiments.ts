@@ -32,7 +32,7 @@ export class ExperimentalSettings {
         this.extensionVersion = new semver.SemVer(extensionVersion);
     }
 
-    async get<T>(key: string, userId?: string): Promise<T | undefined> {
+    async get<T>(key: string, userId?: string, custom?: { [key: string]: string }): Promise<T | undefined> {
         const config = vscode.workspace.getConfiguration('gitpod');
         const values = config.inspect<T>(key.substring('gitpod.'.length));
         if (!values || !EXPERTIMENTAL_SETTINGS.includes(key)) {
@@ -48,14 +48,14 @@ export class ExperimentalSettings {
             return values.globalValue;
         }
 
-        const user = userId ? new configcatcommon.User(userId) : undefined;
+        const user = userId ? new configcatcommon.User(userId, undefined, undefined, custom) : undefined;
         const configcatKey = key.replace(/\./g, '_'); // '.' are not allowed in configcat
         const experimentValue = (await this.configcatClient.getValueAsync(configcatKey, undefined, user)) as T | undefined;
 
         return experimentValue ?? values.defaultValue;
     }
 
-    async inspect<T>(key: string, userId?: string): Promise<{ key: string; defaultValue?: T; globalValue?: T; experimentValue?: T } | undefined> {
+    async inspect<T>(key: string, userId?: string, custom?: { [key: string]: string }): Promise<{ key: string; defaultValue?: T; globalValue?: T; experimentValue?: T } | undefined> {
         const config = vscode.workspace.getConfiguration('gitpod');
         const values = config.inspect<T>(key.substring('gitpod.'.length));
         if (!values || !EXPERTIMENTAL_SETTINGS.includes(key)) {
@@ -63,7 +63,7 @@ export class ExperimentalSettings {
             return values;
         }
 
-        const user = userId ? new configcatcommon.User(userId) : undefined;
+        const user = userId ? new configcatcommon.User(userId, undefined, undefined, custom) : undefined;
         const configcatKey = key.replace(/\./g, '_'); // '.' are not allowed in configcat
         const experimentValue = (await this.configcatClient.getValueAsync(configcatKey, undefined, user)) as T | undefined;
 
