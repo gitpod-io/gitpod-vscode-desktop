@@ -1,0 +1,44 @@
+name: Build
+
+on:
+  pull_request:
+
+jobs:
+  nightly:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+
+      - name: Install dependencies
+        run: |
+          yarn install --frozen-lockfile
+
+      - name: Update package.json
+        run: |
+          set -e
+          setSegmentKey="setpath([\"segmentKey\"]; \"${{ secrets.ANALITYCS_KEY }}\")"
+          setConfigcatKey="setpath([\"configcatKey\"]; \"${{ secrets.CONFIGCAT_KEY }}\")"
+          jqCommands="${setSegmentKey} | ${setConfigcatKey}"
+          cat package.json | jq "${jqCommands}" > package.json.tmp
+          mv package.json.tmp package.json
+
+      - name: Generate package.json
+        run: |
+          set -e
+          node ./scripts/prepare-nightly-build.js
+          mv package.insiders.json package.json
+
+      - name: Package extension
+        id: package_vsix
+        run: |
+          yarn package --pre-release
+          echo ::set-output name=vsix_path::$(ls *.vsix)
+
+      - name: Upload built extension
+        uses: actions/upload-artifact@v3
+        with:
+          name: extension
+          path: ${{ steps.package_vsix.outputs.vsix_path }}
