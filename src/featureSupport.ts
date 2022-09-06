@@ -2,6 +2,7 @@
  *  Copyright (c) Gitpod. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+import * as vscode from 'vscode';
 import * as semver from 'semver';
 import fetch from 'node-fetch';
 import Log from './common/logger';
@@ -50,9 +51,9 @@ async function getOrFetchVersionInfo(serviceUrl: string, logger: Log) {
         return cacheGitpodVersion;
     }
 
+    const versionEndPoint = `${serviceUrl}/api/version`;
     let gitpodRawVersion: string | undefined;
     try {
-        const versionEndPoint = `${serviceUrl}/api/version`;
         gitpodRawVersion = await retry(async () => {
             const resp = await fetch(versionEndPoint, { timeout: 1500 });
             if (!resp.ok) {
@@ -61,11 +62,11 @@ async function getOrFetchVersionInfo(serviceUrl: string, logger: Log) {
             return resp.text();
         }, 1000, 3);
     } catch (e) {
-        logger.error(`Error while fetching ${serviceUrl}`, e);
+        logger.error(`Error while fetching ${versionEndPoint}`, e);
     }
 
     if (!gitpodRawVersion) {
-        logger.info(`Failed to fetch version from ${serviceUrl}, some feature will be disabled`);
+        logger.info(`Failed to fetch version from ${versionEndPoint}, some feature will be disabled`);
         return {
             host: serviceUrl,
             version: GitpodVersion.Min,
@@ -97,4 +98,23 @@ export function isFeatureSupported(gitpodVersion: GitpodVersion, feature: Featur
         case 'localHeartbeat':
             return semver.gte(gitpodVersion.version, '2022.7.0'); // Don't use leading zeros
     }
+}
+
+export async function isOauthInspectSupported(gitpodHost: string,) {
+    const serviceUrl = new URL(gitpodHost).toString().replace(/\/$/, '');
+    const endpoint = `${serviceUrl}/api/oauth/inspect?client=${vscode.env.uriScheme}-gitpod`;
+    try {
+        const resp = await fetch(endpoint, { timeout: 1500 });
+        if (resp.ok) {
+            return true;
+        }
+    } catch {
+    }
+
+    return false;
+}
+
+export enum ScopeFeature {
+    SSHPublicKeys = 'function:getSSHPublicKeys',
+    LocalHeartbeat = 'function:sendHeartBeat'
 }

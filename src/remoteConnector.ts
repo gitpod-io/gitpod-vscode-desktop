@@ -25,7 +25,7 @@ import TelemetryReporter from './telemetryReporter';
 import { addHostToHostFile, checkNewHostInHostkeys } from './ssh/hostfile';
 import { DEFAULT_IDENTITY_FILES } from './ssh/identityFiles';
 import { HeartbeatManager } from './heartbeat';
-import { getGitpodVersion, GitpodVersion, isFeatureSupported } from './featureSupport';
+import { getGitpodVersion, GitpodVersion, isFeatureSupported, isOauthInspectSupported, ScopeFeature } from './featureSupport';
 import SSHConfiguration from './ssh/sshConfig';
 import { isWindows } from './common/platform';
 import { untildify } from './common/files';
@@ -523,14 +523,13 @@ export default class RemoteConnector extends Disposable {
 		return preferredIdentityKeys;
 	}
 
-	private async getWorkspaceSSHDestination(accessToken: string, { workspaceId, gitpodHost }: SSHConnectionParams): Promise<{ destination: string; password?: string }> {
+	private async getWorkspaceSSHDestination(session: vscode.AuthenticationSession, { workspaceId, gitpodHost }: SSHConnectionParams): Promise<{ destination: string; password?: string }> {
 		const serviceUrl = new URL(gitpodHost);
-		const gitpodVersion = await getGitpodVersion(gitpodHost, this.logger);
-
-		const [workspaceInfo, ownerToken, registeredSSHKeys] = await withServerApi(accessToken, serviceUrl.toString(), service => Promise.all([
+		const sshKeysSupported = session.scopes.includes(ScopeFeature.SSHPublicKeys);
+		const [workspaceInfo, ownerToken, registeredSSHKeys] = await withServerApi(session.accessToken, serviceUrl.toString(), service => Promise.all([
 			service.server.getWorkspace(workspaceId),
 			service.server.getOwnerToken(workspaceId),
-			isFeatureSupported(gitpodVersion, 'SSHPublicKeys') ? service.server.getSSHPublicKeys() : undefined
+			sshKeysSupported ? service.server.getSSHPublicKeys() : undefined
 		]), this.logger);
 
 		if (workspaceInfo.latestInstance?.status?.phase !== 'running') {
@@ -612,7 +611,8 @@ export default class RemoteConnector extends Disposable {
 			if (identityKeys.length) {
 				sshDestInfo.user = `${workspaceId}#${ownerToken}`;
 			}
-			this.logger.warn(`Registered SSH public keys not supported in ${gitpodHost}, using version ${gitpodVersion.version}`);
+			const gitpodVersion = await getGitpodVersion(gitpodHost, this.logger);
+			this.logger.warn(`Registered SSH public keys not supported in ${gitpodHost}, using version ${gitpodVersion.raw}`);
 		}
 
 		return {
@@ -699,11 +699,11 @@ export default class RemoteConnector extends Disposable {
 		return true;
 	}
 
-	private async showSSHPasswordModal(password: string, sshParams: SSHConnectionParams) {
+	private async showSSHPasswordModal(password: string, session: vscode.AuthenticationSession,sshParams: SSHConnectionParams) {
 		const maskedPassword = '•'.repeat(password.length - 3) + password.substring(password.length - 3);
 
+		const sshKeysSupported = session.scopes.includes(ScopeFeature.SSHPublicKeys);
 		const gitpodVersion = await getGitpodVersion(sshParams.gitpodHost, this.logger);
-		const sshKeysSupported = isFeatureSupported(gitpodVersion, 'SSHPublicKeys');
 
 		const copy: vscode.MessageItem = { title: 'Copy' };
 		const configureSSH: vscode.MessageItem = { title: 'Configure SSH' };
@@ -752,10 +752,10 @@ export default class RemoteConnector extends Disposable {
 
 		const gitpodVersion = await getGitpodVersion(gitpodHost, this.logger);
 		const sessionScopes = ['function:getWorkspace', 'function:getOwnerToken', 'function:getLoggedInUser', 'resource:default'];
-		if (isFeatureSupported(gitpodVersion, 'SSHPublicKeys') /* && isFeatureSupported('', 'sendHeartBeat') */) {
+		if (await isOauthInspectSupported(gitpodHost) || isFeatureSupported(gitpodVersion, 'SSHPublicKeys') /* && isFeatureSupported('', 'sendHeartBeat') */) {
 			sessionScopes.push('function:getSSHPublicKeys', 'function:sendHeartBeat');
 		} else {
-			this.logger.warn(`function:getSSHPublicKeys and function:sendHeartBeat session scopes not supported in ${gitpodHost}, using version ${gitpodVersion.version}`);
+			this.logger.warn(`function:getSSHPublicKeys and function:sendHeartBeat session scopes not supported in ${gitpodHost}, using version ${gitpodVersion.raw}`);
 		}
 
 		return vscode.authentication.getSession(
@@ -797,11 +797,11 @@ export default class RemoteConnector extends Disposable {
 			try {
 				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'connecting', ...params, gitpodVersion: gitpodVersion.raw, userOverride, openSSHVersion });
 
-				const { destination, password } = await this.getWorkspaceSSHDestination(session.accessToken, params);
+				const { destination, password } = await this.getWorkspaceSSHDestination(session, params);
 				sshDestination = destination;
 
 				if (password) {
-					await this.showSSHPasswordModal(password, params);
+					await this.showSSHPasswordModal(password, session, params);
 				}
 
 				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'connected', ...params, gitpodVersion: gitpodVersion.raw, auth: password ? 'password' : 'key', userOverride, openSSHVersion });
@@ -1039,11 +1039,12 @@ export default class RemoteConnector extends Disposable {
 
 		await this.context.globalState.update(`${RemoteConnector.SSH_DEST_KEY}${sshDestStr}`, { ...connectionInfo, isFirstConnection: false });
 
+		const heartbeatSupported = session.scopes.includes(ScopeFeature.LocalHeartbeat);
 		const gitpodVersion = await getGitpodVersion(connectionInfo.gitpodHost, this.logger);
-		if (isFeatureSupported(gitpodVersion, 'localHeartbeat')) {
+		if (heartbeatSupported) {
 			this.startHeartBeat(session.accessToken, connectionInfo, gitpodVersion);
 		} else {
-			this.logger.warn(`Local heatbeat not supported in ${connectionInfo.gitpodHost}, using version ${gitpodVersion.version}`);
+			this.logger.warn(`Local heartbeat not supported in ${connectionInfo.gitpodHost}, using version ${gitpodVersion.raw}`);
 		}
 
 		const syncExtensions = vscode.workspace.getConfiguration('gitpod').get<boolean>('remote.syncExtensions')!;
