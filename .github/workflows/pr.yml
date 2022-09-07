@@ -11,19 +11,11 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: 16
+          cache: 'yarn'
 
       - name: Install dependencies
         run: |
           yarn install --frozen-lockfile
-
-      - name: Update package.json
-        run: |
-          set -e
-          setSegmentKey="setpath([\"segmentKey\"]; \"${{ secrets.ANALITYCS_KEY }}\")"
-          setConfigcatKey="setpath([\"configcatKey\"]; \"${{ secrets.CONFIGCAT_KEY }}\")"
-          jqCommands="${setSegmentKey} | ${setConfigcatKey}"
-          cat package.json | jq "${jqCommands}" > package.json.tmp
-          mv package.json.tmp package.json
 
       - name: Generate package.json
         run: |
