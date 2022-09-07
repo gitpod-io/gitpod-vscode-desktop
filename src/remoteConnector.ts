@@ -795,7 +795,7 @@ export default class RemoteConnector extends Disposable {
 		if (!forceUseLocalApp) {
 			const openSSHVersion = await getOpenSSHVersion();
 			try {
-				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'connecting', ...params, gitpodVersion: gitpodVersion.raw, userOverride, openSSHVersion });
+				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'connecting', ...params, gitpodVersion: gitpodVersion.raw, userOverride: String(userOverride), openSSHVersion });
 
 				const { destination, password } = await this.getWorkspaceSSHDestination(session, params);
 				sshDestination = destination;
@@ -804,9 +804,9 @@ export default class RemoteConnector extends Disposable {
 					await this.showSSHPasswordModal(password, session, params);
 				}
 
-				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'connected', ...params, gitpodVersion: gitpodVersion.raw, auth: password ? 'password' : 'key', userOverride, openSSHVersion });
+				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'connected', ...params, gitpodVersion: gitpodVersion.raw, auth: password ? 'password' : 'key', userOverride: String(userOverride), openSSHVersion });
 			} catch (e) {
-				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'failed', reason: e.toString(), ...params, gitpodVersion: gitpodVersion.raw, userOverride, openSSHVersion });
+				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'gateway', status: 'failed', reason: e.toString(), ...params, gitpodVersion: gitpodVersion.raw, userOverride: String(userOverride), openSSHVersion });
 				if (e instanceof NoSSHGatewayError) {
 					this.logger.error('No SSH gateway:', e);
 					const ok = 'OK';
@@ -844,15 +844,15 @@ export default class RemoteConnector extends Disposable {
 		let localAppSSHConfigPath: string | undefined;
 		if (!usingSSHGateway) {
 			try {
-				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'local-app', status: 'connecting', ...params, gitpodVersion: gitpodVersion.raw, userOverride });
+				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'local-app', status: 'connecting', ...params, gitpodVersion: gitpodVersion.raw, userOverride: String(userOverride) });
 
 				const localAppDestData = await this.getWorkspaceLocalAppSSHDestination(params);
 				sshDestination = localAppDestData.localAppSSHDest;
 				localAppSSHConfigPath = localAppDestData.localAppSSHConfigPath;
 
-				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'local-app', status: 'connected', ...params, gitpodVersion: gitpodVersion.raw, userOverride });
+				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'local-app', status: 'connected', ...params, gitpodVersion: gitpodVersion.raw, userOverride: String(userOverride) });
 			} catch (e) {
-				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'local-app', status: 'failed', reason: e.toString(), ...params, gitpodVersion: gitpodVersion.raw, userOverride });
+				this.telemetry.sendRawTelemetryEvent('vscode_desktop_ssh', { kind: 'local-app', status: 'failed', reason: e.toString(), ...params, gitpodVersion: gitpodVersion.raw, userOverride: String(userOverride) });
 				this.logger.error(`Failed to connect ${params.workspaceId} Gitpod workspace:`, e);
 				if (e instanceof LocalAppError) {
 					const seeLogs = 'See Logs';
