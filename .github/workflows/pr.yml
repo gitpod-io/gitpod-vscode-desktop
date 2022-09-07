@@ -11,26 +11,12 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: 16
-          cache: 'yarn'
+          cache: "yarn"
 
       - name: Install dependencies
         run: |
           yarn install --frozen-lockfile
 
-      - name: Generate package.json
-        run: |
-          set -e
-          node ./scripts/prepare-nightly-build.js
-          mv package.insiders.json package.json
-
       - name: Package extension
-        id: package_vsix
         run: |
-          yarn package --pre-release
-          echo ::set-output name=vsix_path::$(ls *.vsix)
-
-      - name: Upload built extension
-        uses: actions/upload-artifact@v3
-        with:
-          name: extension
-          path: ${{ steps.package_vsix.outputs.vsix_path }}
+          yarn package
