@@ -8,6 +8,22 @@
 import * as vscode from 'vscode';
 import { Disposable } from './dispose';
 
+export interface TelemetryOptions {
+	gitpodHost?: string;
+	gitpodVersion?: string;
+
+	workspaceId?: string;
+	instanceId?: string;
+
+	userId?: string
+
+	[prop: string]: any
+}
+
+export interface UserFlowTelemetry extends TelemetryOptions {
+	flow: string
+}
+
 const enum TelemetryLevel {
 	ON = 'on',
 	ERROR = 'error',
@@ -371,6 +387,12 @@ export class BaseTelemetryReporter extends Disposable {
 			const cleanProperties = this.cloneAndChange(properties, (_key: string, prop: string) => this.anonymizeFilePaths(prop, false));
 			this.telemetryAppender.logEvent(`${eventName}`, { properties: this.removePropertiesWithPossibleUserInfo(cleanProperties) });
 		}
+	}
+
+	sendUserFlowStatus(status: string, flow: UserFlowTelemetry): void {
+		const properties: TelemetryOptions = { ...flow, status };
+		delete properties['flow'];
+		this.sendRawTelemetryEvent('vscode_desktop_' + flow.flow, properties);
 	}
 
 	/**

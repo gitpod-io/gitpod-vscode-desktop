@@ -12,6 +12,8 @@ import Log from './common/logger';
 import { arrayEquals } from './common/utils';
 import { Disposable } from './common/dispose';
 import TelemetryReporter from './telemetryReporter';
+import { UserFlowTelemetry } from './common/telemetry';
+import { NotificationService } from './notification';
 
 interface SessionData {
 	id: string;
@@ -28,35 +30,30 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 	private _sessionChangeEmitter = new vscode.EventEmitter<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>();
 	private _logger: Log;
 	private _telemetry: TelemetryReporter;
-	private _gitpodServer: GitpodServer;
-	private _keychain: Keychain;
 
-	private _serviceUrl: string;
+	private _gitpodServer!: GitpodServer;
+	private _keychain!: Keychain;
+	private _serviceUrl!: string;
 
 	private _sessionsPromise: Promise<vscode.AuthenticationSession[]>;
 
-	constructor(private readonly context: vscode.ExtensionContext, logger: Log, telemetry: TelemetryReporter) {
+	private readonly flow: Readonly<UserFlowTelemetry> = { flow: 'auth' };
+
+	constructor(
+		private readonly context: vscode.ExtensionContext,
+		logger: Log,
+		telemetry: TelemetryReporter,
+		private readonly notifications: NotificationService
+	) {
 		super();
 
 		this._logger = logger;
 		this._telemetry = telemetry;
 
-		const gitpodHost = vscode.workspace.getConfiguration('gitpod').get<string>('host')!;
-		const gitpodHostUrl = new URL(gitpodHost);
-		this._serviceUrl = gitpodHostUrl.toString().replace(/\/$/, '');
-		this._gitpodServer = new GitpodServer(this._serviceUrl, this._logger);
-		this._keychain = new Keychain(this.context, `gitpod.auth.${gitpodHostUrl.hostname}`, this._logger);
-		this._logger.info(`Started authentication provider for ${gitpodHost}`);
+		this.reconcile();
 		this._register(vscode.workspace.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration('gitpod.host')) {
-				const gitpodHost = vscode.workspace.getConfiguration('gitpod').get<string>('host')!;
-				const gitpodHostUrl = new URL(gitpodHost);
-				this._serviceUrl = gitpodHostUrl.toString().replace(/\/$/, '');
-				this._gitpodServer.dispose();
-				this._gitpodServer = new GitpodServer(this._serviceUrl, this._logger);
-				this._keychain = new Keychain(this.context, `gitpod.auth.${gitpodHostUrl.hostname}`, this._logger);
-				this._logger.info(`Started authentication provider for ${gitpodHost}`);
-
+				this.reconcile();
 				this.checkForUpdates();
 			}
 		}));
@@ -66,6 +63,17 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 
 		this._register(vscode.authentication.registerAuthenticationProvider('gitpod', 'Gitpod', this, { supportsMultipleAccounts: false }));
 		this._register(this.context.secrets.onDidChange(() => this.checkForUpdates()));
+	}
+
+	private reconcile(): void {
+		const gitpodHost = vscode.workspace.getConfiguration('gitpod').get<string>('host')!;
+		const gitpodHostUrl = new URL(gitpodHost);
+		this._serviceUrl = gitpodHostUrl.toString().replace(/\/$/, '');
+		Object.assign(this.flow, { gitpodHost: this._serviceUrl });
+		this._gitpodServer?.dispose();
+		this._gitpodServer = new GitpodServer(this._serviceUrl, this._logger, this.notifications);
+		this._keychain = new Keychain(this.context, `gitpod.auth.${gitpodHostUrl.hostname}`, this._logger);
+		this._logger.info(`Started authentication provider for ${gitpodHost}`);
 	}
 
 	get onDidChangeSessions() {
@@ -213,6 +221,7 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 	}
 
 	public async createSession(scopes: string[]): Promise<vscode.AuthenticationSession> {
+		const flow = { ...this.flow };
 		try {
 			// For the Gitpod scope list, order doesn't matter so we immediately sort the scopes
 			const sortedScopes = scopes.sort();
@@ -221,15 +230,13 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 			if (sortedScopes.length !== sortedFilteredScopes.length) {
 				this._logger.warn(`Creating session with only valid scopes ${sortedFilteredScopes.join(',')}, original scopes were ${sortedScopes.join(',')}`);
 			}
-
-			this._telemetry.sendRawTelemetryEvent('gitpod_desktop_auth', {
-				kind: 'login',
-				scopes: JSON.stringify(sortedFilteredScopes),
-			});
+			flow.scopes = JSON.stringify(sortedFilteredScopes);
+			this._telemetry.sendUserFlowStatus('login', flow);
 
 			const scopeString = sortedFilteredScopes.join(' ');
-			const token = await this._gitpodServer.login(scopeString);
+			const token = await this._gitpodServer.login(scopeString, flow);
 			const session = await this.tokenToSession(token, sortedFilteredScopes);
+			flow.userId = session.account.id;
 
 			const sessions = await this._sessionsPromise;
 			const sessionIndex = sessions.findIndex(s => s.id === session.id || arrayEquals([...s.scopes].sort(), sortedFilteredScopes));
@@ -244,19 +251,16 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 
 			this._logger.info('Login success!');
 
-			this._telemetry.sendRawTelemetryEvent('gitpod_desktop_auth', { kind: 'login_successful' });
+			this._telemetry.sendUserFlowStatus('login_successful', flow);
 
 			return session;
 		} catch (e) {
 			// If login was cancelled, do not notify user.
 			if (e === 'Cancelled' || e.message === 'Cancelled') {
-				this._telemetry.sendRawTelemetryEvent('gitpod_desktop_auth', { kind: 'login_cancelled' });
+				this._telemetry.sendUserFlowStatus('login_cancelled', flow);
 				throw e;
 			}
-
-			this._telemetry.sendRawTelemetryEvent('gitpod_desktop_auth', { kind: 'login_failed' });
-
-			vscode.window.showErrorMessage(`Sign in failed: ${e}`);
+			this.notifications.showErrorMessage(`Sign in failed: ${e}`, { flow, id: 'login_failed' });
 			this._logger.error(e);
 			throw e;
 		}
@@ -273,15 +277,16 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 	}
 
 	public async removeSession(id: string) {
+		const flow = { ...this.flow };
 		try {
-			this._telemetry.sendRawTelemetryEvent('gitpod_desktop_auth', { kind: 'logout' });
-
+			this._telemetry.sendUserFlowStatus('logout', flow);
 			this._logger.info(`Logging out of ${id}`);
 
 			const sessions = await this._sessionsPromise;
 			const sessionIndex = sessions.findIndex(session => session.id === id);
 			if (sessionIndex > -1) {
 				const session = sessions[sessionIndex];
+				flow.userId = session.account.id;
 				sessions.splice(sessionIndex, 1);
 
 				await this.storeSessions(sessions);
@@ -290,10 +295,9 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 			} else {
 				this._logger.error('Session not found');
 			}
+			this._telemetry.sendUserFlowStatus('logout_successful', flow);
 		} catch (e) {
-			this._telemetry.sendRawTelemetryEvent('gitpod_desktop_auth', { kind: 'logout_failed' });
-
-			vscode.window.showErrorMessage(`Sign out failed: ${e}`);
+			this.notifications.showErrorMessage(`Sign out failed: ${e}`, { flow, id: 'logout_failed' });
 			this._logger.error(e);
 			throw e;
 		}
