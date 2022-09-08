@@ -105,6 +105,12 @@
 				"command": "gitpod.showReleaseNotes",
 				"category": "Gitpod",
 				"title": "Show Release Notes"
+			},
+			{
+				"command": "gitpod.dev.refreshExperiments",
+				"category": "Developer",
+				"title": "Refresh Gitpod Experiments",
+				"enablement": "gitpod.dev"
 			}
 		]
 	},

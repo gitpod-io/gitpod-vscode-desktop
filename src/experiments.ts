@@ -14,11 +14,11 @@ const EXPERTIMENTAL_SETTINGS = [
 ];
 
 export class ExperimentalSettings {
-    private configcatClient: configcatcommon.IConfigCatClient;
-    private extensionVersion: semver.SemVer;
+    private readonly _configcatClient: configcatcommon.IConfigCatClient;
+    private readonly extensionVersion: semver.SemVer;
 
-    constructor(key: string, extensionVersion: string, private logger: Log) {
-        this.configcatClient = configcat.createClientWithLazyLoad(key, {
+    constructor(key: string, extensionVersion: string, private readonly logger: Log, private readonly context: vscode.ExtensionContext) {
+        this._configcatClient = configcat.createClientWithManualPoll(key, {
             logger: {
                 debug(): void { },
                 log(): void { },
@@ -26,10 +26,30 @@ export class ExperimentalSettings {
                 warn(message: string): void { logger.warn(`ConfigCat: ${message}`); },
                 error(message: string): void { logger.error(`ConfigCat: ${message}`); }
             },
-            requestTimeoutMs: 1500,
-            cacheTimeToLiveSeconds: 60
+            requestTimeoutMs: 1500
         });
         this.extensionVersion = new semver.SemVer(extensionVersion);
+        this.refresh();
+    }
+
+    /**
+     * Returns the client with the latest settins values updated once in a minute.
+     */
+    private async getClient(): Promise<configcatcommon.IConfigCatClient> {
+        await this.refresh();
+        return this._configcatClient;
+    };
+
+    async refresh(): Promise<Date> {
+        const key = 'experiments.refreshedAt';
+        const now = new Date();
+        const refreshedAt = this.context.globalState.get<number>(key);
+        if (typeof refreshedAt === 'number' && (now.getTime() - refreshedAt) < 60 * 1000) {
+            return new Date(refreshedAt);
+        }
+        this.context.globalState.update(key, now.getTime());
+        await this._configcatClient.forceRefreshAsync();
+        return now;
     }
 
     async get<T>(key: string, userId?: string, custom?: { [key: string]: string }): Promise<T | undefined> {
@@ -50,7 +70,8 @@ export class ExperimentalSettings {
 
         const user = userId ? new configcatcommon.User(userId, undefined, undefined, custom) : undefined;
         const configcatKey = key.replace(/\./g, '_'); // '.' are not allowed in configcat
-        const experimentValue = (await this.configcatClient.getValueAsync(configcatKey, undefined, user)) as T | undefined;
+        const client = await this.getClient();
+        const experimentValue = (await client.getValueAsync(configcatKey, undefined, user)) as T | undefined;
 
         return experimentValue ?? values.defaultValue;
     }
@@ -65,13 +86,10 @@ export class ExperimentalSettings {
 
         const user = userId ? new configcatcommon.User(userId, undefined, undefined, custom) : undefined;
         const configcatKey = key.replace(/\./g, '_'); // '.' are not allowed in configcat
-        const experimentValue = (await this.configcatClient.getValueAsync(configcatKey, undefined, user)) as T | undefined;
+        const client = await this.getClient();
+        const experimentValue = (await client.getValueAsync(configcatKey, undefined, user)) as T | undefined;
 
         return { key, defaultValue: values.defaultValue, globalValue: values.globalValue, experimentValue };
-    }
-
-    forceRefreshAsync(): Promise<void> {
-        return this.configcatClient.forceRefreshAsync();
     }
 
     private isPreRelease() {
@@ -79,7 +97,7 @@ export class ExperimentalSettings {
     }
 
     dispose(): void {
-        this.configcatClient.dispose();
+        this._configcatClient.dispose();
     }
 }
 

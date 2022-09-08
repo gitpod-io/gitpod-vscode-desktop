@@ -27,11 +27,20 @@ export async function activate(context: vscode.ExtensionContext) {
 	// sync between machines
 	context.globalState.setKeysForSync([ReleaseNotes.RELEASE_NOTES_LAST_READ_KEY]);
 
+	vscode.commands.executeCommand('setContext', 'gitpod.dev', context.extensionMode === vscode.ExtensionMode.Development);
+
 	const logger = new Log('Gitpod');
 	logger.info(`${extensionId}/${packageJSON.version} (${os.release()} ${os.platform()} ${os.arch()}) vscode/${vscode.version} (${vscode.env.appName})`);
 
-	const experiments = new ExperimentalSettings(packageJSON.configcatKey, packageJSON.version, logger);
+	const experiments = new ExperimentalSettings(packageJSON.configcatKey, packageJSON.version, logger, context);
 	context.subscriptions.push(experiments);
+	context.subscriptions.push(vscode.commands.registerCommand('gitpod.dev.refreshExperiments', async () => {
+		const refreshedAt = await experiments.refresh();
+		const now = new Date();
+		logger.trace('refreshExperiments', JSON.stringify({
+			now, refreshedAt, diff: now.getTime() - refreshedAt.getTime()
+		}, undefined, 2));
+	}));
 
 	telemetry = new TelemetryReporter(extensionId, packageJSON.version, packageJSON.segmentKey);
 
