@@ -7,6 +7,8 @@ import fetch from 'node-fetch';
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
 import Log from './common/logger';
+import { UserFlowTelemetry } from './common/telemetry';
+import { NotificationService } from './notification';
 import TelemetryReporter from './telemetryReporter';
 
 export class NoSyncStoreError extends Error {
@@ -103,16 +105,23 @@ export class SettingsSync extends Disposable {
 	];
 
 	private session: vscode.AuthenticationSession | undefined;
+	private readonly flow: Readonly<UserFlowTelemetry> = { flow: 'settings_sync' };
 
-	constructor(private readonly logger: Log, private readonly telemetry: TelemetryReporter) {
+	constructor(
+		private readonly logger: Log,
+		private readonly telemetry: TelemetryReporter,
+		private readonly notifications: NotificationService
+	) {
 		super();
 
 		this._register(vscode.workspace.onDidChangeConfiguration(async e => {
 			if (e.affectsConfiguration('gitpod.host') || e.affectsConfiguration('configurationSync.store')) {
+				const gitpodHost = this.getServiceUrl().origin;
+				const flow = { ...this.flow, gitpodHost };
 				const addedSyncProvider = await this.updateSyncContext();
 				if (!addedSyncProvider) {
 					const action = 'Settings Sync: Enable Sign In with Gitpod';
-					const result = await vscode.window.showInformationMessage('Gitpod Settings Sync configuration invalidated, Settings Sync is disabled.', action);
+					const result = await this.notifications.showInformationMessage('Gitpod Settings Sync configuration invalidated. Settings Sync is disabled.', { flow, id: 'invalid' }, action);
 					if (result === action) {
 						vscode.commands.executeCommand('gitpod.syncProvider.add');
 					}
@@ -148,6 +157,9 @@ export class SettingsSync extends Disposable {
 	 * @param enabled - indicates whether to add or remove the configuration
 	 */
 	private async enableSettingsSync(enabled: boolean): Promise<void> {
+		const gitpodHost = this.getServiceUrl().origin;
+		const flow = { ...this.flow, enabled: String(enabled), gitpodHost };
+		this.telemetry.sendUserFlowStatus('changing_enablement', flow);
 		try {
 			let newSyncProviderConfig: ConfigurationSyncStore | undefined;
 			let newIgnoredSettingsConfig: string[] | undefined;
@@ -175,18 +187,16 @@ export class SettingsSync extends Disposable {
 			await config.update('settingsSync.ignoredSettings', newIgnoredSettingsConfig, vscode.ConfigurationTarget.Global);
 			await config.update('configurationSync.store', newSyncProviderConfig, vscode.ConfigurationTarget.Global);
 
-			this.telemetry.sendTelemetryEvent('gitpod_desktop_settings_sync', { enabled: String(enabled) });
-
-			vscode.window.showInformationMessage('Quit VS Code for the new Settings Sync configuration to take effect.', { modal: true });
+			await this.notifications.showInformationMessage('Quit VS Code for the new Settings Sync configuration to take effect.', { flow, modal: true, id: 'quit_to_apply' });
 		} catch (e) {
 			const outputMessage = `Error setting up Settings Sync with Gitpod: ${e}`;
-			vscode.window.showErrorMessage(outputMessage);
+			this.notifications.showErrorMessage(outputMessage, { flow, id: 'failed' });
 			this.logger.error(outputMessage);
 		}
 	}
 
 	private getGitpodSyncProviderConfig(): ConfigurationSyncStore {
-		const syncStoreURL = this.getServiceUrl();
+		const syncStoreURL = this.getServiceUrl().toString();
 		return {
 			url: syncStoreURL,
 			stableUrl: syncStoreURL,
@@ -202,8 +212,9 @@ export class SettingsSync extends Disposable {
 
 	private getServiceUrl() {
 		const config = vscode.workspace.getConfiguration();
-		const serviceUrl = config.get<string>('gitpod.host')!;
-		return `${new URL(serviceUrl).toString().replace(/\/$/, '')}/code-sync`;
+		const serviceUrl = new URL(config.get<string>('gitpod.host')!);
+		serviceUrl.pathname = '/code-sync';
+		return serviceUrl;
 	}
 
 	public async readResource(path: string) {
@@ -211,7 +222,7 @@ export class SettingsSync extends Disposable {
 			throw new NoSyncStoreError();
 		}
 
-		const syncStoreURL = this.getServiceUrl();
+		const syncStoreURL = this.getServiceUrl().toString();
 		const resourceURL = `${syncStoreURL}/v1/resource/${path}/latest`;
 
 		const resp = await this.request(resourceURL);

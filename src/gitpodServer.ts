@@ -11,6 +11,8 @@ import { withServerApi } from './internalApi';
 import pkceChallenge from 'pkce-challenge';
 import { v4 as uuid } from 'uuid';
 import { Disposable } from './common/dispose';
+import { NotificationService } from './notification';
+import { UserFlowTelemetry } from './common/telemetry';
 
 interface ExchangeTokenResponse {
 	token_type: 'Bearer';
@@ -38,13 +40,17 @@ export default class GitpodServer extends Disposable {
 	private _codeExchangePromises = new Map<string, { promise: Promise<string>; cancel: vscode.EventEmitter<void> }>();
 	private _uriEmitter = this._register(new vscode.EventEmitter<vscode.Uri>());
 
-	constructor(serviceUrl: string, private readonly _logger: Log) {
+	constructor(
+		serviceUrl: string,
+		private readonly _logger: Log,
+		private readonly notifications: NotificationService
+	) {
 		super();
 
 		this._serviceUrl = serviceUrl.replace(/\/$/, '');
 	}
 
-	public async login(scopes: string): Promise<string> {
+	public async login(scopes: string, flow: UserFlowTelemetry): Promise<string> {
 		this._logger.info(`Logging in for the following scopes: ${scopes}`);
 
 		const callbackUri = await vscode.env.asExternalUri(vscode.Uri.parse(`${vscode.env.uriScheme}://gitpod.gitpod-desktop/complete-gitpod-auth`));
@@ -78,7 +84,7 @@ export default class GitpodServer extends Disposable {
 			// before completing it.
 			let codeExchangePromise = this._codeExchangePromises.get(scopes);
 			if (!codeExchangePromise) {
-				codeExchangePromise = promiseFromEvent(this._uriEmitter.event, this.exchangeCodeForToken(scopes));
+				codeExchangePromise = promiseFromEvent(this._uriEmitter.event, this.exchangeCodeForToken(scopes, flow));
 				this._codeExchangePromises.set(scopes, codeExchangePromise);
 			}
 
@@ -97,8 +103,8 @@ export default class GitpodServer extends Disposable {
 		});
 	}
 
-	private exchangeCodeForToken: (scopes: string) => PromiseAdapter<vscode.Uri, string> =
-		(scopes) => async (uri, resolve, reject) => {
+	private exchangeCodeForToken: (scopes: string, flow: UserFlowTelemetry) => PromiseAdapter<vscode.Uri, string> =
+		(scopes, flow) => async (uri, resolve, reject) => {
 			const query = new URLSearchParams(uri.query);
 			const code = query.get('code');
 			const state = query.get('state');
@@ -146,7 +152,7 @@ export default class GitpodServer extends Disposable {
 				});
 
 				if (!exchangeTokenResponse.ok) {
-					vscode.window.showErrorMessage(`Couldn't connect (token exchange): ${exchangeTokenResponse.statusText}, ${await exchangeTokenResponse.text()}`);
+					this.notifications.showErrorMessage(`Couldn't connect (token exchange): ${exchangeTokenResponse.statusText}, ${await exchangeTokenResponse.text()}`, { flow, id: 'failed_to_exchange' });
 					reject(exchangeTokenResponse.statusText);
 					return;
 				}
@@ -156,6 +162,7 @@ export default class GitpodServer extends Disposable {
 				const accessToken = JSON.parse(Buffer.from(jwtToken.split('.')[1], 'base64').toString())['jti'];
 				resolve(accessToken);
 			} catch (err) {
+				this.notifications.showErrorMessage(`Couldn't connect (token exchange): ${err}`, { flow, id: 'failed_to_exchange' });
 				reject(err);
 			}
 		};

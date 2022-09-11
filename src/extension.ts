@@ -5,15 +5,17 @@
 
 import * as os from 'os';
 import * as vscode from 'vscode';
-import Log from './common/logger';
 import GitpodAuthenticationProvider from './authentication';
+import Log from './common/logger';
+import { UserFlowTelemetry } from './common/telemetry';
+import { ExperimentalSettings } from './experiments';
+import { exportLogs } from './exportLogs';
+import GitpodServer from './gitpodServer';
+import { NotificationService } from './notification';
+import { ReleaseNotes } from './releaseNotes';
 import RemoteConnector from './remoteConnector';
 import { SettingsSync } from './settingsSync';
-import GitpodServer from './gitpodServer';
 import TelemetryReporter from './telemetryReporter';
-import { exportLogs } from './exportLogs';
-import { ReleaseNotes } from './releaseNotes';
-import { ExperimentalSettings } from './experiments';
 
 const FIRST_INSTALL_KEY = 'gitpod-desktop.firstInstall';
 
@@ -34,22 +36,26 @@ export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(experiments);
 
 	telemetry = new TelemetryReporter(extensionId, packageJSON.version, packageJSON.segmentKey);
+	const notifications = new NotificationService(telemetry);
 
 	context.subscriptions.push(vscode.commands.registerCommand('gitpod.exportLogs', async () => {
+		const flow: UserFlowTelemetry = { flow: 'export_logs' };
+		telemetry.sendUserFlowStatus('exporting', flow);
 		try {
 			await exportLogs(context);
+			telemetry.sendUserFlowStatus('exported', flow);
 		} catch (e) {
 			const outputMessage = `Error exporting logs: ${e}`;
-			vscode.window.showErrorMessage(outputMessage);
+			notifications.showErrorMessage(outputMessage, { id: 'failed', flow });
 			logger.error(outputMessage);
 		}
 	}));
 
-	const settingsSync = new SettingsSync(logger, telemetry);
+	const settingsSync = new SettingsSync(logger, telemetry, notifications);
 	context.subscriptions.push(settingsSync);
 
-	const authProvider = new GitpodAuthenticationProvider(context, logger, telemetry);
-	remoteConnector = new RemoteConnector(context, settingsSync, experiments, logger, telemetry);
+	const authProvider = new GitpodAuthenticationProvider(context, logger, telemetry, notifications);
+	remoteConnector = new RemoteConnector(context, settingsSync, experiments, logger, telemetry, notifications);
 	context.subscriptions.push(authProvider);
 	context.subscriptions.push(vscode.window.registerUriHandler({
 		handleUri(uri: vscode.Uri) {
