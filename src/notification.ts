@@ -8,8 +8,8 @@ import { UserFlowTelemetry } from './common/telemetry';
 import TelemetryReporter from './telemetryReporter';
 
 export interface NotificationOption extends vscode.MessageOptions {
-    id: string
-    flow: UserFlowTelemetry
+    id: string;
+    flow: UserFlowTelemetry;
 }
 
 export class NotificationService {
@@ -51,12 +51,11 @@ export class NotificationService {
             result = await cb();
         } finally {
             const duration = new Date().getTime() - startTime;
-            const closed = result === undefined || (typeof result === 'object' && result.isCloseAffordance == true);
+            const closed = result === undefined || (typeof result === 'object' && result.isCloseAffordance === true);
             const status = closed ? 'close_' + element : 'select_' + element + '_action';
             const action = typeof result === 'string' ? result : result?.title;
             this.telemetry.sendUserFlowStatus(status, { ...flowOptions, action, duration });
         }
         return result;
     }
-
 }
