@@ -116,9 +116,9 @@ export class SettingsSync extends Disposable {
 
 		this._register(vscode.workspace.onDidChangeConfiguration(async e => {
 			if (e.affectsConfiguration('gitpod.host') || e.affectsConfiguration('configurationSync.store')) {
-				const gitpodUrl = this.getGitpodUrl();
-				const flow = { ...this.flow, gitpodHost: gitpodUrl };
-				const addedSyncProvider = await this.updateSyncContext(gitpodUrl);
+				const gitpodHost = this.getServiceUrl().origin;
+				const flow = { ...this.flow, gitpodHost };
+				const addedSyncProvider = await this.updateSyncContext();
 				if (!addedSyncProvider) {
 					const action = 'Settings Sync: Enable Sign In with Gitpod';
 					const result = await this.notifications.showInformationMessage('Gitpod Settings Sync configuration invalidated. Settings Sync is disabled.', { flow, id: 'invalid' }, action);
@@ -131,13 +131,13 @@ export class SettingsSync extends Disposable {
 		this._register(vscode.commands.registerCommand('gitpod.syncProvider.add', () => this.enableSettingsSync(true)));
 		this._register(vscode.commands.registerCommand('gitpod.syncProvider.remove', () => this.enableSettingsSync(false)));
 
-		this.updateSyncContext(this.getGitpodUrl());
+		this.updateSyncContext();
 	}
 
-	private isSyncStoreConfigured(gitpodUrl: string) {
+	private isSyncStoreConfigured() {
 		const config = vscode.workspace.getConfiguration();
 		const syncProviderConfig = config.get('configurationSync.store');
-		const gitpodSyncProviderConfig = this.getGitpodSyncProviderConfig(gitpodUrl);
+		const gitpodSyncProviderConfig = this.getGitpodSyncProviderConfig();
 		const addedSyncProvider = !!syncProviderConfig && JSON.stringify(syncProviderConfig) === JSON.stringify(gitpodSyncProviderConfig);
 		return addedSyncProvider;
 	}
@@ -145,8 +145,8 @@ export class SettingsSync extends Disposable {
 	/**
 	 * Updates the VS Code context to reflect whether the user added Gitpod as their Settings Sync provider.
 	 */
-	private async updateSyncContext(gitpodUrl: string): Promise<boolean> {
-		const addedSyncProvider = this.isSyncStoreConfigured(gitpodUrl);
+	private async updateSyncContext(): Promise<boolean> {
+		const addedSyncProvider = this.isSyncStoreConfigured();
 		await vscode.commands.executeCommand('setContext', 'gitpod.addedSyncProvider', addedSyncProvider);
 		return addedSyncProvider;
 	}
@@ -157,8 +157,8 @@ export class SettingsSync extends Disposable {
 	 * @param enabled - indicates whether to add or remove the configuration
 	 */
 	private async enableSettingsSync(enabled: boolean): Promise<void> {
-		const gitpodUrl = this.getGitpodUrl();
-		const flow = { ...this.flow, enabled: String(enabled), gitpodHost: gitpodUrl };
+		const gitpodHost = this.getServiceUrl().origin;
+		const flow = { ...this.flow, enabled: String(enabled), gitpodHost };
 		this.telemetry.sendUserFlowStatus('changing_enablement', flow);
 		try {
 			let newSyncProviderConfig: ConfigurationSyncStore | undefined;
@@ -166,7 +166,7 @@ export class SettingsSync extends Disposable {
 			const config = vscode.workspace.getConfiguration();
 			const currentSyncProviderConfig: ConfigurationSyncStore | undefined = config.get('configurationSync.store');
 			const currentIgnoredSettingsConfig: string[] | undefined = config.get('settingsSync.ignoredSettings');
-			const gitpodSyncProviderConfig = this.getGitpodSyncProviderConfig(gitpodUrl);
+			const gitpodSyncProviderConfig = this.getGitpodSyncProviderConfig();
 			if (enabled) {
 				if (JSON.stringify(currentSyncProviderConfig) === JSON.stringify(gitpodSyncProviderConfig)) {
 					return;
@@ -195,8 +195,8 @@ export class SettingsSync extends Disposable {
 		}
 	}
 
-	private getGitpodSyncProviderConfig(gitpodUrl: string): ConfigurationSyncStore {
-		const syncStoreURL = this.getServiceUrl(gitpodUrl);
+	private getGitpodSyncProviderConfig(): ConfigurationSyncStore {
+		const syncStoreURL = this.getServiceUrl().toString();
 		return {
 			url: syncStoreURL,
 			stableUrl: syncStoreURL,
@@ -210,22 +210,19 @@ export class SettingsSync extends Disposable {
 		};
 	}
 
-	private getGitpodUrl() {
+	private getServiceUrl() {
 		const config = vscode.workspace.getConfiguration();
-		const serviceUrl = config.get<string>('gitpod.host')!;
-		return new URL(serviceUrl).toString().replace(/\/$/, '');
+		const serviceUrl = new URL(config.get<string>('gitpod.host')!);
+		serviceUrl.pathname = '/code-sync';
+		return serviceUrl;
 	}
 
-	private getServiceUrl(gitpodUrl: string) {
-		return `${gitpodUrl}/code-sync`;
-	}
-
-	public async readResource(path: string, gitpodUrl: string) {
-		if (!this.isSyncStoreConfigured(gitpodUrl)) {
+	public async readResource(path: string) {
+		if (!this.isSyncStoreConfigured()) {
 			throw new NoSyncStoreError();
 		}
 
-		const syncStoreURL = this.getServiceUrl(gitpodUrl);
+		const syncStoreURL = this.getServiceUrl().toString();
 		const resourceURL = `${syncStoreURL}/v1/resource/${path}/latest`;
 
 		const resp = await this.request(resourceURL);

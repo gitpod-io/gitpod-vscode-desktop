@@ -941,7 +941,7 @@ export default class RemoteConnector extends Disposable {
 	private async initializeRemoteExtensions(flow: UserFlowTelemetry) {
 		let syncData: { ref: string; content: string } | undefined;
 		try {
-			syncData = await this.settingsSync.readResource(SyncResource.Extensions, flow.gitpodHost!);
+			syncData = await this.settingsSync.readResource(SyncResource.Extensions);
 		} catch (e) {
 			if (e instanceof NoSyncStoreError) {
 				const addSyncProvider = 'Settings Sync: Enable Sign In with Gitpod';
