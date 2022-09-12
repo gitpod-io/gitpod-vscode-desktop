@@ -990,8 +990,9 @@ export default class RemoteConnector extends Disposable {
 		}
 
 		extensions = extensions.filter(e => e.installed);
+		flow.extensions = extensions.length;
 		if (!extensions.length) {
-			this.telemetry.sendUserFlowStatus('nothing_to_sync', flow);
+			this.telemetry.sendUserFlowStatus('synced', flow);
 			return;
 		}
 

@@ -52,9 +52,8 @@ export class NotificationService {
         } finally {
             const duration = new Date().getTime() - startTime;
             const closed = result === undefined || (typeof result === 'object' && result.isCloseAffordance === true);
-            const status = closed ? 'close_' + element : 'select_' + element + '_action';
             const action = typeof result === 'string' ? result : result?.title;
-            this.telemetry.sendUserFlowStatus(status, { ...flowOptions, action, duration });
+            this.telemetry.sendUserFlowStatus('hide_' + element, { ...flowOptions, action, duration, closed });
         }
         return result;
     }
