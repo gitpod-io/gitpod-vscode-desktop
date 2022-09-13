@@ -121,7 +121,7 @@ export class SettingsSync extends Disposable {
 				const addedSyncProvider = await this.updateSyncContext();
 				if (!addedSyncProvider) {
 					const action = 'Settings Sync: Enable Sign In with Gitpod';
-					const result = await this.notifications.showInformationMessage('Gitpod Settings Sync configuration invalidated. Settings Sync is disabled.', { flow, id: 'invalid' }, action);
+					const result = await this.notifications.showInformationMessage(`[Settings Sync](https://www.gitpod.io/docs/ides-and-editors/settings-sync#enabling-settings-sync-in-vs-code-desktop) with ${gitpodHost} is disabled.`, { flow, id: 'invalid' }, action);
 					if (result === action) {
 						vscode.commands.executeCommand('gitpod.syncProvider.add');
 					}
@@ -187,7 +187,14 @@ export class SettingsSync extends Disposable {
 			await config.update('settingsSync.ignoredSettings', newIgnoredSettingsConfig, vscode.ConfigurationTarget.Global);
 			await config.update('configurationSync.store', newSyncProviderConfig, vscode.ConfigurationTarget.Global);
 
-			await this.notifications.showInformationMessage('Quit VS Code for the new Settings Sync configuration to take effect.', { flow, modal: true, id: 'quit_to_apply' });
+			const learnMore: vscode.MessageItem = {
+				title: 'Learn More',
+				isCloseAffordance: true
+			};
+			const action = await this.notifications.showInformationMessage('Please entirely quit VS Code for the Settings Sync configuration to take effect.', { flow, modal: true, id: 'quit_to_apply' }, learnMore);
+			if (action === learnMore) {
+				vscode.env.openExternal(vscode.Uri.parse("https://www.gitpod.io/docs/ides-and-editors/settings-sync#enabling-settings-sync-in-vs-code-desktop"));
+			}
 		} catch (e) {
 			const outputMessage = `Error setting up Settings Sync with Gitpod: ${e}`;
 			this.notifications.showErrorMessage(outputMessage, { flow, id: 'failed' });

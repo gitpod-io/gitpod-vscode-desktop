@@ -945,21 +945,15 @@ export default class RemoteConnector extends Disposable {
 		} catch (e) {
 			if (e instanceof NoSyncStoreError) {
 				const addSyncProvider = 'Settings Sync: Enable Sign In with Gitpod';
-				const config = 'Configure';
-				const action = await this.notifications.showInformationMessage(`Could not install local extensions on remote workspace. Please enable Settings Sync with Gitpod.`, { flow, id: 'no_sync_store' }, addSyncProvider, config);
+				const action = await this.notifications.showInformationMessage(`Could not install local extensions on remote workspace. Please enable [Settings Sync](https://www.gitpod.io/docs/ides-and-editors/settings-sync#enabling-settings-sync-in-vs-code-desktop) with Gitpod.`, { flow, id: 'no_sync_store' },  addSyncProvider);
 				if (action === addSyncProvider) {
 					vscode.commands.executeCommand('gitpod.syncProvider.add');
-				} else if (action === config) {
-					vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${this.context.extension.id} sync extensions`);
 				}
 			} else if (e instanceof NoSettingsSyncSession) {
 				const enableSettingsSync = 'Enable Settings Sync';
-				const config = 'Configure';
-				const action = await this.notifications.showInformationMessage(`Could not install local extensions on remote workspace. Please enable Settings Sync.`, { flow, id: 'no_settings_sync' }, enableSettingsSync, config);
+				const action = await this.notifications.showInformationMessage(`Could not install local extensions on remote workspace. Please enable [Settings Sync](https://www.gitpod.io/docs/ides-and-editors/settings-sync#enabling-settings-sync-in-vs-code-desktop).`, { flow, id: 'no_settings_sync' }, enableSettingsSync);
 				if (action === enableSettingsSync) {
 					vscode.commands.executeCommand('workbench.userDataSync.actions.turnOn');
-				} else if (action === config) {
-					vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${this.context.extension.id} sync extensions`);
 				}
 			} else {
 				this.logger.error('Error while fetching settings sync extension data:', e);
