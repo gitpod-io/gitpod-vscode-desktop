@@ -33,7 +33,16 @@ export class ExperimentalSettings {
         this.extensionVersion = new semver.SemVer(extensionVersion);
     }
 
-    async get<T>(key: string, userId?: string, custom?: { [key: string]: string }): Promise<T | undefined> {
+    async get<T>(
+        key: string,
+        userId: string,
+        custom: {
+            gitpodHost: string
+            [key: string]: string
+        },
+        // '.' are not allowed in configcat
+        configcatKey: string = key.replace(/\./g, '_')
+    ): Promise<T | undefined> {
         const config = vscode.workspace.getConfiguration('gitpod');
         const values = config.inspect<T>(key.substring('gitpod.'.length));
         if (!values || !EXPERTIMENTAL_SETTINGS.includes(key)) {
@@ -50,13 +59,21 @@ export class ExperimentalSettings {
         }
 
         const user = userId ? new configcatcommon.User(userId, undefined, undefined, custom) : undefined;
-        const configcatKey = key.replace(/\./g, '_'); // '.' are not allowed in configcat
         const experimentValue = (await this.configcatClient.getValueAsync(configcatKey, undefined, user)) as T | undefined;
 
         return experimentValue ?? values.defaultValue;
     }
 
-    async inspect<T>(key: string, userId?: string, custom?: { [key: string]: string }): Promise<{ key: string; defaultValue?: T; globalValue?: T; experimentValue?: T } | undefined> {
+    async inspect<T>(
+        key: string,
+        userId: string,
+        custom: {
+            gitpodHost: string
+            [key: string]: string
+        },
+        // '.' are not allowed in configcat
+        configcatKey: string = key.replace(/\./g, '_')
+    ): Promise<{ key: string; defaultValue?: T; globalValue?: T; experimentValue?: T } | undefined> {
         const config = vscode.workspace.getConfiguration('gitpod');
         const values = config.inspect<T>(key.substring('gitpod.'.length));
         if (!values || !EXPERTIMENTAL_SETTINGS.includes(key)) {
@@ -65,7 +82,6 @@ export class ExperimentalSettings {
         }
 
         const user = userId ? new configcatcommon.User(userId, undefined, undefined, custom) : undefined;
-        const configcatKey = key.replace(/\./g, '_'); // '.' are not allowed in configcat
         const experimentValue = (await this.configcatClient.getValueAsync(configcatKey, undefined, user)) as T | undefined;
 
         return { key, defaultValue: values.defaultValue, globalValue: values.globalValue, experimentValue };

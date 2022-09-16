@@ -788,10 +788,9 @@ export default class RemoteConnector extends Disposable {
 
 		this.logger.info('Opening Gitpod workspace', uri.toString());
 
-		// Only use experiment for SaaS
 		const forceUseLocalApp = getServiceURL(params.gitpodHost) === 'https://gitpod.io'
 			? (await this.experiments.get<boolean>('gitpod.remote.useLocalApp', session.account.id, { gitpodHost: params.gitpodHost }))!
-			: vscode.workspace.getConfiguration('gitpod').get<boolean>('remote.useLocalApp')!;
+			: (await this.experiments.get<boolean>('gitpod.remote.useLocalApp', session.account.id, { gitpodHost: params.gitpodHost }, 'gitpod_remote_useLocalApp_sh'))!
 		const userOverride = String(isUserOverrideSetting('gitpod.remote.useLocalApp'));
 		let sshDestination: string | undefined;
 		if (!forceUseLocalApp) {
