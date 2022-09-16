@@ -5,6 +5,7 @@
 
 import { AutoTunnelRequest, ResolveSSHConnectionRequest, ResolveSSHConnectionResponse } from '@gitpod/local-app-api-grpcweb/lib/localapp_pb';
 import { LocalAppClient } from '@gitpod/local-app-api-grpcweb/lib/localapp_pb_service';
+import { WorkspaceConfig, PortConfig, PortOnOpen } from '@gitpod/gitpod-protocol/lib/protocol';
 import { NodeHttpTransport } from '@improbable-eng/grpc-web-node-http-transport';
 import { grpc } from '@improbable-eng/grpc-web';
 import * as cp from 'child_process';
@@ -18,6 +19,7 @@ import { ParsedKey } from 'ssh2-streams';
 import * as tmp from 'tmp';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { parse as parseJson, modify as modifyJson, applyEdits as applyEditsJson } from 'jsonc-parser';
 import Log from './common/logger';
 import { Disposable } from './common/dispose';
 import { withServerApi } from './internalApi';
@@ -945,7 +947,7 @@ export default class RemoteConnector extends Disposable {
 		} catch (e) {
 			if (e instanceof NoSyncStoreError) {
 				const addSyncProvider = 'Settings Sync: Enable Sign In with Gitpod';
-				const action = await this.notifications.showInformationMessage(`Could not install local extensions on remote workspace. Please enable [Settings Sync](https://www.gitpod.io/docs/ides-and-editors/settings-sync#enabling-settings-sync-in-vs-code-desktop) with Gitpod.`, { flow, id: 'no_sync_store' },  addSyncProvider);
+				const action = await this.notifications.showInformationMessage(`Could not install local extensions on remote workspace. Please enable [Settings Sync](https://www.gitpod.io/docs/ides-and-editors/settings-sync#enabling-settings-sync-in-vs-code-desktop) with Gitpod.`, { flow, id: 'no_sync_store' }, addSyncProvider);
 				if (action === addSyncProvider) {
 					vscode.commands.executeCommand('gitpod.syncProvider.add');
 				}
@@ -1015,6 +1017,71 @@ export default class RemoteConnector extends Disposable {
 		}
 	}
 
+	private async configureMachineSettings(wsConfig: WorkspaceConfig) {
+		// Let's reuse the `__gitpod.getGitpodRemoteLogsUri` command to get the vscode-server folder
+		let extRemoteLogsUri: vscode.Uri | undefined;
+		try {
+			extRemoteLogsUri = await retry(async () => {
+				return await vscode.commands.executeCommand('__gitpod.getGitpodRemoteLogsUri');
+			}, 3000, 15);
+		} catch {
+		}
+
+		if (!extRemoteLogsUri) {
+			return;
+		}
+
+		const remoteUserDataPath = path.posix.dirname(path.posix.dirname(path.posix.dirname(path.posix.dirname(extRemoteLogsUri.path))));
+		const machineSettingsResource = extRemoteLogsUri.with({ path: path.posix.join(remoteUserDataPath, 'Machine', 'settings.json') });
+		try {
+			let settingsStr: string = '{}';
+			const fileExists = await vscode.workspace.fs.stat(machineSettingsResource).then(() => true, () => false);
+			if (fileExists) {
+				const settingsbuffer = await vscode.workspace.fs.readFile(machineSettingsResource);
+				settingsStr = new TextDecoder().decode(settingsbuffer);
+			}
+
+			// settings.json is a json with comments file so we use jsonc-parser library
+			const settingsJson = parseJson(settingsStr);
+			if (settingsJson['remote.autoForwardPortsSource'] === undefined) {
+				const edits = modifyJson(settingsStr, ['remote.autoForwardPortsSource'], 'process', { formattingOptions: { insertSpaces: true, tabSize: 4, insertFinalNewline: true } });
+				settingsStr = applyEditsJson(settingsStr, edits);
+			}
+			if (settingsJson['remote.portsAttributes'] === undefined && wsConfig.ports?.length) {
+				const mapOnOpen = (onOpen?: PortOnOpen)=>{
+					switch (onOpen) {
+						case 'open-browser': return 'openBrowser';
+						case 'open-preview': return 'openPreview';
+						default: return onOpen;
+					}
+				};
+
+				const portsAttributes: any = {};
+				for (const portConfig of wsConfig.ports) {
+					portsAttributes[portConfig.port] = {
+						label: portConfig.name,
+						onAutoForward: mapOnOpen(portConfig.onOpen)
+					};
+				}
+				const edits = modifyJson(settingsStr, ['remote.portsAttributes'], portsAttributes, { formattingOptions: { insertSpaces: true, tabSize: 4, insertFinalNewline: true } });
+				settingsStr = applyEditsJson(settingsStr, edits);
+			}
+
+			const settingsbuffer = new TextEncoder().encode(settingsStr);
+			await vscode.workspace.fs.writeFile(machineSettingsResource, settingsbuffer);
+		} catch (e) {
+			this.logger.error(`Could not update ${machineSettingsResource.toString()} resource`, e);
+		}
+	}
+
+	private async tunnelPortsFromConfig(portsConfig: PortConfig[]) {
+		for (const portConfig of portsConfig) {
+			if (portConfig.onOpen !== 'ignore') {
+				await vscode.env.asExternalUri(vscode.Uri.parse(`http://localhost:${portConfig.port}`));
+			}
+		}
+	}
+
 	private async onGitpodRemoteConnection() {
 		const remoteUri = vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.[0].uri;
 		if (!remoteUri) {
@@ -1045,6 +1112,8 @@ export default class RemoteConnector extends Disposable {
 		}
 
 		await this.context.globalState.update(`${RemoteConnector.SSH_DEST_KEY}${sshDestStr}`, { ...connectionInfo, isFirstConnection: false });
+
+		this.configureMachineSettings(workspaceInfo.workspace.config).then(() => this.tunnelPortsFromConfig(workspaceInfo.workspace.config.ports ?? []));
 
 		const heartbeatSupported = session.scopes.includes(ScopeFeature.LocalHeartbeat);
 		if (heartbeatSupported) {
