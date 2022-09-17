@@ -448,7 +448,7 @@ export default class RemoteConnector extends Disposable {
 
 	// From https://github.com/openssh/openssh-portable/blob/acb2059febaddd71ee06c2ebf63dcf211d9ab9f2/sshconnect2.c#L1689-L1690
 	private async getIdentityKeys(hostConfig: Record<string, string>) {
-		const identityFiles: string[] = ((hostConfig['IdentityFile'] as unknown as string[]) || []).map(untildify);
+		const identityFiles: string[] = ((hostConfig['IdentityFile'] as unknown as string[]) || []).map(untildify).map(i => i.replace(/\.pub$/, ''));
 		if (identityFiles.length === 0) {
 			identityFiles.push(...DEFAULT_IDENTITY_FILES);
 		}
@@ -736,7 +736,7 @@ export default class RemoteConnector extends Disposable {
 		throw new Error('SSH password modal dialog, Canceled');
 	}
 
-	private async getGitpodSession(gitpodHost: string, flow: UserFlowTelemetry) {
+	private async ensureValidGitpodHost(gitpodHost: string, flow: UserFlowTelemetry): Promise<boolean>{
 		const config = vscode.workspace.getConfiguration('gitpod');
 		const currentGitpodHost = config.get<string>('host')!;
 		if (new URL(gitpodHost).host !== new URL(currentGitpodHost).host) {
@@ -744,13 +744,17 @@ export default class RemoteConnector extends Disposable {
 			const cancel = 'Cancel';
 			const action = await this.notifications.showInformationMessage(`Connecting to a Gitpod workspace in '${gitpodHost}'. Would you like to switch from '${currentGitpodHost}' and continue?`, { id: 'switch_gitpod_host', flow }, yes, cancel);
 			if (action === cancel) {
-				return;
+				return false;
 			}
 
 			await config.update('host', gitpodHost, vscode.ConfigurationTarget.Global);
 			this.logger.info(`Updated 'gitpod.host' setting to '${gitpodHost}' while trying to connect to a Gitpod workspace`);
 		}
 
+		return true;
+	}
+
+	private async getGitpodSession(gitpodHost: string) {
 		const gitpodVersion = await getGitpodVersion(gitpodHost, this.logger);
 		const sessionScopes = ['function:getWorkspace', 'function:getOwnerToken', 'function:getLoggedInUser', 'resource:default'];
 		if (await isOauthInspectSupported(gitpodHost) || isFeatureSupported(gitpodVersion, 'SSHPublicKeys') /* && isFeatureSupported('', 'sendHeartBeat') */) {
@@ -780,7 +784,12 @@ export default class RemoteConnector extends Disposable {
 			return;
 		}
 
-		const session = await this.getGitpodSession(params.gitpodHost, sshFlow);
+		const isGitpodHostValid = await this.ensureValidGitpodHost(params.gitpodHost, sshFlow);
+		if (!isGitpodHostValid) {
+			return;
+		}
+
+		const session = await this.getGitpodSession(params.gitpodHost);
 		if (!session) {
 			return;
 		}
@@ -790,7 +799,7 @@ export default class RemoteConnector extends Disposable {
 
 		const forceUseLocalApp = getServiceURL(params.gitpodHost) === 'https://gitpod.io'
 			? (await this.experiments.get<boolean>('gitpod.remote.useLocalApp', session.account.id, { gitpodHost: params.gitpodHost }))!
-			: (await this.experiments.get<boolean>('gitpod.remote.useLocalApp', session.account.id, { gitpodHost: params.gitpodHost }, 'gitpod_remote_useLocalApp_sh'))!
+			: (await this.experiments.get<boolean>('gitpod.remote.useLocalApp', session.account.id, { gitpodHost: params.gitpodHost }, 'gitpod_remote_useLocalApp_sh'))!;
 		const userOverride = String(isUserOverrideSetting('gitpod.remote.useLocalApp'));
 		let sshDestination: string | undefined;
 		if (!forceUseLocalApp) {
@@ -892,14 +901,19 @@ export default class RemoteConnector extends Disposable {
 	}
 
 	public async autoTunnelCommand(gitpodHost: string, instanceId: string, enabled: boolean) {
-		const forceUseLocalApp = vscode.workspace.getConfiguration('gitpod').get<boolean>('remote.useLocalApp')!;
-		if (!forceUseLocalApp) {
-			const authority = vscode.Uri.parse(gitpodHost).authority;
-			const configKey = `config/${authority}`;
-			const localAppconfig = this.context.globalState.get<LocalAppConfig>(configKey);
-			if (!localAppconfig || checkRunning(localAppconfig.pid) !== true) {
-				// Do nothing if we are using SSH gateway and local app is not running
-				return;
+		const session = await this.getGitpodSession(gitpodHost);
+		if (session) {
+			const forceUseLocalApp = getServiceURL(gitpodHost) === 'https://gitpod.io'
+				? (await this.experiments.get<boolean>('gitpod.remote.useLocalApp', session.account.id, { gitpodHost }))!
+				: (await this.experiments.get<boolean>('gitpod.remote.useLocalApp', session.account.id, { gitpodHost }, 'gitpod_remote_useLocalApp_sh'))!;
+			if (!forceUseLocalApp) {
+				const authority = vscode.Uri.parse(gitpodHost).authority;
+				const configKey = `config/${authority}`;
+				const localAppconfig = this.context.globalState.get<LocalAppConfig>(configKey);
+				if (!localAppconfig || checkRunning(localAppconfig.pid) !== true) {
+					// Do nothing if we are using SSH gateway and local app is not running
+					return;
+				}
 			}
 		}
 
@@ -944,7 +958,7 @@ export default class RemoteConnector extends Disposable {
 		} catch (e) {
 			if (e instanceof NoSyncStoreError) {
 				const addSyncProvider = 'Settings Sync: Enable Sign In with Gitpod';
-				const action = await this.notifications.showInformationMessage(`Could not install local extensions on remote workspace. Please enable [Settings Sync](https://www.gitpod.io/docs/ides-and-editors/settings-sync#enabling-settings-sync-in-vs-code-desktop) with Gitpod.`, { flow, id: 'no_sync_store' },  addSyncProvider);
+				const action = await this.notifications.showInformationMessage(`Could not install local extensions on remote workspace. Please enable [Settings Sync](https://www.gitpod.io/docs/ides-and-editors/settings-sync#enabling-settings-sync-in-vs-code-desktop) with Gitpod.`, { flow, id: 'no_sync_store' }, addSyncProvider);
 				if (action === addSyncProvider) {
 					vscode.commands.executeCommand('gitpod.syncProvider.add');
 				}
@@ -1025,13 +1039,11 @@ export default class RemoteConnector extends Disposable {
 		if (!connectionInfo) {
 			return;
 		}
-		const gitpodVersion = await getGitpodVersion(connectionInfo.gitpodHost, this.logger);
-		const initRemoteFlow: UserFlowTelemetry = { ...connectionInfo, gitpodVersion: gitpodVersion.raw, flow: 'init_remote' };
-		const session = await this.getGitpodSession(connectionInfo.gitpodHost, initRemoteFlow);
+
+		const session = await this.getGitpodSession(connectionInfo.gitpodHost);
 		if (!session) {
 			return;
 		}
-		initRemoteFlow.userId = session.account.id;
 
 		const workspaceInfo = await withServerApi(session.accessToken, connectionInfo.gitpodHost, service => service.server.getWorkspace(connectionInfo.workspaceId), this.logger);
 		if (workspaceInfo.latestInstance?.status?.phase !== 'running') {
@@ -1045,6 +1057,8 @@ export default class RemoteConnector extends Disposable {
 
 		await this.context.globalState.update(`${RemoteConnector.SSH_DEST_KEY}${sshDestStr}`, { ...connectionInfo, isFirstConnection: false });
 
+		const gitpodVersion = await getGitpodVersion(connectionInfo.gitpodHost, this.logger);
+
 		const heartbeatSupported = session.scopes.includes(ScopeFeature.LocalHeartbeat);
 		if (heartbeatSupported) {
 			this.startHeartBeat(session.accessToken, connectionInfo, gitpodVersion);
@@ -1052,11 +1066,9 @@ export default class RemoteConnector extends Disposable {
 			this.logger.warn(`Local heartbeat not supported in ${connectionInfo.gitpodHost}, using version ${gitpodVersion.raw}`);
 		}
 
-		const syncExtensions = (await this.experiments.get<boolean>('gitpod.remote.syncExtensions', session.account.id, {
-			gitpodHost: connectionInfo.gitpodHost
-		}))!;
+		const syncExtensions = (await this.experiments.get<boolean>('gitpod.remote.syncExtensions', session.account.id, { gitpodHost: connectionInfo.gitpodHost	}))!;
 		const userOverride = String(isUserOverrideSetting('gitpod.remote.syncExtensions'));
-		const syncExtFlow = { ...initRemoteFlow, flow: 'sync_local_extensions', userOverride };
+		const syncExtFlow = { ...connectionInfo, gitpodVersion: gitpodVersion.raw, userId: session.account.id, flow: 'sync_local_extensions', userOverride };
 		this.telemetry.sendUserFlowStatus(syncExtensions ? 'enabled' : 'disabled', syncExtFlow);
 		if (syncExtensions) {
 			this.initializeRemoteExtensions(syncExtFlow);

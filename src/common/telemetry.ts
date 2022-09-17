@@ -15,13 +15,13 @@ export interface TelemetryOptions {
 	workspaceId?: string;
 	instanceId?: string;
 
-	userId?: string
+	userId?: string;
 
-	[prop: string]: any
+	[prop: string]: any;
 }
 
 export interface UserFlowTelemetry extends TelemetryOptions {
-	flow: string
+	flow: string;
 }
 
 const enum TelemetryLevel {

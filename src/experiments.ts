@@ -37,11 +37,10 @@ export class ExperimentalSettings {
         key: string,
         userId: string,
         custom: {
-            gitpodHost: string
-            [key: string]: string
+            gitpodHost: string;
+            [key: string]: string;
         },
-        // '.' are not allowed in configcat
-        configcatKey: string = key.replace(/\./g, '_')
+        configcatKey?: string
     ): Promise<T | undefined> {
         const config = vscode.workspace.getConfiguration('gitpod');
         const values = config.inspect<T>(key.substring('gitpod.'.length));
@@ -59,6 +58,7 @@ export class ExperimentalSettings {
         }
 
         const user = userId ? new configcatcommon.User(userId, undefined, undefined, custom) : undefined;
+        configcatKey = configcatKey ?? key.replace(/\./g, '_'); // '.' are not allowed in configcat
         const experimentValue = (await this.configcatClient.getValueAsync(configcatKey, undefined, user)) as T | undefined;
 
         return experimentValue ?? values.defaultValue;
@@ -68,11 +68,10 @@ export class ExperimentalSettings {
         key: string,
         userId: string,
         custom: {
-            gitpodHost: string
-            [key: string]: string
+            gitpodHost: string;
+            [key: string]: string;
         },
-        // '.' are not allowed in configcat
-        configcatKey: string = key.replace(/\./g, '_')
+        configcatKey?: string
     ): Promise<{ key: string; defaultValue?: T; globalValue?: T; experimentValue?: T } | undefined> {
         const config = vscode.workspace.getConfiguration('gitpod');
         const values = config.inspect<T>(key.substring('gitpod.'.length));
@@ -82,6 +81,7 @@ export class ExperimentalSettings {
         }
 
         const user = userId ? new configcatcommon.User(userId, undefined, undefined, custom) : undefined;
+        configcatKey = configcatKey ?? key.replace(/\./g, '_'); // '.' are not allowed in configcat
         const experimentValue = (await this.configcatClient.getValueAsync(configcatKey, undefined, user)) as T | undefined;
 
         return { key, defaultValue: values.defaultValue, globalValue: values.globalValue, experimentValue };
