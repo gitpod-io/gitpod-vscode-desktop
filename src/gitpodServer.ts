@@ -5,7 +5,6 @@
 
 import * as vscode from 'vscode';
 import Log from './common/logger';
-import fetch from 'node-fetch';
 import { PromiseAdapter, promiseFromEvent } from './common/utils';
 import { withServerApi } from './internalApi';
 import pkceChallenge from 'pkce-challenge';
@@ -157,7 +156,7 @@ export default class GitpodServer extends Disposable {
 					return;
 				}
 
-				const exchangeTokenData: ExchangeTokenResponse = await exchangeTokenResponse.json();
+				const exchangeTokenData = (await exchangeTokenResponse.json()) as ExchangeTokenResponse;
 				const jwtToken = exchangeTokenData.access_token;
 				const accessToken = JSON.parse(Buffer.from(jwtToken.split('.')[1], 'base64').toString())['jti'];
 				resolve(accessToken);

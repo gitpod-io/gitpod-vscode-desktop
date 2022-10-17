@@ -33,6 +33,18 @@ export class ExperimentalSettings {
         this.extensionVersion = new semver.SemVer(extensionVersion);
     }
 
+    async getRaw<T>(
+        configcatKey: string,
+        userId: string,
+        custom: {
+            gitpodHost: string;
+            [key: string]: string;
+        }
+    ) {
+        const user = userId ? new configcatcommon.User(userId, undefined, undefined, custom) : undefined;
+        return (await this.configcatClient.getValueAsync(configcatKey, undefined, user)) as T | undefined;
+    }
+
     async get<T>(
         key: string,
         userId: string,

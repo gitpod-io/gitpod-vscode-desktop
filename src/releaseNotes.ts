@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import fetch, { Response } from 'node-fetch';
 import * as vscode from 'vscode';
 import { load } from 'js-yaml';
 import { CacheHelper } from './common/cache';

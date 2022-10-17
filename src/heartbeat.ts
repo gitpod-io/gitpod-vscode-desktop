@@ -3,10 +3,13 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { WorkspaceInfo } from '@gitpod/gitpod-protocol';
+import { WorkspaceInstance, WorkspaceInstanceStatus_Phase } from '@gitpod/public-api/lib/gitpod/v1/workspaces_pb';
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
 import Log from './common/logger';
 import { withServerApi } from './internalApi';
+import { GitpodPublicApi } from './publicApi';
 import TelemetryReporter from './telemetryReporter';
 
 export class HeartbeatManager extends Disposable {
@@ -22,6 +25,7 @@ export class HeartbeatManager extends Disposable {
         readonly workspaceId: string,
         readonly instanceId: string,
         private readonly accessToken: string,
+        private readonly publicApi: GitpodPublicApi | undefined,
         private readonly logger: Log,
         private readonly telemetry: TelemetryReporter
     ) {
@@ -98,8 +102,12 @@ export class HeartbeatManager extends Disposable {
         const suffix = wasClosed ? 'closed heartbeat' : 'heartbeat';
         try {
             await withServerApi(this.accessToken, this.gitpodHost, async service => {
-                const workspaceInfo = await service.server.getWorkspace(this.workspaceId);
-                this.isWorkspaceRunning = workspaceInfo.latestInstance?.status?.phase === 'running' && workspaceInfo.latestInstance?.id === this.instanceId;
+                const workspaceInfo = this.publicApi
+                    ? await this.publicApi.getActiveWorkspaceInstance(this.workspaceId)
+                    : await service.server.getWorkspace(this.workspaceId);
+                this.isWorkspaceRunning = this.publicApi
+                    ? (workspaceInfo as WorkspaceInstance)?.status?.phase === WorkspaceInstanceStatus_Phase.RUNNING && (workspaceInfo as WorkspaceInstance)?.instanceId === this.instanceId
+                    : (workspaceInfo as WorkspaceInfo).latestInstance?.status?.phase === 'running' && (workspaceInfo as WorkspaceInfo).latestInstance?.id === this.instanceId;
                 if (this.isWorkspaceRunning) {
                     await service.server.sendHeartBeat({ instanceId: this.instanceId, wasClosed });
                     if (wasClosed) {

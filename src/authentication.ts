@@ -5,7 +5,6 @@
 
 import * as vscode from 'vscode';
 import { v4 as uuid } from 'uuid';
-import fetch from 'node-fetch';
 import Keychain from './common/keychain';
 import GitpodServer from './gitpodServer';
 import Log from './common/logger';
@@ -106,9 +105,11 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 
 		const endpoint = `${this._serviceUrl}/api/oauth/inspect?client=${vscode.env.uriScheme}-gitpod`;
 		try {
-			const resp = await fetch(endpoint, { timeout: 1500 });
+			const controller = new AbortController();
+			setTimeout(() => controller.abort(), 1500);
+			const resp = await fetch(endpoint, { signal: controller.signal });
 			if (resp.ok) {
-				this._validScopes = await resp.json();
+				this._validScopes = (await resp.json()) as string[];
 				return this._validScopes;
 			}
 		} catch (e) {

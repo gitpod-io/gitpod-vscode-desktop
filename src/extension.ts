@@ -5,6 +5,7 @@
 
 import * as os from 'os';
 import * as vscode from 'vscode';
+import fetch, { Headers, Request, Response, AbortError, FetchError } from 'node-fetch-commonjs';
 import GitpodAuthenticationProvider from './authentication';
 import Log from './common/logger';
 import { UserFlowTelemetry } from './common/telemetry';
@@ -16,6 +17,14 @@ import { ReleaseNotes } from './releaseNotes';
 import RemoteConnector from './remoteConnector';
 import { SettingsSync } from './settingsSync';
 import TelemetryReporter from './telemetryReporter';
+
+// connect-web uses fetch api, so we need to polyfill it
+global.fetch = fetch as any;
+global.Headers = Headers as any;
+global.Request = Request as any;
+global.Response = Response as any;
+(global as any).AbortError = AbortError as any;
+(global as any).FetchError = FetchError as any;
 
 const FIRST_INSTALL_KEY = 'gitpod-desktop.firstInstall';
 
