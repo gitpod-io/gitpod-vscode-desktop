@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { WorkspaceInfo } from '@gitpod/gitpod-protocol';
-import { WorkspaceInstance, WorkspaceInstanceStatus_Phase } from '@gitpod/public-api/lib/gitpod/v1/workspaces_pb';
+import { Workspace, WorkspaceInstanceStatus_Phase } from '@gitpod/public-api/lib/gitpod/experimental/v1/workspaces_pb';
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
 import Log from './common/logger';
@@ -103,12 +103,13 @@ export class HeartbeatManager extends Disposable {
         try {
             await withServerApi(this.accessToken, this.gitpodHost, async service => {
                 const workspaceInfo = this.publicApi
-                    ? await this.publicApi.getActiveWorkspaceInstance(this.workspaceId)
+                    ? await this.publicApi.getWorkspace(this.workspaceId)
                     : await service.server.getWorkspace(this.workspaceId);
                 this.isWorkspaceRunning = this.publicApi
-                    ? (workspaceInfo as WorkspaceInstance)?.status?.phase === WorkspaceInstanceStatus_Phase.RUNNING && (workspaceInfo as WorkspaceInstance)?.instanceId === this.instanceId
+                    ? (workspaceInfo as Workspace)?.status?.instance?.status?.phase === WorkspaceInstanceStatus_Phase.RUNNING && (workspaceInfo as Workspace)?.status?.instance?.instanceId === this.instanceId
                     : (workspaceInfo as WorkspaceInfo).latestInstance?.status?.phase === 'running' && (workspaceInfo as WorkspaceInfo).latestInstance?.id === this.instanceId;
                 if (this.isWorkspaceRunning) {
+                    // TODO: use the public API
                     await service.server.sendHeartBeat({ instanceId: this.instanceId, wasClosed });
                     if (wasClosed) {
                         this.telemetry.sendTelemetryEvent('ide_close_signal', { workspaceId: this.workspaceId, instanceId: this.instanceId, gitpodHost: this.gitpodHost, clientKind: 'vscode' });

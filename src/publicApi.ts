@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createConnectTransport, createPromiseClient, Interceptor, PromiseClient } from '@bufbuild/connect-web';
-import { WorkspacesService } from '@gitpod/public-api/lib/gitpod/v1/workspaces_connectweb';
-import { Workspace, WorkspaceInstance } from '@gitpod/public-api/lib/gitpod/v1/workspaces_pb';
+import { WorkspacesService } from '@gitpod/public-api/lib/gitpod/experimental/v1/workspaces_connectweb';
+import { Workspace } from '@gitpod/public-api/lib/gitpod/experimental/v1/workspaces_pb';
 
 export class GitpodPublicApi {
 
@@ -14,7 +14,7 @@ export class GitpodPublicApi {
     constructor() {
     }
 
-    async init(accessToken: string, gitpodHost:string){
+    async init(accessToken: string, gitpodHost: string) {
         const serviceUrl = new URL(gitpodHost);
         serviceUrl.hostname = `api.${serviceUrl.hostname}`;
 
@@ -34,11 +34,6 @@ export class GitpodPublicApi {
     async getWorkspace(workspaceId: string): Promise<Workspace | undefined> {
         const response = await this.workspaceService.getWorkspace({ workspaceId });
         return response.result;
-    }
-
-    async getActiveWorkspaceInstance(workspaceId: string): Promise<WorkspaceInstance | undefined> {
-        const response = await this.workspaceService.getActiveWorkspaceInstance({ workspaceId });
-        return response.instance;
     }
 
     async getOwnerToken(workspaceId: string): Promise<string> {
