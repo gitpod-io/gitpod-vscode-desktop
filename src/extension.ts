@@ -42,9 +42,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const logger = new Log('Gitpod');
 	logger.info(`${extensionId}/${packageJSON.version} (${os.release()} ${os.platform()} ${os.arch()}) vscode/${vscode.version} (${vscode.env.appName})`);
-	
-	const gitpodHost = vscode.workspace.getConfiguration('gitpod').get<string>('host')!;
-	const experiments = new ExperimentalSettings('gitpod', packageJSON.version, logger, gitpodHost);
+
+	const experiments = new ExperimentalSettings('gitpod', packageJSON.version, context, logger);
 	context.subscriptions.push(experiments);
 
 	telemetry = new TelemetryReporter(extensionId, packageJSON.version, packageJSON.segmentKey);

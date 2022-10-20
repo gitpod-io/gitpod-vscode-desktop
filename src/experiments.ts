@@ -18,9 +18,14 @@ export class ExperimentalSettings {
     private configcatClient: configcatcommon.IConfigCatClient;
     private extensionVersion: semver.SemVer;
 
-    constructor(key: string, extensionVersion: string, private logger: Log, gitpodHost: string) {
+    constructor(
+        key: string,
+        extensionVersion: string,
+        private readonly context: vscode.ExtensionContext,
+        private readonly logger: Log
+    ) {
         this.configcatClient = configcat.createClientWithLazyLoad(key, {
-            baseUrl: new URL('/configcat', process.env['TEST'] ? 'https://gitpod-staging.com' : gitpodHost).href,
+            baseUrl: new URL('/configcat', this.context.extensionMode === vscode.ExtensionMode.Production ? 'https://gitpod.io' : 'https://gitpod-staging.com').href,
             logger: {
                 debug(): void { },
                 log(): void { },
