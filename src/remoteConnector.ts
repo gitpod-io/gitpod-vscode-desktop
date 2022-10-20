@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { v4 as uuid } from 'uuid';
 import { AutoTunnelRequest, ResolveSSHConnectionRequest, ResolveSSHConnectionResponse } from '@gitpod/local-app-api-grpcweb/lib/localapp_pb';
 import { LocalAppClient } from '@gitpod/local-app-api-grpcweb/lib/localapp_pb_service';
 import { NodeHttpTransport } from '@improbable-eng/grpc-web-node-http-transport';
@@ -970,30 +971,52 @@ export default class RemoteConnector extends Disposable {
 		}
 	}
 
-	private async initializeRemoteExtensions(flow: UserFlowTelemetry) {
+	private async initializeRemoteExtensions(flow: UserFlowTelemetry & { quiet: boolean, flowId: string }) {
+		this.telemetry.sendUserFlowStatus('enabled', flow);
 		let syncData: { ref: string; content: string } | undefined;
 		try {
 			syncData = await this.settingsSync.readResource(SyncResource.Extensions);
 		} catch (e) {
 			if (e instanceof NoSyncStoreError) {
-				const addSyncProvider = 'Settings Sync: Enable Sign In with Gitpod';
-				const action = await this.notifications.showInformationMessage(`Could not install local extensions on remote workspace. Please enable [Settings Sync](https://www.gitpod.io/docs/ides-and-editors/settings-sync#enabling-settings-sync-in-vs-code-desktop) with Gitpod.`, { flow, id: 'no_sync_store' }, addSyncProvider);
-				if (action === addSyncProvider) {
-					vscode.commands.executeCommand('gitpod.syncProvider.add');
+				const msg = `Could not install local extensions on remote workspace. Please enable [Settings Sync](https://www.gitpod.io/docs/ides-and-editors/settings-sync#enabling-settings-sync-in-vs-code-desktop) with Gitpod.`;
+				this.logger.error(msg);
+
+				const status = 'no_sync_store';
+				if (flow.quiet) {
+					this.telemetry.sendUserFlowStatus(status, flow);
+				} else {
+					const addSyncProvider = 'Settings Sync: Enable Sign In with Gitpod';
+					const action = await this.notifications.showInformationMessage(msg, { flow, id: status }, addSyncProvider);
+					if (action === addSyncProvider) {
+						vscode.commands.executeCommand('gitpod.syncProvider.add');
+					}
 				}
 			} else if (e instanceof NoSettingsSyncSession) {
-				const enableSettingsSync = 'Enable Settings Sync';
-				const action = await this.notifications.showInformationMessage(`Could not install local extensions on remote workspace. Please enable [Settings Sync](https://www.gitpod.io/docs/ides-and-editors/settings-sync#enabling-settings-sync-in-vs-code-desktop).`, { flow, id: 'no_settings_sync' }, enableSettingsSync);
-				if (action === enableSettingsSync) {
-					vscode.commands.executeCommand('workbench.userDataSync.actions.turnOn');
+				const msg = `Could not install local extensions on remote workspace. Please enable [Settings Sync](https://www.gitpod.io/docs/ides-and-editors/settings-sync#enabling-settings-sync-in-vs-code-desktop) with Gitpod.`;
+				this.logger.error(msg);
+
+				const status = 'no_settings_sync';
+				if (flow.quiet) {
+					this.telemetry.sendUserFlowStatus(status, flow);
+				} else {
+					const enableSettingsSync = 'Enable Settings Sync';
+					const action = await this.notifications.showInformationMessage(msg, { flow, id: status }, enableSettingsSync);
+					if (action === enableSettingsSync) {
+						vscode.commands.executeCommand('workbench.userDataSync.actions.turnOn');
+					}
 				}
 			} else {
 				this.logger.error('Error while fetching settings sync extension data:', e);
 
-				const seeLogs = 'See Logs';
-				const action = await this.notifications.showErrorMessage(`Error while fetching settings sync extension data.`, { flow, id: 'failed_to_fetch' }, seeLogs);
-				if (action === seeLogs) {
-					this.logger.show();
+				const status = 'failed_to_fetch';
+				if (flow.quiet) {
+					this.telemetry.sendUserFlowStatus(status, flow);
+				} else {
+					const seeLogs = 'See Logs';
+					const action = await this.notifications.showErrorMessage(`Error while fetching settings sync extension data.`, { flow, id: status }, seeLogs);
+					if (action === seeLogs) {
+						this.logger.show();
+					}
 				}
 			}
 			return;
@@ -1001,8 +1024,15 @@ export default class RemoteConnector extends Disposable {
 
 		const syncDataContent = parseSyncData(syncData.content);
 		if (!syncDataContent) {
-			this.telemetry.sendUserFlowStatus('failed_to_parse_content', flow);
-			this.logger.error('Error while parsing sync data');
+			const msg = `Error while parsing settings sync extension data.`;
+			this.logger.error(msg);
+
+			const status = 'failed_to_parse_content';
+			if (flow.quiet) {
+				this.telemetry.sendUserFlowStatus(status, flow);
+			} else {
+				await this.notifications.showErrorMessage(msg, { flow, id: status });
+			}
 			return;
 		}
 
@@ -1010,8 +1040,15 @@ export default class RemoteConnector extends Disposable {
 		try {
 			extensions = JSON.parse(syncDataContent.content);
 		} catch {
-			this.telemetry.sendUserFlowStatus('failed_to_parse_json', flow);
-			this.logger.error('Error while parsing settings sync extension data, malformed json');
+			const msg = `Error while parsing settings sync extension data, malformed JSON.`;
+			this.logger.error(msg);
+
+			const status = 'failed_to_parse_json';
+			if (flow.quiet) {
+				this.telemetry.sendUserFlowStatus(status, flow);
+			} else {
+				await this.notifications.showErrorMessage(msg, { flow, id: status });
+			}
 			return;
 		}
 
@@ -1039,10 +1076,18 @@ export default class RemoteConnector extends Disposable {
 			});
 			this.telemetry.sendUserFlowStatus('synced', flow);
 		} catch {
-			const seeLogs = 'See Logs';
-			const action = await this.notifications.showErrorMessage(`Error while installing local extensions on remote.`, { flow, id: 'failed' }, seeLogs);
-			if (action === seeLogs) {
-				this.logger.show();
+			const msg = `Error while installing local extensions on remote.`;
+			this.logger.error(msg);
+
+			const status = 'failed';
+			if (flow.quiet) {
+				this.telemetry.sendUserFlowStatus(status, flow);
+			} else {
+				const seeLogs = 'See Logs';
+				const action = await this.notifications.showErrorMessage(msg, { flow, id: status }, seeLogs);
+				if (action === seeLogs) {
+					this.logger.show();
+				}
 			}
 		}
 	}
@@ -1085,13 +1130,13 @@ export default class RemoteConnector extends Disposable {
 			this.logger.warn(`Local heartbeat not supported in ${connectionInfo.gitpodHost}, using version ${gitpodVersion.raw}`);
 		}
 
-		const syncExtensions = (await this.experiments.get<boolean>('gitpod.remote.syncExtensions', session.account.id, { gitpodHost: connectionInfo.gitpodHost }))!;
-		const userOverride = String(isUserOverrideSetting('gitpod.remote.syncExtensions'));
-		const syncExtFlow = { ...connectionInfo, gitpodVersion: gitpodVersion.raw, userId: session.account.id, flow: 'sync_local_extensions', userOverride };
-		this.telemetry.sendUserFlowStatus(syncExtensions ? 'enabled' : 'disabled', syncExtFlow);
-		if (syncExtensions) {
-			this.initializeRemoteExtensions(syncExtFlow);
-		}
+		const syncExtFlow = { ...connectionInfo, gitpodVersion: gitpodVersion.raw, userId: session.account.id, flow: 'sync_local_extensions' };
+		this.initializeRemoteExtensions({ ...syncExtFlow, quiet: true, flowId: uuid() });
+		this.context.subscriptions.push(vscode.commands.registerCommand("gitpod.installLocalExtensions", () => {
+			this.initializeRemoteExtensions({ ...syncExtFlow, quiet: false, flowId: uuid() });
+		}));
+
+		vscode.commands.executeCommand('setContext', 'gitpod.inWorkspace', true);
 	}
 
 	public override async dispose(): Promise<void> {
