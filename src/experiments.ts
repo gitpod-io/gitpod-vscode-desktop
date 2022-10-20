@@ -10,8 +10,7 @@ import * as semver from 'semver';
 import Log from './common/logger';
 
 const EXPERTIMENTAL_SETTINGS = [
-    'gitpod.remote.useLocalApp',
-    'gitpod.remote.syncExtensions'
+    'gitpod.remote.useLocalApp'
 ];
 
 export class ExperimentalSettings {

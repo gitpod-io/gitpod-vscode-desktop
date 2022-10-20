@@ -6,7 +6,6 @@ const releasePackageJson = JSON.parse(fs.readFileSync('./package.json').toString
 
 const releaseDefaultConfig = new Map([
     ["gitpod.remote.useLocalApp", true],
-    ["gitpod.remote.syncExtensions", false],
 ]);
 
 const gitpodConfig = releasePackageJson.contributes.configuration.find(e => e.title.toLowerCase() === 'gitpod');

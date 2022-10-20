@@ -37,6 +37,7 @@
 		"onCommand:gitpod.exportLogs",
 		"onCommand:gitpod.api.autoTunnel",
 		"onCommand:gitpod.showReleaseNotes",
+		"onCommand:gitpod.installLocalExtensions",
 		"onAuthenticationRequest:gitpod",
 		"onUri",
 		"onStartupFinished"
@@ -62,12 +63,6 @@
 						"type": "boolean",
 						"description": "Use the local companion app to connect to a remote workspace.\nWarning: Connecting to a remote workspace using local companion app will be removed in the near future.",
 						"default": false,
-						"scope": "application"
-					},
-					"gitpod.remote.syncExtensions": {
-						"type": "boolean",
-						"description": "Automatically install sync extensions from Gitpod Sync Server on the remote workspace.",
-						"default": true,
 						"scope": "application"
 					}
 				}
@@ -105,8 +100,22 @@
 				"command": "gitpod.showReleaseNotes",
 				"category": "Gitpod",
 				"title": "Show Release Notes"
+			},
+			{
+				"command": "gitpod.installLocalExtensions",
+				"title": "Gitpod: Install Local Extensions...",
+				"enablement": "gitpod.inWorkspace == true"
 			}
-		]
+		],
+		"menus": {
+			"statusBar/remoteIndicator": [
+				{
+					"command": "gitpod.installLocalExtensions",
+					"group": "remote_00_gitpod_navigation@01",
+					"when": "gitpod.inWorkspace == true"
+				}
+			]
+		}
 	},
 	"main": "./out/extension.js",
 	"segmentKey": "YErmvd89wPsrCuGcVnF2XAl846W9WIGl",
