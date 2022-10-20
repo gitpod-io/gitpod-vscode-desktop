@@ -5,6 +5,7 @@
 
 import * as os from 'os';
 import * as vscode from 'vscode';
+import fetch, { Headers, Request, Response, AbortError, FetchError } from 'node-fetch-commonjs';
 import GitpodAuthenticationProvider from './authentication';
 import Log from './common/logger';
 import { UserFlowTelemetry } from './common/telemetry';
@@ -16,6 +17,16 @@ import { ReleaseNotes } from './releaseNotes';
 import RemoteConnector from './remoteConnector';
 import { SettingsSync } from './settingsSync';
 import TelemetryReporter from './telemetryReporter';
+
+// connect-web uses fetch api, so we need to polyfill it
+if (!global.fetch) {
+	global.fetch = fetch as any;
+	global.Headers = Headers as any;
+	global.Request = Request as any;
+	global.Response = Response as any;
+	(global as any).AbortError = AbortError as any;
+	(global as any).FetchError = FetchError as any;
+}
 
 const FIRST_INSTALL_KEY = 'gitpod-desktop.firstInstall';
 
@@ -31,8 +42,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const logger = new Log('Gitpod');
 	logger.info(`${extensionId}/${packageJSON.version} (${os.release()} ${os.platform()} ${os.arch()}) vscode/${vscode.version} (${vscode.env.appName})`);
-
-	const experiments = new ExperimentalSettings(packageJSON.configcatKey, packageJSON.version, logger);
+	
+	const gitpodHost = vscode.workspace.getConfiguration('gitpod').get<string>('host')!;
+	const experiments = new ExperimentalSettings('gitpod', packageJSON.version, logger, gitpodHost);
 	context.subscriptions.push(experiments);
 
 	telemetry = new TelemetryReporter(extensionId, packageJSON.version, packageJSON.segmentKey);

@@ -18,8 +18,9 @@ export class ExperimentalSettings {
     private configcatClient: configcatcommon.IConfigCatClient;
     private extensionVersion: semver.SemVer;
 
-    constructor(key: string, extensionVersion: string, private logger: Log) {
+    constructor(key: string, extensionVersion: string, private logger: Log, gitpodHost: string) {
         this.configcatClient = configcat.createClientWithLazyLoad(key, {
+            baseUrl: new URL('/configcat', process.env['TEST'] ? 'https://gitpod-staging.com' : gitpodHost).href,
             logger: {
                 debug(): void { },
                 log(): void { },
@@ -31,6 +32,18 @@ export class ExperimentalSettings {
             cacheTimeToLiveSeconds: 60
         });
         this.extensionVersion = new semver.SemVer(extensionVersion);
+    }
+
+    async getRaw<T>(
+        configcatKey: string,
+        userId: string,
+        custom: {
+            gitpodHost: string;
+            [key: string]: string;
+        }
+    ) {
+        const user = userId ? new configcatcommon.User(userId, undefined, undefined, custom) : undefined;
+        return (await this.configcatClient.getValueAsync(configcatKey, undefined, user)) as T | undefined;
     }
 
     async get<T>(

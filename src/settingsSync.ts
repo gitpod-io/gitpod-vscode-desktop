@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import fetch from 'node-fetch';
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
 import Log from './common/logger';
@@ -193,7 +192,7 @@ export class SettingsSync extends Disposable {
 			};
 			const action = await this.notifications.showInformationMessage('Please entirely quit VS Code for the Settings Sync configuration to take effect.', { flow, modal: true, id: 'quit_to_apply' }, learnMore);
 			if (action === learnMore) {
-				vscode.env.openExternal(vscode.Uri.parse("https://www.gitpod.io/docs/ides-and-editors/settings-sync#enabling-settings-sync-in-vs-code-desktop"));
+				vscode.env.openExternal(vscode.Uri.parse('https://www.gitpod.io/docs/ides-and-editors/settings-sync#enabling-settings-sync-in-vs-code-desktop'));
 			}
 		} catch (e) {
 			const outputMessage = `Error setting up Settings Sync with Gitpod: ${e}`;
@@ -262,13 +261,15 @@ export class SettingsSync extends Disposable {
 
 		let resp;
 		try {
+			const controller = new AbortController();
+			setTimeout(() => controller.abort(), 5000);
 			resp = await fetch(url, {
 				method: 'GET',
 				headers: {
 					'X-Account-Type': 'gitpod',
 					'authorization': `Bearer ${session.accessToken}`,
 				},
-				timeout: 5000
+				signal: controller.signal
 			});
 		} catch (e) {
 			throw e;

@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
 import * as semver from 'semver';
-import fetch from 'node-fetch';
 import Log from './common/logger';
 import { retry } from './common/async';
 
@@ -55,7 +54,9 @@ async function getOrFetchVersionInfo(serviceUrl: string, logger: Log) {
     let gitpodRawVersion: string | undefined;
     try {
         gitpodRawVersion = await retry(async () => {
-            const resp = await fetch(versionEndPoint, { timeout: 1500 });
+            const controller = new AbortController();
+            setTimeout(() => controller.abort(), 1500);
+            const resp = await fetch(versionEndPoint, { signal: controller.signal });
             if (!resp.ok) {
                 throw new Error(`Responded with ${resp.status} ${resp.statusText}`);
             }
@@ -104,7 +105,9 @@ export async function isOauthInspectSupported(gitpodHost: string,) {
     const serviceUrl = new URL(gitpodHost).toString().replace(/\/$/, '');
     const endpoint = `${serviceUrl}/api/oauth/inspect?client=${vscode.env.uriScheme}-gitpod`;
     try {
-        const resp = await fetch(endpoint, { timeout: 1500 });
+        const controller = new AbortController();
+        setTimeout(() => controller.abort(), 1500);
+        const resp = await fetch(endpoint, { signal: controller.signal });
         if (resp.ok) {
             return true;
         }
