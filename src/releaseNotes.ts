@@ -122,6 +122,12 @@ export class ReleaseNotes extends Disposable {
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Gitpod Release Notes</title>
 	<style>
+		video {
+			max-width: 100%;
+			width: 100%;
+		}
+	</style>
+	<style>
 		${DEFAULT_MARKDOWN_STYLES}
 	</style>
 </head>
