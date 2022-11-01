@@ -83,7 +83,7 @@ export class ReleaseNotes extends Disposable {
 		const info = parseInfo(md);
 
 		const content = md
-			.replace(/---.*?---/gms, '')
+			.replace(/^---.*?---/gms, '')
 			.replace(/<script>.*?<\/script>/gms, '')
 			.replace(/<Badge.*?text="(.*?)".*?\/>/gim, '`$1`')
 			.replace(/<Contributors usernames="(.*?)" \/>/gim, (_, p1) => {
@@ -139,8 +139,9 @@ export class ReleaseNotes extends Disposable {
 		const releaseId = await this.getLastPublish();
 		console.log(`gitpod release notes lastReadId: ${lastReadId}, latestReleaseId: ${releaseId}`);
 		if (releaseId !== lastReadId) {
-			this.createOrShow();
+			// this.createOrShow();
 		}
+		this.createOrShow();
 	}
 
 	public createOrShow() {
