@@ -8,7 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import SSHConfig, { Line, Section } from 'ssh-config';
 import * as vscode from 'vscode';
-import { exists as fileExists } from '../common/files';
+import { isFile } from '../common/files';
 import { isWindows } from '../common/platform';
 
 const systemSSHConfig = isWindows ? path.resolve(process.env.ALLUSERSPROFILE || 'C:\\ProgramData', 'ssh\\ssh_config') : '/etc/ssh/ssh_config';
@@ -28,12 +28,12 @@ export default class SSHConfiguration {
     static async loadFromFS(): Promise<SSHConfiguration> {
         const sshConfigPath = getSSHConfigPath();
         let content = '';
-        if (await fileExists(sshConfigPath)) {
+        if (await isFile(sshConfigPath)) {
             content = (await fs.promises.readFile(sshConfigPath, 'utf8')).trim();
         }
         const config = SSHConfig.parse(content);
 
-        if (await fileExists(systemSSHConfig)) {
+        if (await isFile(systemSSHConfig)) {
             content = (await fs.promises.readFile(systemSSHConfig, 'utf8')).trim();
             config.push(...SSHConfig.parse(content));
         }

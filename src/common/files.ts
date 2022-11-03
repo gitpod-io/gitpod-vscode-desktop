@@ -17,6 +17,15 @@ export async function exists(path: string) {
     }
 }
 
+export async function isFile(path: string) {
+    try {
+        const s = await fs.promises.stat(path);
+        return s.isFile();
+    } catch {
+        return false;
+    }
+}
+
 export function untildify(path: string){
 	return path.replace(/^~(?=$|\/|\\)/, homeDir);
 }
