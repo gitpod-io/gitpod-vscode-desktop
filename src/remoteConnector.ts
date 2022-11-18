@@ -9,7 +9,7 @@ import { LocalAppClient } from '@gitpod/local-app-api-grpcweb/lib/localapp_pb_se
 import { NodeHttpTransport } from '@improbable-eng/grpc-web-node-http-transport';
 import { grpc } from '@improbable-eng/grpc-web';
 import { Workspace, WorkspaceInstanceStatus_Phase } from '@gitpod/public-api/lib/gitpod/experimental/v1/workspaces_pb';
-import { WorkspaceInfo } from '@gitpod/gitpod-protocol';
+import { UserSSHPublicKeyValue, WorkspaceInfo } from '@gitpod/gitpod-protocol';
 import * as cp from 'child_process';
 import * as fs from 'fs';
 import * as http from 'http';
@@ -38,6 +38,7 @@ import { getOpenSSHVersion } from './ssh/sshVersion';
 import { NotificationService } from './notification';
 import { UserFlowTelemetry } from './common/telemetry';
 import { GitpodPublicApi } from './publicApi';
+import { SSHKey } from '@gitpod/public-api/lib/gitpod/experimental/v1/user_pb';
 
 interface SSHConnectionParams {
 	workspaceId: string;
@@ -538,7 +539,7 @@ export default class RemoteConnector extends Disposable {
 		const [workspaceInfo, ownerToken, registeredSSHKeys] = await withServerApi(session.accessToken, serviceUrl.toString(), service => Promise.all([
 			this.publicApi ? this.publicApi.getWorkspace(workspaceId) : service.server.getWorkspace(workspaceId),
 			this.publicApi ? this.publicApi.getOwnerToken(workspaceId) : service.server.getOwnerToken(workspaceId),
-			sshKeysSupported ? service.server.getSSHPublicKeys() : undefined
+			sshKeysSupported ? (this.publicApi ? this.publicApi.getSSHKeys() : service.server.getSSHPublicKeys()) : undefined
 		]), this.logger);
 
 		const isRunning = this.publicApi
@@ -618,9 +619,21 @@ export default class RemoteConnector extends Disposable {
 		let identityKeys = await this.getIdentityKeys(hostConfiguration);
 
 		if (registeredSSHKeys) {
-			this.logger.trace(`Registered public keys in Gitpod account:`, registeredSSHKeys.length ? registeredSSHKeys.map(k => `${k.name} SHA256:${k.fingerprint}`).join('\n') : 'None');
+			const registeredKeys = this.publicApi
+				? (registeredSSHKeys as SSHKey[]).map(k => {
+					const parsedResult = sshUtils.parseKey(k.key);
+					if (parsedResult instanceof Error || !parsedResult) {
+						this.logger.error(`Error while parsing SSH public key ${k.name}:`, parsedResult);
+						return { name: k.name, fingerprint: '' };
+					}
 
-			identityKeys = identityKeys.filter(k => !!registeredSSHKeys.find(regKey => regKey.fingerprint === k.fingerprint));
+					const parsedKey = parsedResult as ParsedKey;
+					return { name: k.name, fingerprint: crypto.createHash('sha256').update(parsedKey.getPublicSSH()).digest('base64') };
+				})
+				: (registeredSSHKeys as UserSSHPublicKeyValue[]).map(k => ({ name: k.name, fingerprint: k.fingerprint }));
+			this.logger.trace(`Registered public keys in Gitpod account:`, registeredKeys.length ? registeredKeys.map(k => `${k.name} SHA256:${k.fingerprint}`).join('\n') : 'None');
+
+			identityKeys = identityKeys.filter(k => !!registeredKeys.find(regKey => regKey.fingerprint === k.fingerprint));
 		} else {
 			if (identityKeys.length) {
 				sshDestInfo.user = `${workspaceId}#${ownerToken}`;
@@ -811,10 +824,7 @@ export default class RemoteConnector extends Disposable {
 		const usePublicApi = await this.experiments.getRaw<boolean>('gitpod_experimental_publicApi', session.account.id, { gitpodHost: params.gitpodHost });
 		this.logger.info(`Going to use ${usePublicApi ? 'public' : 'server'} API`);
 		if (usePublicApi) {
-			if (!this.publicApi) {
-				this.publicApi = new GitpodPublicApi();
-			}
-			await this.publicApi.init(session.accessToken, params.gitpodHost);
+			this.publicApi = new GitpodPublicApi(session.accessToken, params.gitpodHost);
 		}
 
 		const forceUseLocalApp = getServiceURL(params.gitpodHost) === 'https://gitpod.io'
@@ -971,7 +981,7 @@ export default class RemoteConnector extends Disposable {
 		}
 	}
 
-	private async initializeRemoteExtensions(flow: UserFlowTelemetry & { quiet: boolean, flowId: string }) {
+	private async initializeRemoteExtensions(flow: UserFlowTelemetry & { quiet: boolean; flowId: string }) {
 		this.telemetry.sendUserFlowStatus('enabled', flow);
 		let syncData: { ref: string; content: string } | undefined;
 		try {
@@ -1132,7 +1142,7 @@ export default class RemoteConnector extends Disposable {
 
 		const syncExtFlow = { ...connectionInfo, gitpodVersion: gitpodVersion.raw, userId: session.account.id, flow: 'sync_local_extensions' };
 		this.initializeRemoteExtensions({ ...syncExtFlow, quiet: true, flowId: uuid() });
-		this.context.subscriptions.push(vscode.commands.registerCommand("gitpod.installLocalExtensions", () => {
+		this.context.subscriptions.push(vscode.commands.registerCommand('gitpod.installLocalExtensions', () => {
 			this.initializeRemoteExtensions({ ...syncExtFlow, quiet: false, flowId: uuid() });
 		}));
 
