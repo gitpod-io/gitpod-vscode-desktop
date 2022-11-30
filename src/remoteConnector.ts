@@ -1070,20 +1070,15 @@ export default class RemoteConnector extends Disposable {
 		}
 
 		try {
-			await vscode.window.withProgress<void>({
-				title: 'Installing local extensions on remote',
-				location: vscode.ProgressLocation.Notification
-			}, async () => {
-				try {
-					this.logger.trace(`Installing local extensions on remote: `, extensions.map(e => e.identifier.id).join('\n'));
-					await retry(async () => {
-						await vscode.commands.executeCommand('__gitpod.initializeRemoteExtensions', extensions);
-					}, 3000, 15);
-				} catch (e) {
-					this.logger.error(`Could not execute '__gitpod.initializeRemoteExtensions' command`);
-					throw e;
-				}
-			});
+			try {
+				this.logger.trace(`Installing local extensions on remote: `, extensions.map(e => e.identifier.id).join('\n'));
+				await retry(async () => {
+					await vscode.commands.executeCommand('__gitpod.initializeRemoteExtensions', extensions);
+				}, 3000, 15);
+			} catch (e) {
+				this.logger.error(`Could not execute '__gitpod.initializeRemoteExtensions' command`);
+				throw e;
+			}
 			this.telemetry.sendUserFlowStatus('synced', flow);
 		} catch {
 			const msg = `Error while installing local extensions on remote.`;
