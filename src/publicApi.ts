@@ -28,6 +28,7 @@ export class GitpodPublicApi {
         const transport = createConnectTransport({
             baseUrl: serviceUrl.toString(),
             interceptors: [authInterceptor],
+            useBinaryFormat: true,
         });
 
         this.workspaceService = createPromiseClient(WorkspacesService, transport);
