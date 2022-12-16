@@ -59,6 +59,12 @@
 						"default": "https://gitpod.io/",
 						"scope": "application"
 					},
+					"gitpod.enableReleaseNotes": {
+						"type": "boolean",
+						"description": "Enable showing the Gitpod Changelog whenever a new one comes out.",
+						"default": true,
+						"scope": "application"
+					},
 					"gitpod.remote.useLocalApp": {
 						"type": "boolean",
 						"description": "Use the local companion app to connect to a remote workspace.\nWarning: Connecting to a remote workspace using local companion app will be removed in the near future.",
