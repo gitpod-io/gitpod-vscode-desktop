@@ -59,9 +59,9 @@
 						"default": "https://gitpod.io/",
 						"scope": "application"
 					},
-					"gitpod.enableReleaseNotes": {
+					"gitpod.showReleaseNotes": {
 						"type": "boolean",
-						"description": "Enable showing the Gitpod Changelog whenever a new one comes out.",
+						"description": "Show the Gitpod Changelog whenever a new one comes out.",
 						"default": true,
 						"scope": "application"
 					},
