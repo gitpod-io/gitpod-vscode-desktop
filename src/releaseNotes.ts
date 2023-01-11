@@ -29,12 +29,7 @@ export class ReleaseNotes extends Disposable {
 
 		this._register(vscode.commands.registerCommand('gitpod.showReleaseNotes', () => this.createOrShow()));
 
-		const releaseNotesEnabled = vscode.workspace.getConfiguration('gitpod').get<boolean>('showReleaseNotes');
-		if (releaseNotesEnabled) {
-			this.showIfNewRelease(this.lastReadId);
-		} else {
-			logger.info('Release notes are disabled');
-		}
+		this.showIfNewRelease(this.lastReadId);
 	}
 
 	private async getLastPublish() {
@@ -165,12 +160,14 @@ export class ReleaseNotes extends Disposable {
 	}
 
 	private async showIfNewRelease(lastReadId: string | undefined) {
-			this.logger.info(`Last read release notes: ${lastReadId}`);
+		const showReleaseNotes = vscode.workspace.getConfiguration('gitpod').get<boolean>('showReleaseNotes');
+		if (showReleaseNotes) {
 			const releaseId = await this.getLastPublish();
 			if (releaseId && releaseId !== lastReadId) {
 				this.logger.info(`gitpod release notes lastReadId: ${lastReadId}, latestReleaseId: ${releaseId}`);
 				this.createOrShow();
 			}
+		}
 	}
 
 	public createOrShow() {
