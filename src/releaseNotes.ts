@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { load } from 'js-yaml';
 import { CacheHelper } from './common/cache';
 import { Disposable, disposeAll } from './common/dispose';
+import Log from './common/logger';
 
 export class ReleaseNotes extends Disposable {
 	public static readonly viewType = 'gitpodReleaseNotes';
@@ -20,6 +21,7 @@ export class ReleaseNotes extends Disposable {
 
 	constructor(
 		private readonly context: vscode.ExtensionContext,
+		private readonly logger: Log,
 	) {
 		super();
 
@@ -27,7 +29,12 @@ export class ReleaseNotes extends Disposable {
 
 		this._register(vscode.commands.registerCommand('gitpod.showReleaseNotes', () => this.createOrShow()));
 
-		this.showIfNewRelease(this.lastReadId);
+		const releaseNotesEnabled = vscode.workspace.getConfiguration('gitpod').get<boolean>('showReleaseNotes');
+		if (releaseNotesEnabled) {
+			this.showIfNewRelease(this.lastReadId);
+		} else {
+			logger.info('Release notes are disabled');
+		}
 	}
 
 	private async getLastPublish() {
@@ -158,14 +165,12 @@ export class ReleaseNotes extends Disposable {
 	}
 
 	private async showIfNewRelease(lastReadId: string | undefined) {
-		const showReleaseNotes = vscode.workspace.getConfiguration('gitpod').get<boolean>('showReleaseNotes');
-		if (showReleaseNotes) {
+			this.logger.info(`Last read release notes: ${lastReadId}`);
 			const releaseId = await this.getLastPublish();
 			if (releaseId && releaseId !== lastReadId) {
-				console.log(`gitpod release notes lastReadId: ${lastReadId}, latestReleaseId: ${releaseId}`);
+				this.logger.info(`gitpod release notes lastReadId: ${lastReadId}, latestReleaseId: ${releaseId}`);
 				this.createOrShow();
 			}
-		}
 	}
 
 	public createOrShow() {
