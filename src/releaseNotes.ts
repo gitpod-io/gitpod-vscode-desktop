@@ -125,6 +125,11 @@ export class ReleaseNotes extends Disposable {
 		}
 
 		const html = await vscode.commands.executeCommand<string>('markdown.api.render', mdContent);
+
+		if (!this.panel?.visible) {
+			return;
+		}
+
 		this.panel.webview.html = `<!DOCTYPE html>
 <html lang="en">
 <head>

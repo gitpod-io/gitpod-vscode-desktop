@@ -79,7 +79,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	}));
 
-	if (vscode.workspace.getConfiguration('gitpod').get<boolean>('enableReleaseNotes')) {
+	if (vscode.workspace.getConfiguration('gitpod').get<boolean>('showReleaseNotes')) {
 		const lastRead = context.globalState.get<string>(ReleaseNotes.RELEASE_NOTES_LAST_READ_KEY);
 		logger.info(`Last read release notes: ${lastRead}`);
 		context.subscriptions.push(new ReleaseNotes(context));
