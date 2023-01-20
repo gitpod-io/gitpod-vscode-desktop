@@ -24,6 +24,7 @@ export class HeartbeatManager extends Disposable {
         readonly gitpodHost: string,
         readonly workspaceId: string,
         readonly instanceId: string,
+        readonly debugWorkspace: boolean,
         private readonly accessToken: string,
         private readonly publicApi: GitpodPublicApi | undefined,
         private readonly logger: Log,
@@ -113,7 +114,7 @@ export class HeartbeatManager extends Disposable {
                         ? (!wasClosed ? await this.publicApi.sendHeartbeat(this.workspaceId) : await this.publicApi.sendDidClose(this.workspaceId))
                         : await service.server.sendHeartBeat({ instanceId: this.instanceId, wasClosed });
                     if (wasClosed) {
-                        this.telemetry.sendTelemetryEvent('ide_close_signal', { workspaceId: this.workspaceId, instanceId: this.instanceId, gitpodHost: this.gitpodHost, clientKind: 'vscode' });
+                        this.telemetry.sendTelemetryEvent('ide_close_signal', { workspaceId: this.workspaceId, instanceId: this.instanceId, gitpodHost: this.gitpodHost, clientKind: 'vscode', debugWorkspace: String(!!this.debugWorkspace) });
                         this.logger.trace('Send ' + suffix);
                     }
                 } else {

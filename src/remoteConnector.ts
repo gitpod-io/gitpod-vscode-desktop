@@ -44,6 +44,7 @@ interface SSHConnectionParams {
 	workspaceId: string;
 	instanceId: string;
 	gitpodHost: string;
+	debugWorkspace?: boolean;
 }
 
 interface LocalAppConfig {
@@ -532,7 +533,7 @@ export default class RemoteConnector extends Disposable {
 		return preferredIdentityKeys;
 	}
 
-	private async getWorkspaceSSHDestination(session: vscode.AuthenticationSession, { workspaceId, gitpodHost }: SSHConnectionParams): Promise<{ destination: string; password?: string }> {
+	private async getWorkspaceSSHDestination(session: vscode.AuthenticationSession, { workspaceId, gitpodHost, debugWorkspace }: SSHConnectionParams): Promise<{ destination: string; password?: string }> {
 		const serviceUrl = new URL(gitpodHost);
 		const sshKeysSupported = session.scopes.includes(ScopeFeature.SSHPublicKeys);
 
@@ -560,13 +561,15 @@ export default class RemoteConnector extends Disposable {
 			throw new NoSSHGatewayError(gitpodHost);
 		}
 
-		const sshHostKeys = (await sshHostKeyResponse.json()) as { type: string; host_key: string }[];
-
-		const sshDestInfo = {
-			user: workspaceId,
-			// See https://github.com/gitpod-io/gitpod/pull/9786 for reasoning about `.ssh` suffix
-			hostName: workspaceUrl.host.replace(workspaceId, `${workspaceId}.ssh`)
-		};
+const sshHostKeys = (await sshHostKeyResponse.json()) as { type: string; host_key: string }[];
+		let user = workspaceId;
+		// See https://github.com/gitpod-io/gitpod/pull/9786 for reasoning about `.ssh` suffix
+		let hostName = workspaceUrl.host.replace(workspaceId, `${workspaceId}.ssh`)
+		if (debugWorkspace) {
+			user = 'debug-' + workspaceId;
+			hostName = hostName.replace(workspaceId, user);
+		}
+		const sshDestInfo = { user, hostName };
 
 		let verifiedHostKey: Buffer | undefined;
 		// Test ssh connection first
@@ -584,7 +587,7 @@ export default class RemoteConnector extends Disposable {
 				authHandler(_methodsLeft, _partialSuccess, _callback) {
 					return {
 						type: 'password',
-						username: workspaceId,
+						username: user,
 						password: ownerToken,
 					};
 				},
@@ -636,7 +639,7 @@ export default class RemoteConnector extends Disposable {
 			identityKeys = identityKeys.filter(k => !!registeredKeys.find(regKey => regKey.fingerprint === k.fingerprint));
 		} else {
 			if (identityKeys.length) {
-				sshDestInfo.user = `${workspaceId}#${ownerToken}`;
+				sshDestInfo.user = `${user}#${ownerToken}`;
 			}
 			const gitpodVersion = await getGitpodVersion(gitpodHost, this.logger);
 			this.logger.warn(`Registered SSH public keys not supported in ${gitpodHost}, using version ${gitpodVersion.raw}`);
@@ -885,7 +888,8 @@ export default class RemoteConnector extends Disposable {
 
 		const usingSSHGateway = !!sshDestination;
 		let localAppSSHConfigPath: string | undefined;
-		if (!usingSSHGateway) {
+		if (!usingSSHGateway && !params.debugWorkspace) {
+			// debug workspace does not support local app mode
 			const localAppFlow = { kind: 'local-app', userOverride, ...sshFlow };
 			try {
 				this.telemetry.sendUserFlowStatus('connecting', localAppFlow);
@@ -966,7 +970,7 @@ export default class RemoteConnector extends Disposable {
 			return;
 		}
 
-		this.heartbeatManager = new HeartbeatManager(connectionInfo.gitpodHost, connectionInfo.workspaceId, connectionInfo.instanceId, session.accessToken, this.publicApi, this.logger, this.telemetry);
+		this.heartbeatManager = new HeartbeatManager(connectionInfo.gitpodHost, connectionInfo.workspaceId, connectionInfo.instanceId, !!connectionInfo.debugWorkspace, session.accessToken, this.publicApi, this.logger, this.telemetry);
 
 		// gitpod remote extension installation is async so sometimes gitpod-desktop will activate before gitpod-remote
 		// let's try a few times for it to finish install
@@ -974,10 +978,10 @@ export default class RemoteConnector extends Disposable {
 			await retry(async () => {
 				await vscode.commands.executeCommand('__gitpod.cancelGitpodRemoteHeartbeat');
 			}, 3000, 15);
-			this.telemetry.sendTelemetryEvent('vscode_desktop_heartbeat_state', { enabled: String(true), gitpodHost: connectionInfo.gitpodHost, workspaceId: connectionInfo.workspaceId, instanceId: connectionInfo.instanceId, gitpodVersion: gitpodVersion.raw });
+			this.telemetry.sendTelemetryEvent('vscode_desktop_heartbeat_state', { enabled: String(true), gitpodHost: connectionInfo.gitpodHost, workspaceId: connectionInfo.workspaceId, instanceId: connectionInfo.instanceId, debugWorkspace: String(!!connectionInfo.debugWorkspace), gitpodVersion: gitpodVersion.raw });
 		} catch {
 			this.logger.error(`Could not execute '__gitpod.cancelGitpodRemoteHeartbeat' command`);
-			this.telemetry.sendTelemetryEvent('vscode_desktop_heartbeat_state', { enabled: String(false), gitpodHost: connectionInfo.gitpodHost, workspaceId: connectionInfo.workspaceId, instanceId: connectionInfo.instanceId, gitpodVersion: gitpodVersion.raw });
+			this.telemetry.sendTelemetryEvent('vscode_desktop_heartbeat_state', { enabled: String(false), gitpodHost: connectionInfo.gitpodHost, workspaceId: connectionInfo.workspaceId, instanceId: connectionInfo.instanceId, debugWorkspace: String(!!connectionInfo.debugWorkspace), gitpodVersion: gitpodVersion.raw });
 		}
 	}
 
