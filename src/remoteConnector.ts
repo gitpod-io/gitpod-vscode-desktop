@@ -15,7 +15,7 @@ import * as fs from 'fs';
 import * as http from 'http';
 import * as net from 'net';
 import * as crypto from 'crypto';
-import { Client as sshClient, OpenSSHAgent, utils as sshUtils } from 'ssh2';
+import { utils as sshUtils } from 'ssh2';
 import { ParsedKey } from 'ssh2-streams';
 import * as tmp from 'tmp';
 import * as path from 'path';
@@ -25,12 +25,9 @@ import { Disposable } from './common/dispose';
 import { withServerApi } from './internalApi';
 import TelemetryReporter from './telemetryReporter';
 import { addHostToHostFile, checkNewHostInHostkeys } from './ssh/hostfile';
-import { DEFAULT_IDENTITY_FILES } from './ssh/identityFiles';
 import { HeartbeatManager } from './heartbeat';
 import { getGitpodVersion, GitpodVersion, isFeatureSupported, isOauthInspectSupported, ScopeFeature } from './featureSupport';
 import SSHConfiguration from './ssh/sshConfig';
-import { isWindows } from './common/platform';
-import { untildify } from './common/files';
 import { ExperimentalSettings, isUserOverrideSetting } from './experiments';
 import { ISyncExtension, NoSettingsSyncSession, NoSyncStoreError, parseSyncData, SettingsSync, SyncResource } from './settingsSync';
 import { retry } from './common/async';
@@ -39,6 +36,8 @@ import { NotificationService } from './notification';
 import { UserFlowTelemetry } from './common/telemetry';
 import { GitpodPublicApi } from './publicApi';
 import { SSHKey } from '@gitpod/public-api/lib/gitpod/experimental/v1/user_pb';
+import { getAgentSock, SSHError, testSSHConnection } from './sshTestConnection';
+import { gatherIdentityFiles } from './ssh/identityFiles';
 
 interface SSHConnectionParams {
 	workspaceId: string;
@@ -93,15 +92,6 @@ function checkRunning(pid: number): true | Error {
 
 class LocalAppError extends Error {
 	constructor(cause: Error, readonly logPath?: string) {
-		super();
-		this.name = cause.name;
-		this.message = cause.message;
-		this.stack = cause.stack;
-	}
-}
-
-class SSHError extends Error {
-	constructor(cause: Error) {
 		super();
 		this.name = cause.name;
 		this.message = cause.message;
@@ -453,86 +443,6 @@ export default class RemoteConnector extends Disposable {
 		}
 	}
 
-	// From https://github.com/openssh/openssh-portable/blob/acb2059febaddd71ee06c2ebf63dcf211d9ab9f2/sshconnect2.c#L1689-L1690
-	private async getIdentityKeys(hostConfig: Record<string, string>) {
-		const identityFiles: string[] = ((hostConfig['IdentityFile'] as unknown as string[]) || []).map(untildify).map(i => i.replace(/\.pub$/, ''));
-		if (identityFiles.length === 0) {
-			identityFiles.push(...DEFAULT_IDENTITY_FILES);
-		}
-
-		const identityFileContentsResult = await Promise.allSettled(identityFiles.map(async path => fs.promises.readFile(path + '.pub')));
-		const fileKeys = identityFileContentsResult.map((result, i) => {
-			if (result.status === 'rejected') {
-				return undefined;
-			}
-
-			const parsedResult = sshUtils.parseKey(result.value);
-			if (parsedResult instanceof Error || !parsedResult) {
-				this.logger.error(`Error while parsing SSH public key ${identityFiles[i] + '.pub'}:`, parsedResult);
-				return undefined;
-			}
-
-			const parsedKey = Array.isArray(parsedResult) ? parsedResult[0] : parsedResult;
-			const fingerprint = crypto.createHash('sha256').update(parsedKey.getPublicSSH()).digest('base64');
-
-			return {
-				filename: identityFiles[i],
-				parsedKey,
-				fingerprint
-			};
-		}).filter(<T>(v: T | undefined): v is T => !!v);
-
-		let sshAgentParsedKeys: ParsedKey[] = [];
-		try {
-			let sshAgentSock = isWindows ? '\\\\.\\pipe\\openssh-ssh-agent' : (hostConfig['IdentityAgent'] || process.env['SSH_AUTH_SOCK']);
-			if (!sshAgentSock) {
-				throw new Error(`SSH_AUTH_SOCK environment variable not defined`);
-			}
-			sshAgentSock = untildify(sshAgentSock);
-
-			sshAgentParsedKeys = await new Promise<ParsedKey[]>((resolve, reject) => {
-				const sshAgent = new OpenSSHAgent(sshAgentSock!);
-				sshAgent.getIdentities((err, publicKeys) => {
-					if (err) {
-						reject(err);
-					} else {
-						resolve(publicKeys || []);
-					}
-				});
-			});
-		} catch (e) {
-			this.logger.error(`Couldn't get identities from OpenSSH agent`, e);
-		}
-
-		const sshAgentKeys = sshAgentParsedKeys.map(parsedKey => {
-			const fingerprint = crypto.createHash('sha256').update(parsedKey.getPublicSSH()).digest('base64');
-			return {
-				filename: parsedKey.comment,
-				parsedKey,
-				fingerprint
-			};
-		});
-
-		const identitiesOnly = (hostConfig['IdentitiesOnly'] || '').toLowerCase() === 'yes';
-		const agentKeys: { filename: string; parsedKey: ParsedKey; fingerprint: string }[] = [];
-		const preferredIdentityKeys: { filename: string; parsedKey: ParsedKey; fingerprint: string }[] = [];
-		for (const agentKey of sshAgentKeys) {
-			const foundIdx = fileKeys.findIndex(k => agentKey.parsedKey.type === k.parsedKey.type && agentKey.fingerprint === k.fingerprint);
-			if (foundIdx >= 0) {
-				preferredIdentityKeys.push(fileKeys[foundIdx]);
-				fileKeys.splice(foundIdx, 1);
-			} else if (!identitiesOnly) {
-				agentKeys.push(agentKey);
-			}
-		}
-		preferredIdentityKeys.push(...agentKeys);
-		preferredIdentityKeys.push(...fileKeys);
-
-		this.logger.trace(`Identity keys:`, preferredIdentityKeys.length ? preferredIdentityKeys.map(k => `${k.filename} ${k.parsedKey.type} SHA256:${k.fingerprint}`).join('\n') : 'None');
-
-		return preferredIdentityKeys;
-	}
-
 	private async getWorkspaceSSHDestination(session: vscode.AuthenticationSession, { workspaceId, gitpodHost, debugWorkspace }: SSHConnectionParams): Promise<{ destination: string; password?: string }> {
 		const serviceUrl = new URL(gitpodHost);
 		const sshKeysSupported = session.scopes.includes(ScopeFeature.SSHPublicKeys);
@@ -571,35 +481,14 @@ const sshHostKeys = (await sshHostKeyResponse.json()) as { type: string; host_ke
 		}
 		const sshDestInfo = { user, hostName };
 
-		let verifiedHostKey: Buffer | undefined;
-		// Test ssh connection first
-		await new Promise<void>((resolve, reject) => {
-			const conn = new sshClient();
-			conn.on('ready', () => {
-				conn.end();
-				resolve();
-			}).on('error', err => {
-				reject(new SSHError(err));
-			}).connect({
-				host: sshDestInfo.hostName,
-				username: sshDestInfo.user,
-				readyTimeout: 40000,
-				authHandler(_methodsLeft, _partialSuccess, _callback) {
-					return {
-						type: 'password',
-						username: user,
-						password: ownerToken,
-					};
-				},
-				hostVerifier(hostKey) {
-					// We didn't specify `hostHash` so `hashedKey` is a Buffer object
-					verifiedHostKey = (hostKey as any as Buffer);
-					const encodedKey = verifiedHostKey.toString('base64');
-					return sshHostKeys.some(keyData => keyData.host_key === encodedKey);
-				}
-			});
-		});
-		this.logger.info(`SSH test connection to '${sshDestInfo.hostName}' host successful`);
+		const sshConfiguration = await SSHConfiguration.loadFromFS();
+
+		const verifiedHostKey = await testSSHConnection({
+			host: sshDestInfo.hostName,
+			username: sshDestInfo.user,
+			readyTimeout: 40000,
+			password: ownerToken
+		}, sshHostKeys, sshConfiguration, this.logger);
 
 		// SSH connection successful, write host to known_hosts
 		try {
@@ -616,10 +505,8 @@ const sshHostKeys = (await sshHostKeyResponse.json()) as { type: string; host_ke
 			this.logger.error(`Couldn't write '${sshDestInfo.hostName}' host to known_hosts file:`, e);
 		}
 
-		const sshConfiguration = await SSHConfiguration.loadFromFS();
 		const hostConfiguration = sshConfiguration.getHostConfiguration(sshDestInfo.hostName);
-
-		let identityKeys = await this.getIdentityKeys(hostConfiguration);
+		let identityKeys = await gatherIdentityFiles([], getAgentSock(hostConfiguration), false, this.logger);
 
 		if (registeredSSHKeys) {
 			const registeredKeys = this.publicApi

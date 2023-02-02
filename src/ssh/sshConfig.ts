@@ -6,21 +6,53 @@
 import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
-import SSHConfig, { Line, Section } from 'ssh-config';
+import SSHConfig, { Line, Section, Directive } from 'ssh-config';
 import * as vscode from 'vscode';
-import { isFile } from '../common/files';
+import { isFile, untildify } from '../common/files';
 import { isWindows } from '../common/platform';
 
 const systemSSHConfig = isWindows ? path.resolve(process.env.ALLUSERSPROFILE || 'C:\\ProgramData', 'ssh\\ssh_config') : '/etc/ssh/ssh_config';
 const defaultSSHConfigPath = path.resolve(os.homedir(), '.ssh/config');
 
 export function getSSHConfigPath() {
-    const remoteSSHconfig = vscode.workspace.getConfiguration('remote.SSH');
-    return remoteSSHconfig.get<string>('configFile') || defaultSSHConfigPath;
+    const sshConfigPath = vscode.workspace.getConfiguration('remote.SSH').get<string>('configFile');
+    return sshConfigPath ? untildify(sshConfigPath) : defaultSSHConfigPath;
+}
+
+function isDirective(line: Line): line is Directive {
+    return line.type === SSHConfig.DIRECTIVE;
 }
 
 function isHostSection(line: Line): line is Section {
     return line.type === SSHConfig.DIRECTIVE && line.param === 'Host' && !!line.value && !!(line as Section).config;
+}
+
+const SSH_CONFIG_PROPERTIES: { [key: string]: string } = {
+    'host': 'Host',
+    'hostname': 'HostName',
+    'user': 'User',
+    'port': 'Port',
+    'identityagent': 'IdentityAgent',
+    'identitiesonly': 'IdentitiesOnly',
+    'identityfile': 'IdentityFile',
+    'forwardagent': 'ForwardAgent',
+    'proxyjump': 'ProxyJump',
+    'proxycommand': 'ProxyCommand',
+};
+
+function normalizeProp(prop: Directive) {
+    prop.param = SSH_CONFIG_PROPERTIES[prop.param.toLowerCase()] || prop.param;
+}
+
+function normalizeSSHConfig(config: SSHConfig) {
+    for (const line of config) {
+        if (isDirective(line)) {
+            normalizeProp(line);
+        }
+        if (isHostSection(line)) {
+            normalizeSSHConfig(line.config);
+        }
+    }
 }
 
 export default class SSHConfiguration {
@@ -42,33 +74,26 @@ export default class SSHConfiguration {
     }
 
     constructor(private sshConfig: SSHConfig) {
+        // Normalize config property names
+        normalizeSSHConfig(sshConfig);
     }
 
     getAllConfiguredHosts(): string[] {
         const hosts = new Set<string>();
-        this.sshConfig
-            .filter(isHostSection)
-            .forEach(hostSection => {
-                const value = Array.isArray(hostSection.value as string[] | string) ? hostSection.value[0] : hostSection.value;
-                const hasHostName = hostSection.config.find(line => line.type === SSHConfig.DIRECTIVE && line.param === 'HostName' && !!line.value);
+        for (const line of this.sshConfig) {
+            if (isHostSection(line)) {
+                const value = Array.isArray(line.value as string[] | string) ? line.value[0] : line.value;
                 const isPattern = /^!/.test(value) || /[?*]/.test(value);
-                if (hasHostName && !isPattern) {
+                if (!isPattern) {
                     hosts.add(value);
                 }
-            });
+            }
+        }
 
         return [...hosts.keys()];
     }
 
     getHostConfiguration(host: string): Record<string, string> {
         return this.sshConfig.compute(host);
-    }
-
-    getHostNameAlias(hostname: string): string | undefined {
-        const found = this.sshConfig
-            .filter(isHostSection)
-            .find(hostSection => hostSection.config.find(line => line.type === SSHConfig.DIRECTIVE && line.param === 'HostName' && line.value === hostname));
-
-        return found?.value;
     }
 }
