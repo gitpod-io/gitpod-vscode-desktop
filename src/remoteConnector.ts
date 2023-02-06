@@ -474,7 +474,7 @@ export default class RemoteConnector extends Disposable {
 		const sshHostKeys = (await sshHostKeyResponse.json()) as { type: string; host_key: string }[];
 		let user = workspaceId;
 		// See https://github.com/gitpod-io/gitpod/pull/9786 for reasoning about `.ssh` suffix
-		let hostName = workspaceUrl.host.replace(workspaceId, `${workspaceId}.ssh`)
+		let hostName = workspaceUrl.host.replace(workspaceId, `${workspaceId}.ssh`);
 		if (debugWorkspace) {
 			user = 'debug-' + workspaceId;
 			hostName = hostName.replace(workspaceId, user);
@@ -819,7 +819,8 @@ export default class RemoteConnector extends Disposable {
 		if (process.platform === 'win32') {
 			const existingSSHHostPlatforms = vscode.workspace.getConfiguration('remote.SSH').get<{[host: string]: string}>('remotePlatform') || {};
 			if (!Object.keys(existingSSHHostPlatforms).includes(params.workspaceId)) {
-				vscode.workspace.getConfiguration('remote.SSH').update('remotePlatform', { ...existingSSHHostPlatforms, [params.workspaceId]: 'linux' }, vscode.ConfigurationTarget.Global);
+				const workspaceHost = JSON.parse(Buffer.from(sshDestination!, 'hex').toString()).hostName;
+				vscode.workspace.getConfiguration('remote.SSH').update('remotePlatform', { ...existingSSHHostPlatforms, [workspaceHost]: 'linux' }, vscode.ConfigurationTarget.Global);
 			}
 		}
 
