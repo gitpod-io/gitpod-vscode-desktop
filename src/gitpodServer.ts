@@ -170,7 +170,7 @@ export default class GitpodServer extends Disposable {
 		return getUserInfo(token, this._serviceUrl, this._logger);
 	}
 
-	public hadleUri(uri: vscode.Uri) {
+	public handleUri(uri: vscode.Uri) {
 		this._uriEmitter.fire(uri);
 	}
 

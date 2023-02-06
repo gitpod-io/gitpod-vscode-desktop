@@ -305,7 +305,7 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 	}
 
 	public handleUri(uri: vscode.Uri) {
-		this._gitpodServer.hadleUri(uri);
+		this._gitpodServer.handleUri(uri);
 	}
 
 	public override dispose() {
