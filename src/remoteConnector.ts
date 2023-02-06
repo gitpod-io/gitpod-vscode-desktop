@@ -471,7 +471,7 @@ export default class RemoteConnector extends Disposable {
 			throw new NoSSHGatewayError(gitpodHost);
 		}
 
-const sshHostKeys = (await sshHostKeyResponse.json()) as { type: string; host_key: string }[];
+		const sshHostKeys = (await sshHostKeyResponse.json()) as { type: string; host_key: string }[];
 		let user = workspaceId;
 		// See https://github.com/gitpod-io/gitpod/pull/9786 for reasoning about `.ssh` suffix
 		let hostName = workspaceUrl.host.replace(workspaceId, `${workspaceId}.ssh`)
@@ -814,6 +814,15 @@ const sshHostKeys = (await sshHostKeyResponse.json()) as { type: string; host_ke
 		await this.context.globalState.update(`${RemoteConnector.SSH_DEST_KEY}${sshDestination!}`, { ...params, isFirstConnection: true });
 
 		const forceNewWindow = this.context.extensionMode === vscode.ExtensionMode.Production;
+
+		// Force Linux as host platform (https://github.com/gitpod-io/gitpod/issues/16058)
+		if (process.platform === 'win32') {
+			const existingSSHHostPlatforms = vscode.workspace.getConfiguration('remote.SSH').get<{[host: string]: string}>('remotePlatform') || {};
+			if (!Object.keys(existingSSHHostPlatforms).includes(params.workspaceId)) {
+				vscode.workspace.getConfiguration('remote.SSH').update('remotePlatform', { ...existingSSHHostPlatforms, [params.workspaceId]: 'linux' }, vscode.ConfigurationTarget.Global);
+			}
+		}
+
 		vscode.commands.executeCommand(
 			'vscode.openFolder',
 			vscode.Uri.parse(`vscode-remote://ssh-remote+${sshDestination}${uri.path || '/'}`),
