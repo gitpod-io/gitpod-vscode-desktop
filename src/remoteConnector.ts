@@ -818,8 +818,8 @@ export default class RemoteConnector extends Disposable {
 		// Force Linux as host platform (https://github.com/gitpod-io/gitpod/issues/16058)
 		if (process.platform === 'win32') {
 			const existingSSHHostPlatforms = vscode.workspace.getConfiguration('remote.SSH').get<{[host: string]: string}>('remotePlatform') || {};
-			if (!Object.keys(existingSSHHostPlatforms).includes(params.workspaceId)) {
-				const workspaceHost = JSON.parse(Buffer.from(sshDestination!, 'hex').toString()).hostName;
+			const workspaceHost: string | undefined = JSON.parse(Buffer.from(sshDestination!, 'hex').toString()).hostName;
+			if (workspaceHost && !Object.keys(existingSSHHostPlatforms).includes(workspaceHost)) {
 				vscode.workspace.getConfiguration('remote.SSH').update('remotePlatform', { ...existingSSHHostPlatforms, [workspaceHost]: 'linux' }, vscode.ConfigurationTarget.Global);
 			}
 		}
