@@ -43,15 +43,15 @@ export default class SSHDestination {
     }
 
     toRemoteSSHString() {
-        if (typeof this.user === 'undefined' && typeof this.port === 'undefined') {
+        if (!this.user && !this.port) {
             return this.hostname;
         }
 
         const obj: any = { hostName: this.hostname };
-        if (typeof this.user !== 'undefined') {
+        if (this.user) {
             obj.user = this.user;
         }
-        if (typeof this.port !== 'undefined') {
+        if (this.port) {
             obj.port = this.port;
         }
         return Buffer.from(JSON.stringify(obj), 'utf8').toString('hex');
