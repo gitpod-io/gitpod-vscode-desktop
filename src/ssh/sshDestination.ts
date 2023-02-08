@@ -41,4 +41,19 @@ export default class SSHDestination {
         }
         return result;
     }
+
+    toRemoteSSHString() {
+        if (typeof this.user === 'undefined' && typeof this.port === 'undefined') {
+            return this.hostname;
+        }
+
+        const obj: any = { hostName: this.hostname };
+        if (typeof this.user !== 'undefined') {
+            obj.user = this.user;
+        }
+        if (typeof this.port !== 'undefined') {
+            obj.port = this.port;
+        }
+        return Buffer.from(JSON.stringify(obj), 'utf8').toString('hex');
+    }
 }

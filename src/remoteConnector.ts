@@ -38,6 +38,8 @@ import { GitpodPublicApi } from './publicApi';
 import { SSHKey } from '@gitpod/public-api/lib/gitpod/experimental/v1/user_pb';
 import { getAgentSock, SSHError, testSSHConnection } from './sshTestConnection';
 import { gatherIdentityFiles } from './ssh/identityFiles';
+import { isWindows } from './common/platform';
+import SSHDestination from './ssh/sshDestination';
 
 interface SSHConnectionParams {
 	workspaceId: string;
@@ -443,7 +445,7 @@ export default class RemoteConnector extends Disposable {
 		}
 	}
 
-	private async getWorkspaceSSHDestination(session: vscode.AuthenticationSession, { workspaceId, gitpodHost, debugWorkspace }: SSHConnectionParams): Promise<{ destination: string; password?: string }> {
+	private async getWorkspaceSSHDestination(session: vscode.AuthenticationSession, { workspaceId, gitpodHost, debugWorkspace }: SSHConnectionParams): Promise<{ destination: SSHDestination; password?: string }> {
 		const serviceUrl = new URL(gitpodHost);
 		const sshKeysSupported = session.scopes.includes(ScopeFeature.SSHPublicKeys);
 
@@ -474,18 +476,17 @@ export default class RemoteConnector extends Disposable {
 		const sshHostKeys = (await sshHostKeyResponse.json()) as { type: string; host_key: string }[];
 		let user = workspaceId;
 		// See https://github.com/gitpod-io/gitpod/pull/9786 for reasoning about `.ssh` suffix
-		let hostName = workspaceUrl.host.replace(workspaceId, `${workspaceId}.ssh`);
+		let hostname = workspaceUrl.host.replace(workspaceId, `${workspaceId}.ssh`);
 		if (debugWorkspace) {
 			user = 'debug-' + workspaceId;
-			hostName = hostName.replace(workspaceId, user);
+			hostname = hostname.replace(workspaceId, user);
 		}
-		const sshDestInfo = { user, hostName };
 
 		const sshConfiguration = await SSHConfiguration.loadFromFS();
 
 		const verifiedHostKey = await testSSHConnection({
-			host: sshDestInfo.hostName,
-			username: sshDestInfo.user,
+			host: hostname,
+			username: user,
 			readyTimeout: 40000,
 			password: ownerToken
 		}, sshHostKeys, sshConfiguration, this.logger);
@@ -497,15 +498,15 @@ export default class RemoteConnector extends Disposable {
 				throw result;
 			}
 			const parseKey = Array.isArray(result) ? result[0] : result;
-			if (parseKey && await checkNewHostInHostkeys(sshDestInfo.hostName)) {
-				await addHostToHostFile(sshDestInfo.hostName, verifiedHostKey!, parseKey.type);
-				this.logger.info(`'${sshDestInfo.hostName}' host added to known_hosts file`);
+			if (parseKey && await checkNewHostInHostkeys(hostname)) {
+				await addHostToHostFile(hostname, verifiedHostKey!, parseKey.type);
+				this.logger.info(`'${hostname}' host added to known_hosts file`);
 			}
 		} catch (e) {
-			this.logger.error(`Couldn't write '${sshDestInfo.hostName}' host to known_hosts file:`, e);
+			this.logger.error(`Couldn't write '${hostname}' host to known_hosts file:`, e);
 		}
 
-		const hostConfiguration = sshConfiguration.getHostConfiguration(sshDestInfo.hostName);
+		const hostConfiguration = sshConfiguration.getHostConfiguration(hostname);
 		let identityKeys = await gatherIdentityFiles([], getAgentSock(hostConfiguration), false, this.logger);
 
 		if (registeredSSHKeys) {
@@ -526,19 +527,19 @@ export default class RemoteConnector extends Disposable {
 			identityKeys = identityKeys.filter(k => !!registeredKeys.find(regKey => regKey.fingerprint === k.fingerprint));
 		} else {
 			if (identityKeys.length) {
-				sshDestInfo.user = `${user}#${ownerToken}`;
+				user = `${user}#${ownerToken}`;
 			}
 			const gitpodVersion = await getGitpodVersion(gitpodHost, this.logger);
 			this.logger.warn(`Registered SSH public keys not supported in ${gitpodHost}, using version ${gitpodVersion.raw}`);
 		}
 
 		return {
-			destination: Buffer.from(JSON.stringify(sshDestInfo), 'utf8').toString('hex'),
+			destination: new SSHDestination(hostname, user),
 			password: identityKeys.length === 0 ? ownerToken : undefined
 		};
 	}
 
-	private async getWorkspaceLocalAppSSHDestination(params: SSHConnectionParams): Promise<{ localAppSSHDest: string; localAppSSHConfigPath: string }> {
+	private async getWorkspaceLocalAppSSHDestination(params: SSHConnectionParams): Promise<{ destination: SSHDestination; localAppSSHConfigPath: string }> {
 		return vscode.window.withProgress({
 			location: vscode.ProgressLocation.Notification,
 			cancellable: true,
@@ -558,7 +559,7 @@ export default class RemoteConnector extends Disposable {
 				}, token);
 
 				return {
-					localAppSSHDest: connection.getHost(),
+					destination: new SSHDestination(connection.getHost()),
 					localAppSSHConfigPath: connection.getConfigFile()
 				};
 			} catch (e) {
@@ -721,7 +722,7 @@ export default class RemoteConnector extends Disposable {
 			? (await this.experiments.get<boolean>('gitpod.remote.useLocalApp', session.account.id, { gitpodHost: params.gitpodHost }))!
 			: (await this.experiments.get<boolean>('gitpod.remote.useLocalApp', session.account.id, { gitpodHost: params.gitpodHost }, 'gitpod_remote_useLocalApp_sh'))!;
 		const userOverride = String(isUserOverrideSetting('gitpod.remote.useLocalApp'));
-		let sshDestination: string | undefined;
+		let sshDestination: SSHDestination | undefined;
 		if (!forceUseLocalApp) {
 			const openSSHVersion = await getOpenSSHVersion();
 			const gatewayFlow = { kind: 'gateway', openSSHVersion, userOverride, ...sshFlow };
@@ -782,7 +783,7 @@ export default class RemoteConnector extends Disposable {
 				this.telemetry.sendUserFlowStatus('connecting', localAppFlow);
 
 				const localAppDestData = await this.getWorkspaceLocalAppSSHDestination(params);
-				sshDestination = localAppDestData.localAppSSHDest;
+				sshDestination = localAppDestData.destination;
 				localAppSSHConfigPath = localAppDestData.localAppSSHConfigPath;
 
 				this.telemetry.sendUserFlowStatus('connected', localAppFlow);
@@ -811,22 +812,21 @@ export default class RemoteConnector extends Disposable {
 
 		await this.updateRemoteSSHConfig(usingSSHGateway, localAppSSHConfigPath);
 
-		await this.context.globalState.update(`${RemoteConnector.SSH_DEST_KEY}${sshDestination!}`, { ...params, isFirstConnection: true });
+		await this.context.globalState.update(`${RemoteConnector.SSH_DEST_KEY}${sshDestination!.toRemoteSSHString()}`, { ...params, isFirstConnection: true });
 
 		const forceNewWindow = this.context.extensionMode === vscode.ExtensionMode.Production;
 
 		// Force Linux as host platform (https://github.com/gitpod-io/gitpod/issues/16058)
-		if (process.platform === 'win32') {
-			const existingSSHHostPlatforms = vscode.workspace.getConfiguration('remote.SSH').get<{[host: string]: string}>('remotePlatform') || {};
-			const workspaceHost: string | undefined = JSON.parse(Buffer.from(sshDestination!, 'hex').toString()).hostName;
-			if (workspaceHost && !Object.keys(existingSSHHostPlatforms).includes(workspaceHost)) {
-				vscode.workspace.getConfiguration('remote.SSH').update('remotePlatform', { ...existingSSHHostPlatforms, [workspaceHost]: 'linux' }, vscode.ConfigurationTarget.Global);
+		if (isWindows) {
+			const existingSSHHostPlatforms = vscode.workspace.getConfiguration('remote.SSH').get<{ [host: string]: string }>('remotePlatform', {});
+			if (!existingSSHHostPlatforms[sshDestination!.hostname]) {
+				await vscode.workspace.getConfiguration('remote.SSH').update('remotePlatform', { ...existingSSHHostPlatforms, [sshDestination!.hostname]: 'linux' }, vscode.ConfigurationTarget.Global);
 			}
 		}
 
 		vscode.commands.executeCommand(
 			'vscode.openFolder',
-			vscode.Uri.parse(`vscode-remote://ssh-remote+${sshDestination}${uri.path || '/'}`),
+			vscode.Uri.parse(`vscode-remote://ssh-remote+${sshDestination!.toRemoteSSHString()}${uri.path || '/'}`),
 			{ forceNewWindow }
 		);
 	}
