@@ -7,7 +7,6 @@ import { WorkspaceInfo } from '@gitpod/gitpod-protocol';
 import { Workspace, WorkspaceInstanceStatus_Phase } from '@gitpod/public-api/lib/gitpod/experimental/v1/workspaces_pb';
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
-import Log from './common/logger';
 import { withServerApi } from './internalApi';
 import { GitpodPublicApi } from './publicApi';
 import TelemetryReporter from './telemetryReporter';
@@ -28,7 +27,7 @@ export class HeartbeatManager extends Disposable {
         readonly debugWorkspace: boolean,
         private readonly accessToken: string,
         private readonly publicApi: GitpodPublicApi | undefined,
-        private readonly logger: Log,
+        private readonly logger: vscode.LogOutputChannel,
         private readonly telemetry: TelemetryReporter
     ) {
         super();
@@ -79,7 +78,7 @@ export class HeartbeatManager extends Disposable {
             }
         }));
 
-        this.logger.trace(`Heartbeat manager for workspace ${workspaceId} (${instanceId}) - ${gitpodHost} started`);
+        this.logger.debug(`Heartbeat manager for workspace ${workspaceId} (${instanceId}) - ${gitpodHost} started`);
 
         // Start heartbeating interval
         this.sendHeartBeat();
@@ -103,7 +102,6 @@ export class HeartbeatManager extends Disposable {
     }
 
     private async sendHeartBeat(wasClosed?: true) {
-        const suffix = wasClosed ? 'closed heartbeat' : 'heartbeat';
         try {
             await withServerApi(this.accessToken, this.gitpodHost, async service => {
                 const workspaceInfo = this.publicApi
@@ -118,7 +116,9 @@ export class HeartbeatManager extends Disposable {
                         : await service.server.sendHeartBeat({ instanceId: this.instanceId, wasClosed });
                     if (wasClosed) {
                         this.telemetry.sendTelemetryEvent('ide_close_signal', { workspaceId: this.workspaceId, instanceId: this.instanceId, gitpodHost: this.gitpodHost, clientKind: 'vscode', debugWorkspace: String(!!this.debugWorkspace) });
-                        this.logger.trace('Send ' + suffix);
+                        this.logger.trace(`Send closed heartbeat`);
+                    } else {
+                        this.logger.trace(`Send heartbeat, triggered by ${this.lastActivityEvent} event`);
                     }
                 } else {
                     this.logger.trace('Stopping heartbeat as workspace is not running');
@@ -126,7 +126,8 @@ export class HeartbeatManager extends Disposable {
                 }
             }, this.logger);
         } catch (err) {
-            this.logger.error(`Failed to send ${suffix} with event ${this.lastActivityEvent}:`, err);
+            const suffix = wasClosed ? 'closed heartbeat' : 'heartbeat';
+            this.logger.error(`Failed to send ${suffix}, triggered by ${this.lastActivityEvent} event:`, err);
         }
     }
 

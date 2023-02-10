@@ -6,13 +6,12 @@
 // keytar depends on a native module shipped in vscode, so this is
 // how we load it
 import * as vscode from 'vscode';
-import Log from './logger';
 
 export default class Keychain {
 	constructor(
 		private readonly context: vscode.ExtensionContext,
 		private readonly serviceId: string,
-		private readonly logger: Log
+		private readonly logger: vscode.LogOutputChannel
 	) { }
 
 	async setToken(token: string): Promise<void> {

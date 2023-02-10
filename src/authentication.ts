@@ -7,7 +7,6 @@ import * as vscode from 'vscode';
 import { v4 as uuid } from 'uuid';
 import Keychain from './common/keychain';
 import GitpodServer from './gitpodServer';
-import Log from './common/logger';
 import { arrayEquals } from './common/utils';
 import { Disposable } from './common/dispose';
 import TelemetryReporter from './telemetryReporter';
@@ -27,7 +26,6 @@ interface SessionData {
 
 export default class GitpodAuthenticationProvider extends Disposable implements vscode.AuthenticationProvider {
 	private _sessionChangeEmitter = new vscode.EventEmitter<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>();
-	private _logger: Log;
 	private _telemetry: TelemetryReporter;
 
 	private _gitpodServer!: GitpodServer;
@@ -40,13 +38,12 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 
 	constructor(
 		private readonly context: vscode.ExtensionContext,
-		logger: Log,
+		private readonly _logger: vscode.LogOutputChannel,
 		telemetry: TelemetryReporter,
 		private readonly notifications: NotificationService
 	) {
 		super();
 
-		this._logger = logger;
 		this._telemetry = telemetry;
 
 		this.reconcile();

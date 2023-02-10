@@ -7,7 +7,6 @@ import * as vscode from 'vscode';
 import * as configcat from 'configcat-node';
 import * as configcatcommon from 'configcat-common';
 import * as semver from 'semver';
-import Log from './common/logger';
 
 const EXPERTIMENTAL_SETTINGS = [
     'gitpod.remote.useLocalApp'
@@ -21,7 +20,7 @@ export class ExperimentalSettings {
         key: string,
         extensionVersion: string,
         private readonly context: vscode.ExtensionContext,
-        private readonly logger: Log
+        private readonly logger: vscode.LogOutputChannel
     ) {
         this.configcatClient = configcat.createClientWithLazyLoad(key, {
             baseUrl: new URL('/configcat', this.context.extensionMode === vscode.ExtensionMode.Production ? 'https://gitpod.io' : 'https://gitpod-staging.com').href,

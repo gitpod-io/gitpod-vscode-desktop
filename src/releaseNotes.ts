@@ -7,7 +7,6 @@ import * as vscode from 'vscode';
 import { load } from 'js-yaml';
 import { CacheHelper } from './common/cache';
 import { Disposable, disposeAll } from './common/dispose';
-import Log from './common/logger';
 
 export class ReleaseNotes extends Disposable {
 	public static readonly viewType = 'gitpodReleaseNotes';
@@ -21,7 +20,7 @@ export class ReleaseNotes extends Disposable {
 
 	constructor(
 		private readonly context: vscode.ExtensionContext,
-		private readonly logger: Log,
+		private readonly logger: vscode.LogOutputChannel,
 	) {
 		super();
 

@@ -20,7 +20,6 @@ import { ParsedKey } from 'ssh2-streams';
 import * as tmp from 'tmp';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import Log from './common/logger';
 import { Disposable } from './common/dispose';
 import { withServerApi } from './internalApi';
 import TelemetryReporter from './telemetryReporter';
@@ -127,7 +126,7 @@ export default class RemoteConnector extends Disposable {
 		private readonly context: vscode.ExtensionContext,
 		private readonly settingsSync: SettingsSync,
 		private readonly experiments: ExperimentalSettings,
-		private readonly logger: Log,
+		private readonly logger: vscode.LogOutputChannel,
 		private readonly telemetry: TelemetryReporter,
 		private readonly notifications: NotificationService
 	) {
