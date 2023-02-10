@@ -1013,7 +1013,7 @@ export default class RemoteConnector extends Disposable {
 			: `Workspace not found. Please start the workspace from dashboard.`;
 		this.logger.error(msg);
 
-		const openUrl = 'Start workspace';
+		const openUrl = 'Restart workspace';
 		const resp = await this.notifications.showErrorMessage(msg, { modal: true, id: uuid(), flow }, openUrl);
 		if (resp === openUrl) {
 			await vscode.env.openExternal(vscode.Uri.parse(workspaceUrl || 'https://gitpod.io/workspaces'));
