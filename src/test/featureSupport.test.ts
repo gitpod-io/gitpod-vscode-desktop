@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import { equal } from 'assert';
-import Log from '../common/logger';
 import { getGitpodVersion, GitpodVersion, isFeatureSupported } from '../featureSupport';
 
 suite('feature support', () => {
@@ -47,15 +46,15 @@ suite('feature support', () => {
 suite('fetch version info', function () {
     this.timeout(10000);
 
-    const logger = { info: (..._args: any) => { }, error: (..._args: any) => { } } as Log;
+    const logger = { trace: (..._args: any) => { }, debug: (..._args: any) => { }, info: (..._args: any) => { }, warn: (..._args: any) => { }, error: (..._args: any) => { } };
 
     test('unknown host retry and fallback to min', async () => {
-        const version = await getGitpodVersion('https://unknown.gitpod.io', logger);
+        const version = await getGitpodVersion('https://unknown.gitpod.io', logger as any);
         equal(version.version, GitpodVersion.Min.version);
     });
 
     test('SaaS Gitpod return max', async () => {
-        const version = await getGitpodVersion('https://gitpod.io', logger);
+        const version = await getGitpodVersion('https://gitpod.io', logger as any);
         equal(version.version, GitpodVersion.Max.version);
     });
 });

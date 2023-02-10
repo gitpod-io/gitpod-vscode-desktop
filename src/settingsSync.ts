@@ -5,7 +5,6 @@
 
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
-import Log from './common/logger';
 import { UserFlowTelemetry } from './common/telemetry';
 import { NotificationService } from './notification';
 import TelemetryReporter from './telemetryReporter';
@@ -107,7 +106,7 @@ export class SettingsSync extends Disposable {
 	private readonly flow: Readonly<UserFlowTelemetry> = { flow: 'settings_sync' };
 
 	constructor(
-		private readonly logger: Log,
+		private readonly logger: vscode.LogOutputChannel,
 		private readonly telemetry: TelemetryReporter,
 		private readonly notifications: NotificationService
 	) {

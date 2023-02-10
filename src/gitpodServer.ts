@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import Log from './common/logger';
 import { PromiseAdapter, promiseFromEvent } from './common/utils';
 import { withServerApi } from './internalApi';
 import pkceChallenge from 'pkce-challenge';
@@ -21,7 +20,7 @@ interface ExchangeTokenResponse {
 	scope: string;
 }
 
-async function getUserInfo(token: string, serviceUrl: string, logger: Log) {
+async function getUserInfo(token: string, serviceUrl: string, logger: vscode.LogOutputChannel) {
 	const user = await withServerApi(token, serviceUrl, service => service.server.getLoggedInUser(), logger);
 	return {
 		id: user.id,
@@ -41,7 +40,7 @@ export default class GitpodServer extends Disposable {
 
 	constructor(
 		serviceUrl: string,
-		private readonly _logger: Log,
+		private readonly _logger: vscode.LogOutputChannel,
 		private readonly notifications: NotificationService
 	) {
 		super();

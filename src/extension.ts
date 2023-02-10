@@ -7,7 +7,6 @@ import * as os from 'os';
 import * as vscode from 'vscode';
 import fetch, { Headers, Request, Response, AbortError, FetchError } from 'node-fetch-commonjs';
 import GitpodAuthenticationProvider from './authentication';
-import Log from './common/logger';
 import { UserFlowTelemetry } from './common/telemetry';
 import { ExperimentalSettings } from './experiments';
 import { exportLogs } from './exportLogs';
@@ -40,7 +39,15 @@ export async function activate(context: vscode.ExtensionContext) {
 	// sync between machines
 	context.globalState.setKeysForSync([ReleaseNotes.RELEASE_NOTES_LAST_READ_KEY]);
 
-	const logger = new Log('Gitpod');
+	const logger = vscode.window.createOutputChannel('Gitpod', { log: true });
+	context.subscriptions.push(logger);
+
+	const onDidChangeLogLevel = (logLevel: vscode.LogLevel) => {
+		logger.appendLine(`Log level: ${vscode.LogLevel[logLevel]}`);
+	};
+	context.subscriptions.push(logger.onDidChangeLogLevel(onDidChangeLogLevel));
+	onDidChangeLogLevel(logger.logLevel);
+
 	logger.info(`${extensionId}/${packageJSON.version} (${os.release()} ${os.platform()} ${os.arch()}) vscode/${vscode.version} (${vscode.env.appName})`);
 
 	const experiments = new ExperimentalSettings('gitpod', packageJSON.version, context, logger);

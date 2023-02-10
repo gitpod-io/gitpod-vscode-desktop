@@ -13,7 +13,6 @@ import { gatherIdentityFiles, SSHKey } from './ssh/identityFiles';
 import SSHConfiguration from './ssh/sshConfig';
 import SSHConnection from './ssh/sshConnection';
 import SSHDestination from './ssh/sshDestination';
-import Log from './common/logger';
 
 export class SSHError extends Error {
     constructor(cause: Error) {
@@ -29,7 +28,7 @@ export function getAgentSock(sshHostConfig: Record<string, string>) {
     return sshAgentSock ? untildify(sshAgentSock) : undefined;
 }
 
-export async function testSSHConnection(config: ConnectConfig, sshHostKeys: { type: string; host_key: string }[], sshconfig: SSHConfiguration, logger: Log) {
+export async function testSSHConnection(config: ConnectConfig, sshHostKeys: { type: string; host_key: string }[], sshconfig: SSHConfiguration, logger: vscode.LogOutputChannel) {
     const sshHostConfig = sshconfig.getHostConfiguration(config.host!);
 
     const sshAgentSock = getAgentSock(sshHostConfig);
@@ -115,7 +114,7 @@ export async function testSSHConnection(config: ConnectConfig, sshHostKeys: { ty
 const PASSWORD_RETRY_COUNT = 3;
 const PASSPHRASE_RETRY_COUNT = 3;
 
-function getSSHAuthHandler(sshUser: string, sshHostName: string, identityKeys: SSHKey[], sshAgentSock: string | undefined, logger: Log) {
+function getSSHAuthHandler(sshUser: string, sshHostName: string, identityKeys: SSHKey[], sshAgentSock: string | undefined, logger: vscode.LogOutputChannel) {
     let passwordRetryCount = PASSWORD_RETRY_COUNT;
     let keyboardRetryCount = PASSWORD_RETRY_COUNT;
     identityKeys = identityKeys.slice();

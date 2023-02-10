@@ -9,7 +9,6 @@ import { listen as doListen } from 'vscode-ws-jsonrpc';
 import WebSocket, { ErrorEvent } from 'ws';
 import ReconnectingWebSocket from 'reconnecting-websocket';
 import * as vscode from 'vscode';
-import Log from './common/logger';
 
 type UsedGitpodFunction = ['getLoggedInUser', 'getWorkspace', 'getOwnerToken', 'getSSHPublicKeys', 'sendHeartBeat'];
 type Union<Tuple extends any[], Union = never> = Tuple[number] | Union;
@@ -26,7 +25,7 @@ class GitpodServerApi extends vscode.Disposable {
 	private readonly onErrorEmitter = new vscode.EventEmitter<Error>();
 	readonly onError = this.onErrorEmitter.event;
 
-	constructor(accessToken: string, serviceUrl: string, private readonly logger: Log) {
+	constructor(accessToken: string, serviceUrl: string, readonly logger: vscode.LogOutputChannel) {
 		super(() => this.internalDispose());
 
 		serviceUrl = serviceUrl.replace(/\/$/, '');
@@ -59,7 +58,12 @@ class GitpodServerApi extends vscode.Disposable {
 
 		doListen({
 			webSocket: (webSocket as any),
-			logger: this.logger,
+			logger: {
+				error(m: string) { logger.error(m); },
+				warn(m: string) { logger.warn(m); },
+				info(m: string) { logger.info(m); },
+				log(m: string) { logger.info(m); }
+			},
 			onConnection: connection => factory.listen(connection),
 		});
 		this.webSocket = webSocket;
@@ -71,7 +75,7 @@ class GitpodServerApi extends vscode.Disposable {
 	}
 }
 
-export function withServerApi<T>(accessToken: string, serviceUrl: string, cb: (service: GitpodConnection) => Promise<T>, logger: Log): Promise<T> {
+export function withServerApi<T>(accessToken: string, serviceUrl: string, cb: (service: GitpodConnection) => Promise<T>, logger: vscode.LogOutputChannel): Promise<T> {
 	const api = new GitpodServerApi(accessToken, serviceUrl, logger);
 	return Promise.race([
 		cb(api.service),
