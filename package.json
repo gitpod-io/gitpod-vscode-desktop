@@ -163,10 +163,10 @@
 		"webpack-cli": "^4.7.2"
 	},
 	"dependencies": {
-		"@bufbuild/connect-web": "^0.2.1",
+		"@bufbuild/connect-node": "^0.7.0",
 		"@gitpod/gitpod-protocol": "main",
 		"@gitpod/local-app-api-grpcweb": "main",
-		"@gitpod/public-api": "main",
+		"@gitpod/public-api": "^0.1.5-main.6530",
 		"@improbable-eng/grpc-web-node-http-transport": "^0.14.0",
 		"analytics-node": "^6.2.0",
 		"configcat-node": "^8.0.0",

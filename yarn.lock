@@ -2,6 +2,18 @@
 # yarn lockfile v1
 
 
+"@bufbuild/connect-core@0.7.0":
+  version "0.7.0"
+  resolved "https://registry.yarnpkg.com/@bufbuild/connect-core/-/connect-core-0.7.0.tgz#b3df22b2daf69df222f916ff9c2049744cad1f86"
+  integrity sha512-5ihTJz/r/tdlOQFLB4GHeNpxhssIumpEpHra9EvlDXnUnQWQVX8Ut6GAgcNeSizuB4duzKsGdl3P9TCS3W/YYA==
+
+"@bufbuild/connect-node@^0.7.0":
+  version "0.7.0"
+  resolved "https://registry.yarnpkg.com/@bufbuild/connect-node/-/connect-node-0.7.0.tgz#832e9f211da38170f41044470245224459c1823e"
+  integrity sha512-KOeaKAJ5gYoVJZYYWp9XfYzj5gzGLFZjsYez8EpptNZbD7lyeaKBBgBPUvrKx+LhiPcscz2rvKYiJZQy8fRTyA==
+  dependencies:
+    "@bufbuild/connect-core" "0.7.0"
+
 "@bufbuild/connect-web@^0.2.1":
   version "0.2.1"
   resolved "https://registry.yarnpkg.com/@bufbuild/connect-web/-/connect-web-0.2.1.tgz#a7ee2914bf1b77d640fc4ee3c3a89d626f3015fa"
@@ -92,10 +104,10 @@
     "@improbable-eng/grpc-web" "0.14.0"
     google-protobuf "^3.19.1"
 
-"@gitpod/public-api@main":
-  version "0.1.5-main.5676"
-  resolved "https://registry.yarnpkg.com/@gitpod/public-api/-/public-api-0.1.5-main.5676.tgz#cfccc790db02a4a4becd1bb6018a3c9c03c33466"
-  integrity sha512-6uYkt7rmTokERcwwPK8kA2Peq/GaEhPiSC9GF5GJhP+4Fxvdkzjx/1a7nTP9nLN7Kjilj2z77VrcrECAMPKt8A==
+"@gitpod/public-api@^0.1.5-main.6530":
+  version "0.1.5-main.6530"
+  resolved "https://registry.yarnpkg.com/@gitpod/public-api/-/public-api-0.1.5-main.6530.tgz#715eea09fb916c4c3d066ef277907f87feea5cca"
+  integrity sha512-dEccJwbIUHIx3lYsMX7knIs5j110sXK9Kt1SVZzR2gzpK8voI8efggC7TJuEzHVNZNgvr88HsxKp5BfSwTB7hQ==
   dependencies:
     "@bufbuild/connect-web" "^0.2.1"
     "@bufbuild/protobuf" "^0.1.1"
