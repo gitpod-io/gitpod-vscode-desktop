@@ -7,7 +7,6 @@ import { WorkspaceStatus } from '@gitpod/public-api/lib/gitpod/experimental/v1';
 import { WorkspaceInstanceStatus_Phase } from '@gitpod/public-api/lib/gitpod/experimental/v1/workspaces_pb';
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
-import Log from './common/logger';
 import { GitpodPublicApi } from './publicApi';
 
 export class WorkspaceState extends Disposable {
@@ -26,7 +25,7 @@ export class WorkspaceState extends Disposable {
     constructor(
         readonly workspaceId: string,
         private readonly publicApi: GitpodPublicApi,
-        private readonly logger: Log,
+        private readonly logger: vscode.LogOutputChannel,
     ) {
         super();
 
