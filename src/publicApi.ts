@@ -11,7 +11,6 @@ import { Workspace, WorkspaceStatus } from '@gitpod/public-api/lib/gitpod/experi
 import { SSHKey, User } from '@gitpod/public-api/lib/gitpod/experimental/v1/user_pb';
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
-import Log from './common/logger';
 
 export class GitpodPublicApi extends Disposable {
 
@@ -22,7 +21,7 @@ export class GitpodPublicApi extends Disposable {
     private _onWorkspaceStatusUpdate = this._register(new vscode.EventEmitter<WorkspaceStatus>);
     public readonly onWorkspaceStatusUpdate = this._onWorkspaceStatusUpdate.event;
 
-    constructor(accessToken: string, gitpodHost: string, private logger: Log) {
+    constructor(accessToken: string, gitpodHost: string, private logger: vscode.LogOutputChannel) {
         super();
 
         const serviceUrl = new URL(gitpodHost);
