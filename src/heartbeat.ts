@@ -14,11 +14,15 @@ import TelemetryReporter from './telemetryReporter';
 export class HeartbeatManager extends Disposable {
 
     static HEARTBEAT_INTERVAL = 30000;
+    static EVENT_COUNTER_INTERVAL = 3600000;
 
     private lastActivity = new Date().getTime();
     private lastActivityEvent: string = 'init';
     private isWorkspaceRunning = true;
     private heartBeatHandle: NodeJS.Timer | undefined;
+
+    private eventCounterMap = new Map<string, number>();
+    private eventCounterHandle: NodeJS.Timer | undefined;
 
     constructor(
         readonly gitpodHost: string,
@@ -31,49 +35,58 @@ export class HeartbeatManager extends Disposable {
         private readonly telemetry: TelemetryReporter
     ) {
         super();
-        this._register(vscode.window.onDidChangeActiveTextEditor(this.updateLastActivity('onDidChangeActiveTextEditor'), this));
-        this._register(vscode.window.onDidChangeVisibleTextEditors(this.updateLastActivity('onDidChangeVisibleTextEditors'), this));
-        this._register(vscode.window.onDidChangeTextEditorSelection(this.updateLastActivity('onDidChangeTextEditorSelection'), this));
-        this._register(vscode.window.onDidChangeTextEditorVisibleRanges(this.updateLastActivity('onDidChangeTextEditorVisibleRanges'), this));
-        this._register(vscode.window.onDidChangeTextEditorOptions(this.updateLastActivity('onDidChangeTextEditorOptions'), this));
-        this._register(vscode.window.onDidChangeTextEditorViewColumn(this.updateLastActivity('onDidChangeTextEditorViewColumn'), this));
-        this._register(vscode.window.onDidChangeActiveTerminal(this.updateLastActivity('onDidChangeActiveTerminal'), this));
-        this._register(vscode.window.onDidOpenTerminal(this.updateLastActivity('onDidOpenTerminal'), this));
-        this._register(vscode.window.onDidCloseTerminal(this.updateLastActivity('onDidCloseTerminal'), this));
-        this._register(vscode.window.onDidChangeTerminalState(this.updateLastActivity('onDidChangeTerminalState'), this));
-        this._register(vscode.window.onDidChangeWindowState(this.updateLastActivity('onDidChangeWindowState'), this));
-        this._register(vscode.window.onDidChangeActiveColorTheme(this.updateLastActivity('onDidChangeActiveColorTheme'), this));
-        this._register(vscode.authentication.onDidChangeSessions(this.updateLastActivity('onDidChangeSessions'), this));
-        this._register(vscode.debug.onDidChangeActiveDebugSession(this.updateLastActivity('onDidChangeActiveDebugSession'), this));
-        this._register(vscode.debug.onDidStartDebugSession(this.updateLastActivity('onDidStartDebugSession'), this));
-        this._register(vscode.debug.onDidReceiveDebugSessionCustomEvent(this.updateLastActivity('onDidReceiveDebugSessionCustomEvent'), this));
-        this._register(vscode.debug.onDidTerminateDebugSession(this.updateLastActivity('onDidTerminateDebugSession'), this));
-        this._register(vscode.debug.onDidChangeBreakpoints(this.updateLastActivity('onDidChangeBreakpoints'), this));
-        this._register(vscode.extensions.onDidChange(this.updateLastActivity('onDidChange'), this));
-        this._register(vscode.languages.onDidChangeDiagnostics(this.updateLastActivity('onDidChangeDiagnostics'), this));
-        this._register(vscode.tasks.onDidStartTask(this.updateLastActivity('onDidStartTask'), this));
-        this._register(vscode.tasks.onDidStartTaskProcess(this.updateLastActivity('onDidStartTaskProcess'), this));
-        this._register(vscode.tasks.onDidEndTask(this.updateLastActivity('onDidEndTask'), this));
-        this._register(vscode.tasks.onDidEndTaskProcess(this.updateLastActivity('onDidEndTaskProcess'), this));
-        this._register(vscode.workspace.onDidChangeWorkspaceFolders(this.updateLastActivity('onDidChangeWorkspaceFolders'), this));
-        this._register(vscode.workspace.onDidOpenTextDocument(this.updateLastActivity('onDidOpenTextDocument'), this));
-        this._register(vscode.workspace.onDidCloseTextDocument(this.updateLastActivity('onDidCloseTextDocument'), this));
-        this._register(vscode.workspace.onDidChangeTextDocument(this.updateLastActivity('onDidChangeTextDocument'), this));
-        this._register(vscode.workspace.onDidSaveTextDocument(this.updateLastActivity('onDidSaveTextDocument'), this));
-        this._register(vscode.workspace.onDidChangeNotebookDocument(this.updateLastActivity('onDidChangeNotebookDocument'), this));
-        this._register(vscode.workspace.onDidSaveNotebookDocument(this.updateLastActivity('onDidSaveNotebookDocument'), this));
-        this._register(vscode.workspace.onDidOpenNotebookDocument(this.updateLastActivity('onDidOpenNotebookDocument'), this));
-        this._register(vscode.workspace.onDidCloseNotebookDocument(this.updateLastActivity('onDidCloseNotebookDocument'), this));
-        this._register(vscode.workspace.onWillCreateFiles(this.updateLastActivity('onWillCreateFiles'), this));
-        this._register(vscode.workspace.onDidCreateFiles(this.updateLastActivity('onDidCreateFiles'), this));
-        this._register(vscode.workspace.onWillDeleteFiles(this.updateLastActivity('onWillDeleteFiles'), this));
-        this._register(vscode.workspace.onDidDeleteFiles(this.updateLastActivity('onDidDeleteFiles'), this));
-        this._register(vscode.workspace.onWillRenameFiles(this.updateLastActivity('onWillRenameFiles'), this));
-        this._register(vscode.workspace.onDidRenameFiles(this.updateLastActivity('onDidRenameFiles'), this));
-        this._register(vscode.workspace.onDidChangeConfiguration(this.updateLastActivity('onDidChangeConfiguration'), this));
+        this._register(vscode.window.onDidChangeActiveTextEditor(e => this.updateLastActivity('onDidChangeActiveTextEditor', e?.document)));
+        this._register(vscode.window.onDidChangeVisibleTextEditors(() => this.updateLastActivity('onDidChangeVisibleTextEditors')));
+        this._register(vscode.window.onDidChangeTextEditorSelection(e => {
+            // Ignore `output` scheme as text editors from output panel autoscroll
+            if (e.textEditor.document.uri.scheme === 'output') { return; }
+            this.updateLastActivity('onDidChangeTextEditorSelection', e.textEditor.document);
+        }));
+        this._register(vscode.window.onDidChangeTextEditorVisibleRanges(e => {
+            // Ignore `output` scheme as text editors from output panel autoscroll
+            if (e.textEditor.document.uri.scheme === 'output') { return; }
+            this.updateLastActivity('onDidChangeTextEditorVisibleRanges', e.textEditor.document);
+        }));
+        this._register(vscode.window.onDidChangeTextEditorOptions(e => this.updateLastActivity('onDidChangeTextEditorOptions', e.textEditor.document)));
+        this._register(vscode.window.onDidChangeTextEditorViewColumn(e => this.updateLastActivity('onDidChangeTextEditorViewColumn', e.textEditor.document)));
+        this._register(vscode.window.onDidChangeActiveNotebookEditor(() => this.updateLastActivity('onDidChangeActiveNotebookEditor')));
+        this._register(vscode.window.onDidChangeVisibleNotebookEditors(() => this.updateLastActivity('onDidChangeVisibleNotebookEditors')));
+        this._register(vscode.window.onDidChangeNotebookEditorSelection(() => this.updateLastActivity('onDidChangeNotebookEditorSelection')));
+        this._register(vscode.window.onDidChangeNotebookEditorVisibleRanges(() => this.updateLastActivity('onDidChangeNotebookEditorVisibleRanges')));
+        this._register(vscode.window.onDidChangeActiveTerminal(() => this.updateLastActivity('onDidChangeActiveTerminal')));
+        this._register(vscode.window.onDidOpenTerminal(() => this.updateLastActivity('onDidOpenTerminal')));
+        this._register(vscode.window.onDidCloseTerminal(() => this.updateLastActivity('onDidCloseTerminal')));
+        this._register(vscode.window.onDidChangeTerminalState(() => this.updateLastActivity('onDidChangeTerminalState')));
+        this._register(vscode.window.onDidChangeWindowState(() => this.updateLastActivity('onDidChangeWindowState')));
+        this._register(vscode.window.onDidChangeActiveColorTheme(() => this.updateLastActivity('onDidChangeActiveColorTheme')));
+        this._register(vscode.authentication.onDidChangeSessions(() => this.updateLastActivity('onDidChangeSessions')));
+        this._register(vscode.debug.onDidChangeActiveDebugSession(() => this.updateLastActivity('onDidChangeActiveDebugSession')));
+        this._register(vscode.debug.onDidStartDebugSession(() => this.updateLastActivity('onDidStartDebugSession')));
+        this._register(vscode.debug.onDidReceiveDebugSessionCustomEvent(() => this.updateLastActivity('onDidReceiveDebugSessionCustomEvent')));
+        this._register(vscode.debug.onDidTerminateDebugSession(() => this.updateLastActivity('onDidTerminateDebugSession')));
+        this._register(vscode.debug.onDidChangeBreakpoints(() => this.updateLastActivity('onDidChangeBreakpoints')));
+        this._register(vscode.extensions.onDidChange(() => this.updateLastActivity('onDidChangeExtensions')));
+        this._register(vscode.languages.onDidChangeDiagnostics(() => this.updateLastActivity('onDidChangeDiagnostics')));
+        this._register(vscode.tasks.onDidStartTask(() => this.updateLastActivity('onDidStartTask')));
+        this._register(vscode.tasks.onDidStartTaskProcess(() => this.updateLastActivity('onDidStartTaskProcess')));
+        this._register(vscode.tasks.onDidEndTask(() => this.updateLastActivity('onDidEndTask')));
+        this._register(vscode.tasks.onDidEndTaskProcess(() => this.updateLastActivity('onDidEndTaskProcess')));
+        this._register(vscode.workspace.onDidChangeWorkspaceFolders(() => this.updateLastActivity('onDidChangeWorkspaceFolders')));
+        this._register(vscode.workspace.onDidSaveTextDocument(e => this.updateLastActivity('onDidSaveTextDocument', e)));
+        this._register(vscode.workspace.onDidChangeNotebookDocument(() => this.updateLastActivity('onDidChangeNotebookDocument')));
+        this._register(vscode.workspace.onDidSaveNotebookDocument(() => this.updateLastActivity('onDidSaveNotebookDocument')));
+        this._register(vscode.workspace.onDidOpenNotebookDocument(() => this.updateLastActivity('onDidOpenNotebookDocument')));
+        this._register(vscode.workspace.onDidCloseNotebookDocument(() => this.updateLastActivity('onDidCloseNotebookDocument')));
+        this._register(vscode.workspace.onWillCreateFiles(() => this.updateLastActivity('onWillCreateFiles')));
+        this._register(vscode.workspace.onDidCreateFiles(() => this.updateLastActivity('onDidCreateFiles')));
+        this._register(vscode.workspace.onWillDeleteFiles(() => this.updateLastActivity('onWillDeleteFiles')));
+        this._register(vscode.workspace.onDidDeleteFiles(() => this.updateLastActivity('onDidDeleteFiles')));
+        this._register(vscode.workspace.onWillRenameFiles(() => this.updateLastActivity('onWillRenameFiles')));
+        this._register(vscode.workspace.onDidRenameFiles(() => this.updateLastActivity('onDidRenameFiles')));
+        this._register(vscode.workspace.onDidChangeConfiguration(() => this.updateLastActivity('onDidChangeConfiguration')));
         this._register(vscode.languages.registerHoverProvider('*', {
             provideHover: () => {
-                this.updateLastActivity('registerHoverProvider')();
+                this.updateLastActivity('registerHoverProvider');
                 return null;
             }
         }));
@@ -92,13 +105,18 @@ export class HeartbeatManager extends Disposable {
 
             this.sendHeartBeat();
         }, HeartbeatManager.HEARTBEAT_INTERVAL);
+
+        this.eventCounterHandle = setInterval(() => this.sendEventData(), HeartbeatManager.EVENT_COUNTER_INTERVAL);
     }
 
-    private updateLastActivity(event: string) {
-        return () => {
+    private updateLastActivity(event: string, document?: vscode.TextDocument) {
             this.lastActivity = new Date().getTime();
             this.lastActivityEvent = event;
-        };
+
+        const eventName = document ? `${event}:${document.uri.scheme}` : event;
+
+        let counter = this.eventCounterMap.get(eventName) || 0;
+        this.eventCounterMap.set(eventName, ++counter);
     }
 
     private async sendHeartBeat(wasClosed?: true) {
@@ -138,7 +156,21 @@ export class HeartbeatManager extends Disposable {
         }
     }
 
+    private sendEventData() {
+        this.telemetry.sendRawTelemetryEvent('vscode_desktop_heartbeat_delta', { events: Object.fromEntries(this.eventCounterMap) });
+        this.eventCounterMap.clear();
+    }
+
+    private stopEventCounter() {
+        if (this.eventCounterHandle) {
+            clearInterval(this.eventCounterHandle);
+            this.eventCounterHandle = undefined;
+        }
+    }
+
     public override async dispose(): Promise<void> {
+        this.stopEventCounter();
+        this.sendEventData();
         this.stopHeartbeat();
         if (this.isWorkspaceRunning) {
             await this.sendHeartBeat(true);
