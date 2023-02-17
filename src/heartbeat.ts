@@ -14,11 +14,15 @@ import TelemetryReporter from './telemetryReporter';
 export class HeartbeatManager extends Disposable {
 
     static HEARTBEAT_INTERVAL = 30000;
+    static EVENT_COUNTER_INTERVAL = 3600000;
 
     private lastActivity = new Date().getTime();
     private lastActivityEvent: string = 'init';
     private isWorkspaceRunning = true;
     private heartBeatHandle: NodeJS.Timer | undefined;
+
+    private eventCounterMap = new Map<string, number>();
+    private eventCounterHandle: NodeJS.Timer | undefined;
 
     constructor(
         readonly gitpodHost: string,
@@ -92,12 +96,20 @@ export class HeartbeatManager extends Disposable {
 
             this.sendHeartBeat();
         }, HeartbeatManager.HEARTBEAT_INTERVAL);
+
+        this.eventCounterHandle = setInterval(() => {
+            this.telemetry.sendRawTelemetryEvent('vscode_desktop_user_session_events', { events: Object.fromEntries(this.eventCounterMap) });
+            this.eventCounterMap.clear();
+        }, HeartbeatManager.EVENT_COUNTER_INTERVAL);
     }
 
     private updateLastActivity(event: string) {
         return () => {
             this.lastActivity = new Date().getTime();
             this.lastActivityEvent = event;
+
+            let counter = this.eventCounterMap.get(event) || 0;
+            this.eventCounterMap.set(event, counter++);
         };
     }
 
@@ -138,7 +150,15 @@ export class HeartbeatManager extends Disposable {
         }
     }
 
+    private stopEventCounter() {
+        if (this.eventCounterHandle) {
+            clearInterval(this.eventCounterHandle);
+            this.eventCounterHandle = undefined;
+        }
+    }
+
     public override async dispose(): Promise<void> {
+        this.stopEventCounter();
         this.stopHeartbeat();
         if (this.isWorkspaceRunning) {
             await this.sendHeartBeat(true);
