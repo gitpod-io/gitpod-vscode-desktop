@@ -109,7 +109,7 @@ export class HeartbeatManager extends Disposable {
             this.lastActivityEvent = event;
 
             let counter = this.eventCounterMap.get(event) || 0;
-            this.eventCounterMap.set(event, counter++);
+            this.eventCounterMap.set(event, ++counter);
         };
     }
 
