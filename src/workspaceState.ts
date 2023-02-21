@@ -13,8 +13,6 @@ export class WorkspaceState extends Disposable {
 
     static POLL_INTERVAL = 5000;
 
-    private poolHandle: NodeJS.Timer | undefined;
-
     private workspaceStatePromiseResolver!: () => void;
     readonly workspaceStatePromise = new Promise<void>((r) => this.workspaceStatePromiseResolver = r);
     private workspaceState: WorkspaceStatus | undefined;
@@ -31,13 +29,8 @@ export class WorkspaceState extends Disposable {
 
         this.logger.trace(`WorkspaceState manager for workspace ${workspaceId} started`);
 
-        // this._register(this.publicApi.onWorkspaceStatusUpdate(u => this.checkWorkspaceState(u)));
-        // this.publicApi.startWorkspaceStatusStreaming(workspaceId);
-
-        this.pollWorkspaceState();
-        this.poolHandle = setInterval(() => {
-            this.pollWorkspaceState();
-        }, WorkspaceState.POLL_INTERVAL);
+        this._register(this.publicApi.onWorkspaceStatusUpdate(u => this.checkWorkspaceState(u)));
+        this.publicApi.startWorkspaceStatusStreaming(workspaceId);
     }
 
     public isWorkspaceStopped() {
@@ -68,24 +61,7 @@ export class WorkspaceState extends Disposable {
         }
     }
 
-    private async pollWorkspaceState() {
-        try {
-            const workspaceState = await this.publicApi.getWorkspace(this.workspaceId)!;
-            this.checkWorkspaceState(workspaceState?.status);
-        } catch (err) {
-            this.logger.error(`Failed to poll workspace ${this.workspaceId} state:`, err);
-        }
-    }
-
-    private stopPolling() {
-        if (this.poolHandle) {
-            clearInterval(this.poolHandle);
-            this.poolHandle = undefined;
-        }
-    }
-
     public override async dispose(): Promise<void> {
-        this.stopPolling();
         super.dispose();
     }
 
