@@ -25,7 +25,7 @@ import { withServerApi } from './internalApi';
 import TelemetryReporter from './telemetryReporter';
 import { addHostToHostFile, checkNewHostInHostkeys } from './ssh/hostfile';
 import { HeartbeatManager } from './heartbeat';
-import { getGitpodVersion, GitpodVersion, isFeatureSupported, isOauthInspectSupported, ScopeFeature } from './featureSupport';
+import { getGitpodVersion, isFeatureSupported, isOauthInspectSupported, ScopeFeature } from './featureSupport';
 import SSHConfiguration from './ssh/sshConfig';
 import { ExperimentalSettings, isUserOverrideSetting } from './experiments';
 import { ISyncExtension, NoSettingsSyncSession, NoSyncStoreError, parseSyncData, SettingsSync, SyncResource } from './settingsSync';
@@ -861,23 +861,20 @@ export default class RemoteConnector extends Disposable {
 		}
 	}
 
-	private async startHeartBeat(session: vscode.AuthenticationSession, connectionInfo: SSHConnectionParams, gitpodVersion: GitpodVersion) {
+	private async startHeartBeat(session: vscode.AuthenticationSession, connectionInfo: SSHConnectionParams) {
 		if (this.heartbeatManager) {
 			return;
 		}
 
 		this.heartbeatManager = new HeartbeatManager(connectionInfo.gitpodHost, connectionInfo.workspaceId, connectionInfo.instanceId, !!connectionInfo.debugWorkspace, session.accessToken, this.publicApi, this.logger, this.telemetry);
 
-		// gitpod remote extension installation is async so sometimes gitpod-desktop will activate before gitpod-remote
-		// let's try a few times for it to finish install
 		try {
+			// TODO: remove this in the future, gitpod-remote no longer has the heartbeat logic, it's just here until users
+			// update to the latest version of gitpod-remote
 			await retry(async () => {
 				await vscode.commands.executeCommand('__gitpod.cancelGitpodRemoteHeartbeat');
 			}, 3000, 15);
-			this.telemetry.sendTelemetryEvent('vscode_desktop_heartbeat_state', { enabled: String(true), gitpodHost: connectionInfo.gitpodHost, workspaceId: connectionInfo.workspaceId, instanceId: connectionInfo.instanceId, debugWorkspace: String(!!connectionInfo.debugWorkspace), gitpodVersion: gitpodVersion.raw });
 		} catch {
-			this.logger.error(`Could not execute '__gitpod.cancelGitpodRemoteHeartbeat' command`);
-			this.telemetry.sendTelemetryEvent('vscode_desktop_heartbeat_state', { enabled: String(false), gitpodHost: connectionInfo.gitpodHost, workspaceId: connectionInfo.workspaceId, instanceId: connectionInfo.instanceId, debugWorkspace: String(!!connectionInfo.debugWorkspace), gitpodVersion: gitpodVersion.raw });
 		}
 	}
 
@@ -1030,7 +1027,7 @@ export default class RemoteConnector extends Disposable {
 
 		const heartbeatSupported = session.scopes.includes(ScopeFeature.LocalHeartbeat);
 		if (heartbeatSupported) {
-			this.startHeartBeat(session, connectionInfo, gitpodVersion);
+			this.startHeartBeat(session, connectionInfo);
 		} else {
 			this.logger.warn(`Local heartbeat not supported in ${connectionInfo.gitpodHost}, using version ${gitpodVersion.raw}`);
 		}
