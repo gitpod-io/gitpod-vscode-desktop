@@ -52,6 +52,12 @@ interface SSHConnectionInfo extends SSHConnectionParams {
 	isFirstConnection: boolean;
 }
 
+interface WorkspaceRestartInfo {
+	workspaceId: string;
+	workspaceUrl: string;
+	gitpodHost: string;
+}
+
 interface LocalAppConfig {
 	gitpodHost: string;
 	configFile: string;
@@ -121,6 +127,7 @@ export default class RemoteConnector extends Disposable {
 
 	public static SSH_DEST_KEY = 'ssh-dest:';
 	public static AUTH_COMPLETE_PATH = '/auth-complete';
+	private static WORKSPACE_STOPPED_PREFIX = 'stopped_workspace:';
 	private static LOCK_COUNT = 0;
 
 	private heartbeatManager: HeartbeatManager | undefined;
@@ -139,11 +146,13 @@ export default class RemoteConnector extends Disposable {
 		super();
 
 		if (isGitpodRemoteWindow(context)) {
-			context.subscriptions.push(vscode.commands.registerCommand('gitpod.api.autoTunnel', this.autoTunnelCommand, this));
+			this._register(vscode.commands.registerCommand('gitpod.api.autoTunnel', this.autoTunnelCommand, this));
 
 			// Don't await this on purpose so it doesn't block extension activation.
 			// Internally requesting a Gitpod Session requires the extension to be already activated.
 			this.onGitpodRemoteConnection();
+		} else {
+			this.checkForStoppedWorkspaces();
 		}
 
 		this.releaseStaleLocks();
@@ -685,7 +694,7 @@ export default class RemoteConnector extends Disposable {
 		return true;
 	}
 
-	private async getGitpodSession(gitpodHost: string) {
+	private async getGitpodSession(gitpodHost: string, createIfNone = true) {
 		const gitpodVersion = await getGitpodVersion(gitpodHost, this.logger);
 		const sessionScopes = ['function:getWorkspace', 'function:getOwnerToken', 'function:getLoggedInUser', 'resource:default'];
 		if (await isOauthInspectSupported(gitpodHost) || isFeatureSupported(gitpodVersion, 'SSHPublicKeys') /* && isFeatureSupported('', 'sendHeartBeat') */) {
@@ -697,7 +706,7 @@ export default class RemoteConnector extends Disposable {
 		return vscode.authentication.getSession(
 			'gitpod',
 			sessionScopes,
-			{ createIfNone: true }
+			{ createIfNone }
 		);
 	}
 
@@ -1007,20 +1016,6 @@ export default class RemoteConnector extends Disposable {
 		}
 	}
 
-	private async showWsNotRunningDialog(workspaceId: string, workspaceUrl: string | undefined, flow: UserFlowTelemetry) {
-		const msg = workspaceUrl
-			? `Workspace ${workspaceId} is not running. Please restart the workspace.`
-			: `Workspace not found. Please start the workspace from dashboard.`;
-		this.logger.error(msg);
-
-		const openUrl = 'Restart workspace';
-		const resp = await this.notifications.showErrorMessage(msg, { modal: true, id: uuid(), flow }, openUrl);
-		if (resp === openUrl) {
-			await vscode.env.openExternal(vscode.Uri.parse(workspaceUrl || 'https://gitpod.io/workspaces'));
-			vscode.commands.executeCommand('workbench.action.closeWindow');
-		}
-	}
-
 	private async onGitpodRemoteConnection() {
 		const remoteUri = vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.[0].uri;
 		if (!remoteUri) {
@@ -1056,19 +1051,13 @@ export default class RemoteConnector extends Disposable {
 
 		if (this.publicApi) {
 			this.workspaceState = new WorkspaceState(connectionInfo.workspaceId, this.publicApi, this.logger);
-			await this.workspaceState.workspaceStatePromise;
 
-			const reconnectFlow = { ...connectionInfo, gitpodVersion: gitpodVersion.raw, userId: session.account.id, flow: 'reconnect_workspace' };
-			if (!this.workspaceState.isWorkspaceRunning()) {
-				this.showWsNotRunningDialog(connectionInfo.workspaceId, this.workspaceState.workspaceUrl(), reconnectFlow);
-				return;
-			}
-
-			let messageShown = false;
-			this._register(this.workspaceState.onWorkspaceStatusChanged(() => {
-				if (!this.workspaceState!.isWorkspaceRunning() && !messageShown) {
-					messageShown = true;
-					this.showWsNotRunningDialog(connectionInfo.workspaceId, this.workspaceState!.workspaceUrl(), reconnectFlow);
+			let handled = false;
+			this._register(this.workspaceState.onWorkspaceStatusChanged(async () => {
+				if (!this.workspaceState!.isWorkspaceRunning() && !handled) {
+					handled = true;
+					await this.context.globalState.update(`${RemoteConnector.WORKSPACE_STOPPED_PREFIX}${connectionInfo.workspaceId}`, { workspaceId: connectionInfo.workspaceId, workspaceUrl: this.workspaceState!.workspaceUrl(), gitpodHost: connectionInfo.gitpodHost } as WorkspaceRestartInfo);
+					vscode.commands.executeCommand('workbench.action.remote.close');
 				}
 			}));
 		}
@@ -1086,7 +1075,44 @@ export default class RemoteConnector extends Disposable {
 			this.initializeRemoteExtensions({ ...syncExtFlow, quiet: false, flowId: uuid() });
 		}));
 
+		this._register(vscode.commands.registerCommand('__gitpod.workspaceShutdown', () => {
+			this.logger.warn('__gitpod.workspaceShutdown command executed');
+		}));
+
 		vscode.commands.executeCommand('setContext', 'gitpod.inWorkspace', true);
+	}
+
+	private async showWsNotRunningDialog(workspaceId: string, workspaceUrl: string | undefined, flow: UserFlowTelemetry) {
+		const msg = `Workspace ${workspaceId} is not running. Please restart the workspace.`;
+		this.logger.warn(msg);
+
+		const openUrl = 'Restart workspace';
+		const resp = await this.notifications.showErrorMessage(msg, { id: uuid(), flow }, openUrl);
+		if (resp === openUrl) {
+			const opened = await vscode.env.openExternal(vscode.Uri.parse(workspaceUrl || 'https://gitpod.io/workspaces'));
+			if (opened) {
+				vscode.commands.executeCommand('workbench.action.closeWindow');
+			}
+		}
+	}
+
+	private async checkForStoppedWorkspaces() {
+		const gitpodHost = vscode.workspace.getConfiguration('gitpod').get<string>('host')!;
+		const session = await this.getGitpodSession(gitpodHost, false);
+		if (!session) {
+			return;
+		}
+
+		const keys = this.context.globalState.keys();
+		const stopped_ws_keys = keys.filter(k => k.startsWith(RemoteConnector.WORKSPACE_STOPPED_PREFIX));
+		const reconnectFlow = { flow: 'restart_workspace', userId: session.account.id };
+		for (const k of stopped_ws_keys) {
+			const ws = this.context.globalState.get<WorkspaceRestartInfo>(k)!;
+			this.context.globalState.update(k, undefined);
+			if (gitpodHost === ws.gitpodHost) {
+				this.showWsNotRunningDialog(ws.workspaceId, ws.workspaceUrl, { ...reconnectFlow, workspaceId: ws.workspaceId, gitpodHost: ws.gitpodHost });
+			}
+		}
 	}
 
 	public override async dispose(): Promise<void> {

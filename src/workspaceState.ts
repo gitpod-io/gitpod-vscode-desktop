@@ -3,15 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { WorkspaceStatus } from '@gitpod/public-api/lib/gitpod/experimental/v1';
-import { WorkspaceInstanceStatus_Phase } from '@gitpod/public-api/lib/gitpod/experimental/v1/workspaces_pb';
+import { WorkspaceStatus, WorkspaceInstanceStatus_Phase } from './lib/gitpod/experimental/v1/workspaces.pb';
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
 import { GitpodPublicApi } from './publicApi';
 
 export class WorkspaceState extends Disposable {
-
-    static POLL_INTERVAL = 5000;
 
     private workspaceStatePromiseResolver!: () => void;
     readonly workspaceStatePromise = new Promise<void>((r) => this.workspaceStatePromiseResolver = r);
@@ -35,12 +32,12 @@ export class WorkspaceState extends Disposable {
 
     public isWorkspaceStopped() {
         const phase = this.workspaceState?.instance?.status?.phase;
-        return phase === WorkspaceInstanceStatus_Phase.STOPPED || phase === WorkspaceInstanceStatus_Phase.STOPPING;
+        return phase === WorkspaceInstanceStatus_Phase.PHASE_STOPPED || phase === WorkspaceInstanceStatus_Phase.PHASE_STOPPING;
     }
 
     public isWorkspaceRunning() {
         const phase = this.workspaceState?.instance?.status?.phase;
-        return phase === WorkspaceInstanceStatus_Phase.RUNNING;
+        return phase === WorkspaceInstanceStatus_Phase.PHASE_RUNNING;
     }
 
     public workspaceUrl() {
@@ -51,7 +48,7 @@ export class WorkspaceState extends Disposable {
         return this.workspaceState?.instance?.instanceId;
     }
 
-    private async checkWorkspaceState(workspaceState: WorkspaceStatus |undefined) {
+    private async checkWorkspaceState(workspaceState: WorkspaceStatus | undefined) {
         const phase = workspaceState?.instance?.status?.phase;
         const oldPhase = this.workspaceState?.instance?.status?.phase;
         this.workspaceState = workspaceState;
