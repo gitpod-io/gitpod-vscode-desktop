@@ -3,20 +3,33 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { createConnectTransport, createPromiseClient, Interceptor, PromiseClient } from '@bufbuild/connect-web';
+import { createConnectTransport, createPromiseClient, Interceptor, PromiseClient } from '@bufbuild/connect-node';
 import { WorkspacesService } from '@gitpod/public-api/lib/gitpod/experimental/v1/workspaces_connectweb';
 import { IDEClientService } from '@gitpod/public-api/lib/gitpod/experimental/v1/ide_client_connectweb';
 import { UserService } from '@gitpod/public-api/lib/gitpod/experimental/v1/user_connectweb';
 import { Workspace } from '@gitpod/public-api/lib/gitpod/experimental/v1/workspaces_pb';
 import { SSHKey, User } from '@gitpod/public-api/lib/gitpod/experimental/v1/user_pb';
+import * as vscode from 'vscode';
+import { Disposable } from './common/dispose';
+import { WorkspacesServiceClient, WorkspaceStatus } from './lib/gitpod/experimental/v1/workspaces.pb';
+import * as grpc from '@grpc/grpc-js';
+import { timeout } from './common/async';
 
-export class GitpodPublicApi {
+export class GitpodPublicApi extends Disposable {
 
     private workspaceService!: PromiseClient<typeof WorkspacesService>;
     private userService!: PromiseClient<typeof UserService>;
     private ideClientService!: PromiseClient<typeof IDEClientService>;
 
-    constructor(accessToken: string, gitpodHost: string) {
+    private grpcWorkspaceClient!: WorkspacesServiceClient;
+    private grpcMetadata: grpc.Metadata;
+
+    private _onWorkspaceStatusUpdate = this._register(new vscode.EventEmitter<WorkspaceStatus>);
+    public readonly onWorkspaceStatusUpdate = this._onWorkspaceStatusUpdate.event;
+
+    constructor(accessToken: string, gitpodHost: string, private logger: vscode.LogOutputChannel) {
+        super();
+
         const serviceUrl = new URL(gitpodHost);
         serviceUrl.hostname = `api.${serviceUrl.hostname}`;
 
@@ -27,6 +40,7 @@ export class GitpodPublicApi {
 
         const transport = createConnectTransport({
             baseUrl: serviceUrl.toString(),
+            httpVersion: '2',
             interceptors: [authInterceptor],
             useBinaryFormat: true,
         });
@@ -34,6 +48,12 @@ export class GitpodPublicApi {
         this.workspaceService = createPromiseClient(WorkspacesService, transport);
         this.userService = createPromiseClient(UserService, transport);
         this.ideClientService = createPromiseClient(IDEClientService, transport);
+
+        this.grpcWorkspaceClient = new WorkspacesServiceClient(`${serviceUrl.hostname}:443`, grpc.credentials.createSsl(), {
+            'grpc.keepalive_time_ms': 120000
+        });
+        this.grpcMetadata = new grpc.Metadata();
+        this.grpcMetadata.add('Authorization', `Bearer ${accessToken}`);
     }
 
     async getWorkspace(workspaceId: string): Promise<Workspace | undefined> {
@@ -62,5 +82,33 @@ export class GitpodPublicApi {
     async getAuthenticatedUser(): Promise<User | undefined> {
         const response = await this.userService.getAuthenticatedUser({});
         return response.user;
+    }
+
+    private _startWorkspaceStatusStreaming = false;
+    async startWorkspaceStatusStreaming(workspaceId: string) {
+        if (this._startWorkspaceStatusStreaming) {
+            return;
+        }
+        this._startWorkspaceStatusStreaming = true;
+
+        this._streamWorkspaceStatus(workspaceId);
+    }
+
+    private _streamWorkspaceStatus(workspaceId: string) {
+        const call = this.grpcWorkspaceClient.streamWorkspaceStatus({ workspaceId }, this.grpcMetadata);
+        call.on('data', (res) => {
+            this._onWorkspaceStatusUpdate.fire(res.result!);
+        });
+        call.on('end', async () => {
+            await timeout(2000);
+
+            if (this.isDisposed) { return; }
+
+            this.logger.trace(`streamWorkspaceStatus stream ended, retrying ...`);
+            this._streamWorkspaceStatus(workspaceId);
+        });
+        call.on('error', (err) => {
+            this.logger.trace(`Error in streamWorkspaceStatus`, err);
+        });
     }
 }

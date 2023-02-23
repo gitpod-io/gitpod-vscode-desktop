@@ -39,12 +39,22 @@ import { getAgentSock, SSHError, testSSHConnection } from './sshTestConnection';
 import { gatherIdentityFiles } from './ssh/identityFiles';
 import { isWindows } from './common/platform';
 import SSHDestination from './ssh/sshDestination';
+import { WorkspaceState } from './workspaceState';
 
 interface SSHConnectionParams {
 	workspaceId: string;
 	instanceId: string;
 	gitpodHost: string;
 	debugWorkspace?: boolean;
+}
+
+interface SSHConnectionInfo extends SSHConnectionParams {
+	isFirstConnection: boolean;
+}
+
+interface WorkspaceRestartInfo {
+	workspaceId: string;
+	gitpodHost: string;
 }
 
 interface LocalAppConfig {
@@ -116,9 +126,11 @@ export default class RemoteConnector extends Disposable {
 
 	public static SSH_DEST_KEY = 'ssh-dest:';
 	public static AUTH_COMPLETE_PATH = '/auth-complete';
+	private static WORKSPACE_STOPPED_PREFIX = 'stopped_workspace:';
 	private static LOCK_COUNT = 0;
 
 	private heartbeatManager: HeartbeatManager | undefined;
+	private workspaceState: WorkspaceState | undefined;
 
 	private publicApi: GitpodPublicApi | undefined;
 
@@ -133,14 +145,28 @@ export default class RemoteConnector extends Disposable {
 		super();
 
 		if (isGitpodRemoteWindow(context)) {
-			context.subscriptions.push(vscode.commands.registerCommand('gitpod.api.autoTunnel', this.autoTunnelCommand, this));
+			this._register(vscode.commands.registerCommand('gitpod.api.autoTunnel', this.autoTunnelCommand, this));
 
 			// Don't await this on purpose so it doesn't block extension activation.
 			// Internally requesting a Gitpod Session requires the extension to be already activated.
 			this.onGitpodRemoteConnection();
+		} else {
+			this.checkForStoppedWorkspaces();
 		}
 
 		this.releaseStaleLocks();
+	}
+
+	private async initPublicApi(session: vscode.AuthenticationSession, gitpodHost: string) {
+		if (this.publicApi) {
+			return;
+		}
+
+		const usePublicApi = await this.experiments.getRaw<boolean>('gitpod_experimental_publicApi', session.account.id, { gitpodHost });
+		this.logger.info(`Going to use ${usePublicApi ? 'public' : 'server'} API`);
+		if (usePublicApi) {
+			this.publicApi = this._register(new GitpodPublicApi(session.accessToken, gitpodHost, this.logger));
+		}
 	}
 
 	private releaseStaleLocks(): void {
@@ -445,10 +471,9 @@ export default class RemoteConnector extends Disposable {
 	}
 
 	private async getWorkspaceSSHDestination(session: vscode.AuthenticationSession, { workspaceId, gitpodHost, debugWorkspace }: SSHConnectionParams): Promise<{ destination: SSHDestination; password?: string }> {
-		const serviceUrl = new URL(gitpodHost);
 		const sshKeysSupported = session.scopes.includes(ScopeFeature.SSHPublicKeys);
 
-		const [workspaceInfo, ownerToken, registeredSSHKeys] = await withServerApi(session.accessToken, serviceUrl.toString(), service => Promise.all([
+		const [workspaceInfo, ownerToken, registeredSSHKeys] = await withServerApi(session.accessToken, getServiceURL(gitpodHost), service => Promise.all([
 			this.publicApi ? this.publicApi.getWorkspace(workspaceId) : service.server.getWorkspace(workspaceId),
 			this.publicApi ? this.publicApi.getOwnerToken(workspaceId) : service.server.getOwnerToken(workspaceId),
 			sshKeysSupported ? (this.publicApi ? this.publicApi.getSSHKeys() : service.server.getSSHPublicKeys()) : undefined
@@ -668,7 +693,7 @@ export default class RemoteConnector extends Disposable {
 		return true;
 	}
 
-	private async getGitpodSession(gitpodHost: string) {
+	private async getGitpodSession(gitpodHost: string, createIfNone = true) {
 		const gitpodVersion = await getGitpodVersion(gitpodHost, this.logger);
 		const sessionScopes = ['function:getWorkspace', 'function:getOwnerToken', 'function:getLoggedInUser', 'resource:default'];
 		if (await isOauthInspectSupported(gitpodHost) || isFeatureSupported(gitpodVersion, 'SSHPublicKeys') /* && isFeatureSupported('', 'sendHeartBeat') */) {
@@ -680,7 +705,7 @@ export default class RemoteConnector extends Disposable {
 		return vscode.authentication.getSession(
 			'gitpod',
 			sessionScopes,
-			{ createIfNone: true }
+			{ createIfNone }
 		);
 	}
 
@@ -711,11 +736,7 @@ export default class RemoteConnector extends Disposable {
 
 		this.logger.info('Opening Gitpod workspace', uri.toString());
 
-		const usePublicApi = await this.experiments.getRaw<boolean>('gitpod_experimental_publicApi', session.account.id, { gitpodHost: params.gitpodHost });
-		this.logger.info(`Going to use ${usePublicApi ? 'public' : 'server'} API`);
-		if (usePublicApi) {
-			this.publicApi = new GitpodPublicApi(session.accessToken, params.gitpodHost);
-		}
+		await this.initPublicApi(session, params.gitpodHost);
 
 		const forceUseLocalApp = getServiceURL(params.gitpodHost) === 'https://gitpod.io'
 			? (await this.experiments.get<boolean>('gitpod.remote.useLocalApp', session.account.id, { gitpodHost: params.gitpodHost }))!
@@ -811,7 +832,7 @@ export default class RemoteConnector extends Disposable {
 
 		await this.updateRemoteSSHConfig(usingSSHGateway, localAppSSHConfigPath);
 
-		await this.context.globalState.update(`${RemoteConnector.SSH_DEST_KEY}${sshDestination!.toRemoteSSHString()}`, { ...params, isFirstConnection: true });
+		await this.context.globalState.update(`${RemoteConnector.SSH_DEST_KEY}${sshDestination!.toRemoteSSHString()}`, { ...params, isFirstConnection: true } as SSHConnectionParams);
 
 		const forceNewWindow = this.context.extensionMode === vscode.ExtensionMode.Production;
 
@@ -1001,7 +1022,7 @@ export default class RemoteConnector extends Disposable {
 		}
 
 		const [, sshDestStr] = remoteUri.authority.split('+');
-		const connectionInfo = this.context.globalState.get<SSHConnectionParams & { isFirstConnection: boolean }>(`${RemoteConnector.SSH_DEST_KEY}${sshDestStr}`);
+		const connectionInfo = this.context.globalState.get<SSHConnectionInfo>(`${RemoteConnector.SSH_DEST_KEY}${sshDestStr}`);
 		if (!connectionInfo) {
 			return;
 		}
@@ -1021,9 +1042,24 @@ export default class RemoteConnector extends Disposable {
 			connectionInfo.instanceId = workspaceInfo.latestInstance.id;
 		}
 
-		await this.context.globalState.update(`${RemoteConnector.SSH_DEST_KEY}${sshDestStr}`, { ...connectionInfo, isFirstConnection: false });
+		await this.context.globalState.update(`${RemoteConnector.SSH_DEST_KEY}${sshDestStr}`, { ...connectionInfo, isFirstConnection: false } as SSHConnectionParams);
 
 		const gitpodVersion = await getGitpodVersion(connectionInfo.gitpodHost, this.logger);
+
+		await this.initPublicApi(session, connectionInfo.gitpodHost);
+
+		if (this.publicApi) {
+			this.workspaceState = new WorkspaceState(connectionInfo.workspaceId, this.publicApi, this.logger);
+
+			let handled = false;
+			this._register(this.workspaceState.onWorkspaceStatusChanged(async () => {
+				if (!this.workspaceState!.isWorkspaceRunning() && !handled) {
+					handled = true;
+					await this.context.globalState.update(`${RemoteConnector.WORKSPACE_STOPPED_PREFIX}${connectionInfo.workspaceId}`, { workspaceId: connectionInfo.workspaceId, gitpodHost: connectionInfo.gitpodHost } as WorkspaceRestartInfo);
+					vscode.commands.executeCommand('workbench.action.remote.close');
+				}
+			}));
+		}
 
 		const heartbeatSupported = session.scopes.includes(ScopeFeature.LocalHeartbeat);
 		if (heartbeatSupported) {
@@ -1038,11 +1074,52 @@ export default class RemoteConnector extends Disposable {
 			this.initializeRemoteExtensions({ ...syncExtFlow, quiet: false, flowId: uuid() });
 		}));
 
+		this._register(vscode.commands.registerCommand('__gitpod.workspaceShutdown', () => {
+			this.logger.warn('__gitpod.workspaceShutdown command executed');
+		}));
+
 		vscode.commands.executeCommand('setContext', 'gitpod.inWorkspace', true);
+	}
+
+	private async showWsNotRunningDialog(workspaceId: string, workspaceUrl: string, flow: UserFlowTelemetry) {
+		const msg = `Workspace ${workspaceId} is not running. Please restart the workspace.`;
+		this.logger.warn(msg);
+
+		const openUrl = 'Restart workspace';
+		const resp = await this.notifications.showErrorMessage(msg, { id: uuid(), flow }, openUrl);
+		if (resp === openUrl) {
+			const opened = await vscode.env.openExternal(vscode.Uri.parse(workspaceUrl));
+			if (opened) {
+				vscode.commands.executeCommand('workbench.action.closeWindow');
+			}
+		}
+	}
+
+	private async checkForStoppedWorkspaces() {
+		const gitpodHost = vscode.workspace.getConfiguration('gitpod').get<string>('host')!;
+		const session = await this.getGitpodSession(gitpodHost, false);
+		if (!session) {
+			return;
+		}
+
+		const keys = this.context.globalState.keys();
+		const stopped_ws_keys = keys.filter(k => k.startsWith(RemoteConnector.WORKSPACE_STOPPED_PREFIX));
+		const reconnectFlow = { flow: 'restart_workspace', userId: session.account.id };
+		for (const k of stopped_ws_keys) {
+			const ws = this.context.globalState.get<WorkspaceRestartInfo>(k)!;
+			this.context.globalState.update(k, undefined);
+			if (gitpodHost === ws.gitpodHost) {
+				const workspaceUrl = new URL(ws.gitpodHost);
+				workspaceUrl.pathname = '/start';
+				workspaceUrl.hash = ws.workspaceId;
+				this.showWsNotRunningDialog(ws.workspaceId, workspaceUrl.toString(), { ...reconnectFlow, workspaceId: ws.workspaceId, gitpodHost: ws.gitpodHost });
+			}
+		}
 	}
 
 	public override async dispose(): Promise<void> {
 		await this.heartbeatManager?.dispose();
+		this.workspaceState?.dispose();
 		super.dispose();
 	}
 }
@@ -1051,7 +1128,7 @@ function isGitpodRemoteWindow(context: vscode.ExtensionContext) {
 	const remoteUri = vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.[0].uri;
 	if (vscode.env.remoteName === 'ssh-remote' && context.extension.extensionKind === vscode.ExtensionKind.UI && remoteUri) {
 		const [, sshDestStr] = remoteUri.authority.split('+');
-		const connectionInfo = context.globalState.get<SSHConnectionParams & { isFirstConnection: boolean }>(`${RemoteConnector.SSH_DEST_KEY}${sshDestStr}`);
+		const connectionInfo = context.globalState.get<SSHConnectionInfo>(`${RemoteConnector.SSH_DEST_KEY}${sshDestStr}`);
 
 		return !!connectionInfo;
 	}
