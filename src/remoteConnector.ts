@@ -54,7 +54,6 @@ interface SSHConnectionInfo extends SSHConnectionParams {
 
 interface WorkspaceRestartInfo {
 	workspaceId: string;
-	workspaceUrl: string;
 	gitpodHost: string;
 }
 
@@ -1056,7 +1055,7 @@ export default class RemoteConnector extends Disposable {
 			this._register(this.workspaceState.onWorkspaceStatusChanged(async () => {
 				if (!this.workspaceState!.isWorkspaceRunning() && !handled) {
 					handled = true;
-					await this.context.globalState.update(`${RemoteConnector.WORKSPACE_STOPPED_PREFIX}${connectionInfo.workspaceId}`, { workspaceId: connectionInfo.workspaceId, workspaceUrl: this.workspaceState!.workspaceUrl(), gitpodHost: connectionInfo.gitpodHost } as WorkspaceRestartInfo);
+					await this.context.globalState.update(`${RemoteConnector.WORKSPACE_STOPPED_PREFIX}${connectionInfo.workspaceId}`, { workspaceId: connectionInfo.workspaceId, gitpodHost: connectionInfo.gitpodHost } as WorkspaceRestartInfo);
 					vscode.commands.executeCommand('workbench.action.remote.close');
 				}
 			}));
@@ -1082,14 +1081,14 @@ export default class RemoteConnector extends Disposable {
 		vscode.commands.executeCommand('setContext', 'gitpod.inWorkspace', true);
 	}
 
-	private async showWsNotRunningDialog(workspaceId: string, workspaceUrl: string | undefined, flow: UserFlowTelemetry) {
+	private async showWsNotRunningDialog(workspaceId: string, workspaceUrl: string, flow: UserFlowTelemetry) {
 		const msg = `Workspace ${workspaceId} is not running. Please restart the workspace.`;
 		this.logger.warn(msg);
 
 		const openUrl = 'Restart workspace';
 		const resp = await this.notifications.showErrorMessage(msg, { id: uuid(), flow }, openUrl);
 		if (resp === openUrl) {
-			const opened = await vscode.env.openExternal(vscode.Uri.parse(workspaceUrl || 'https://gitpod.io/workspaces'));
+			const opened = await vscode.env.openExternal(vscode.Uri.parse(workspaceUrl));
 			if (opened) {
 				vscode.commands.executeCommand('workbench.action.closeWindow');
 			}
@@ -1110,7 +1109,10 @@ export default class RemoteConnector extends Disposable {
 			const ws = this.context.globalState.get<WorkspaceRestartInfo>(k)!;
 			this.context.globalState.update(k, undefined);
 			if (gitpodHost === ws.gitpodHost) {
-				this.showWsNotRunningDialog(ws.workspaceId, ws.workspaceUrl, { ...reconnectFlow, workspaceId: ws.workspaceId, gitpodHost: ws.gitpodHost });
+				const workspaceUrl = new URL(ws.gitpodHost);
+				workspaceUrl.pathname = '/start';
+				workspaceUrl.hash = ws.workspaceId;
+				this.showWsNotRunningDialog(ws.workspaceId, workspaceUrl.toString(), { ...reconnectFlow, workspaceId: ws.workspaceId, gitpodHost: ws.gitpodHost });
 			}
 		}
 	}
