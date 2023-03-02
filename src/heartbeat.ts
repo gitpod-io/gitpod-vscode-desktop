@@ -83,7 +83,6 @@ export class HeartbeatManager extends Disposable {
         this._register(vscode.workspace.onDidDeleteFiles(() => this.updateLastActivity('onDidDeleteFiles')));
         this._register(vscode.workspace.onWillRenameFiles(() => this.updateLastActivity('onWillRenameFiles')));
         this._register(vscode.workspace.onDidRenameFiles(() => this.updateLastActivity('onDidRenameFiles')));
-        this._register(vscode.workspace.onDidChangeConfiguration(() => this.updateLastActivity('onDidChangeConfiguration')));
         this._register(vscode.languages.registerHoverProvider('*', {
             provideHover: () => {
                 this.updateLastActivity('registerHoverProvider');
