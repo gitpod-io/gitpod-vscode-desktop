@@ -156,7 +156,7 @@ export class HeartbeatManager extends Disposable {
     }
 
     private sendEventData() {
-        this.telemetry.sendRawTelemetryEvent('vscode_desktop_heartbeat_delta', { events: Object.fromEntries(this.eventCounterMap) });
+        this.telemetry.sendRawTelemetryEvent('vscode_desktop_heartbeat_delta', { events: Object.fromEntries(this.eventCounterMap), workspaceId: this.workspaceId, instanceId: this.instanceId, gitpodHost: this.gitpodHost, clientKind: 'vscode' });
         this.eventCounterMap.clear();
     }
 
