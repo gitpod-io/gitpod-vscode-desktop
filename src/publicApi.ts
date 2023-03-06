@@ -14,6 +14,7 @@ import { Disposable } from './common/dispose';
 import { WorkspacesServiceClient, WorkspaceStatus } from './lib/gitpod/experimental/v1/workspaces.pb';
 import * as grpc from '@grpc/grpc-js';
 import { timeout } from './common/async';
+import { MetricsReporter, getConnectMetricsInterceptor, getGrpcMetricsInterceptor } from './metrics';
 
 export class GitpodPublicApi extends Disposable {
 
@@ -23,6 +24,8 @@ export class GitpodPublicApi extends Disposable {
 
     private grpcWorkspaceClient!: WorkspacesServiceClient;
     private grpcMetadata: grpc.Metadata;
+
+    private metricsReporter: MetricsReporter;
 
     private _onWorkspaceStatusUpdate = this._register(new vscode.EventEmitter<WorkspaceStatus>);
     public readonly onWorkspaceStatusUpdate = this._onWorkspaceStatusUpdate.event;
@@ -37,11 +40,12 @@ export class GitpodPublicApi extends Disposable {
             req.header.set('Authorization', `Bearer ${accessToken}`);
             return await next(req);
         };
+        const metricsInterceptor = getConnectMetricsInterceptor();
 
         const transport = createConnectTransport({
             baseUrl: serviceUrl.toString(),
             httpVersion: '2',
-            interceptors: [authInterceptor],
+            interceptors: [authInterceptor, metricsInterceptor],
             useBinaryFormat: true,
         });
 
@@ -50,10 +54,15 @@ export class GitpodPublicApi extends Disposable {
         this.ideClientService = createPromiseClient(IDEClientService, transport);
 
         this.grpcWorkspaceClient = new WorkspacesServiceClient(`${serviceUrl.hostname}:443`, grpc.credentials.createSsl(), {
-            'grpc.keepalive_time_ms': 120000
+            'grpc.keepalive_time_ms': 120000,
+            interceptors: [getGrpcMetricsInterceptor()]
         });
         this.grpcMetadata = new grpc.Metadata();
         this.grpcMetadata.add('Authorization', `Bearer ${accessToken}`);
+
+
+        this.metricsReporter = new MetricsReporter(gitpodHost, logger);
+        this.metricsReporter.startReporting();
     }
 
     async getWorkspace(workspaceId: string): Promise<Workspace | undefined> {
@@ -110,5 +119,10 @@ export class GitpodPublicApi extends Disposable {
         call.on('error', (err) => {
             this.logger.trace(`Error in streamWorkspaceStatus`, err);
         });
+    }
+
+    public override dispose() {
+        super.dispose();
+        this.metricsReporter.stopReporting();
     }
 }
