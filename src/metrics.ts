@@ -8,7 +8,7 @@ import * as grpc from '@grpc/grpc-js';
 import { Registry, Counter, Histogram, metric } from 'prom-client';
 import { Code, connectErrorFromReason, Interceptor, StreamRequest, UnaryRequest } from '@bufbuild/connect-node';
 import { MethodKind } from '@bufbuild/protobuf';
-import { codeToString, StreamResponse, UnaryResponse } from '@bufbuild/connect-core';
+import { StreamResponse, UnaryResponse } from '@bufbuild/connect-core';
 
 export type GrpcMethodType = 'unary' | 'client_stream' | 'server_stream' | 'bidi_stream';
 
@@ -141,8 +141,8 @@ export function getConnectMetricsInterceptor(): Interceptor {
                 throw e;
             } finally {
                 if (handleMetrics && !settled) {
-                    stopTimer({ grpc_code: status ? codeToString(status).toUpperCase() : 'OK' });
-                    GRPCMetrics.handled({ ...labels, code: status ? codeToString(status).toUpperCase() : 'OK' });
+                    stopTimer({ grpc_code: status ? Code[status] : 'OK' });
+                    GRPCMetrics.handled({ ...labels, code: status ? Code[status] : 'OK' });
                 }
             }
         }
@@ -185,8 +185,8 @@ export function getConnectMetricsInterceptor(): Interceptor {
             throw err;
         } finally {
             if (settled) {
-                stopTimer({ grpc_code: status ? codeToString(status).toUpperCase() : 'OK' });
-                GRPCMetrics.handled({ ...labels, code: status ? codeToString(status).toUpperCase() : 'OK' });
+                stopTimer({ grpc_code: status ? Code[status] : 'OK' });
+                GRPCMetrics.handled({ ...labels, code: status ? Code[status] : 'OK' });
             }
         }
     };
@@ -216,6 +216,9 @@ export function getGrpcMetricsInterceptor(): grpc.Interceptor {
             method,
         };
     };
+    const formatErrorCode = (str: string): string => {
+        return str.toUpperCase() === 'OK' ? str.toUpperCase() : str[0].toUpperCase() + str.substring(1).toLowerCase().replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
+    };
 
     return (options, nextCall): grpc.InterceptingCall => {
         const methodDef = options.method_definition;
@@ -226,9 +229,9 @@ export function getGrpcMetricsInterceptor(): grpc.Interceptor {
                     .withOnReceiveStatus((status, next) => {
                         GRPCMetrics.handled({
                             ...labels,
-                            code: grpc.status[status.code],
+                            code: formatErrorCode(grpc.status[status.code]),
                         });
-                        stopTimer({ grpc_code: grpc.status[status.code] });
+                        stopTimer({ grpc_code: formatErrorCode(grpc.status[status.code]) });
                         next(status);
                     })
                     .withOnReceiveMessage((message, next) => {
