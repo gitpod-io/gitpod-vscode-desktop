@@ -148,6 +148,7 @@ export function getConnectMetricsInterceptor(): Interceptor {
         }
 
         const labels = getLabels(req);
+        GRPCMetrics.started(labels);
         const stopTimer = GRPCMetrics.startHandleTimer(labels);
 
         let settled = false;
@@ -192,7 +193,7 @@ export function getConnectMetricsInterceptor(): Interceptor {
 }
 
 export function getGrpcMetricsInterceptor(): grpc.Interceptor {
-    const getLabels = (path:string, requestStream:boolean, responseStream:boolean): IGrpcCallMetricsLabels => {
+    const getLabels = (path: string, requestStream: boolean, responseStream: boolean): IGrpcCallMetricsLabels => {
         const method = path.substring(path.lastIndexOf('/') + 1);
         const service = path.substring(1, path.length - method.length - 1);
         let type: GrpcMethodType;
@@ -223,35 +224,26 @@ export function getGrpcMetricsInterceptor(): grpc.Interceptor {
             .withStart((metadata, _listener, next) => {
                 const newListener = new grpc.ListenerBuilder()
                     .withOnReceiveStatus((status, next) => {
-                        try {
-                            GRPCMetrics.handled({
-                                ...labels,
-                                code: grpc.status[status.code],
-                            });
-                        } finally {
-                            next(status);
-                        }
+                        GRPCMetrics.handled({
+                            ...labels,
+                            code: grpc.status[status.code],
+                        });
+                        stopTimer({ grpc_code: grpc.status[status.code] });
+                        next(status);
                     })
                     .withOnReceiveMessage((message, next) => {
-                        try {
-                            GRPCMetrics.received(labels);
-                        } finally {
-                            next(message);
-                        }
+                        GRPCMetrics.received(labels);
+                        next(message);
                     })
                     .build();
-                try {
-                    GRPCMetrics.started(labels);
-                } finally {
-                    next(metadata, newListener);
-                }
+
+                GRPCMetrics.started(labels);
+                const stopTimer = GRPCMetrics.startHandleTimer(labels);
+                next(metadata, newListener);
             })
             .withSendMessage((message, next) => {
-                try {
-                    GRPCMetrics.sent(labels);
-                } finally {
-                    next(message);
-                }
+                GRPCMetrics.sent(labels);
+                next(message);
             })
             .build();
         return new grpc.InterceptingCall(nextCall(options), requester);
@@ -280,6 +272,11 @@ export class MetricsReporter {
         const metrics = await register.getMetricsAsJSON();
         register.resetMetrics();
         for (const m of metrics) {
+            if (m.name === 'grpc_client_msg_sent_total' || m.name === 'grpc_client_msg_received_total') {
+                // Skip these as thy are filtered by ide metris
+                continue;
+            }
+
             const type = m.type as unknown as string;
             if (type === 'counter') {
                 await this.reportCounter(m);
@@ -335,6 +332,7 @@ export class MetricsReporter {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-Client': 'vscode-desktop-extension'
                 },
                 body: JSON.stringify(data)
             }
@@ -360,6 +358,7 @@ export class MetricsReporter {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-Client': 'vscode-desktop-extension'
                 },
                 body: JSON.stringify(data)
             }

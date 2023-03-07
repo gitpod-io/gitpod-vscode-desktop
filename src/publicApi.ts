@@ -16,6 +16,20 @@ import * as grpc from '@grpc/grpc-js';
 import { timeout } from './common/async';
 import { MetricsReporter, getConnectMetricsInterceptor, getGrpcMetricsInterceptor } from './metrics';
 
+function isTelemetryEnabled(): boolean {
+	const TELEMETRY_CONFIG_ID = 'telemetry';
+	const TELEMETRY_CONFIG_ENABLED_ID = 'enableTelemetry';
+
+	if (vscode.env.isTelemetryEnabled !== undefined) {
+		return vscode.env.isTelemetryEnabled ? true : false;
+	}
+
+	// We use the old and new setting to determine the telemetry level as we must respect both
+	const config = vscode.workspace.getConfiguration(TELEMETRY_CONFIG_ID);
+	const enabled = config.get<boolean>(TELEMETRY_CONFIG_ENABLED_ID);
+	return !!enabled;
+}
+
 export class GitpodPublicApi extends Disposable {
 
     private workspaceService!: PromiseClient<typeof WorkspacesService>;
@@ -62,7 +76,9 @@ export class GitpodPublicApi extends Disposable {
 
 
         this.metricsReporter = new MetricsReporter(gitpodHost, logger);
-        this.metricsReporter.startReporting();
+        if (isTelemetryEnabled()) {
+            this.metricsReporter.startReporting();
+        }
     }
 
     async getWorkspace(workspaceId: string): Promise<Workspace | undefined> {
