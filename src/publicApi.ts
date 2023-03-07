@@ -14,6 +14,21 @@ import { Disposable } from './common/dispose';
 import { WorkspacesServiceClient, WorkspaceStatus } from './lib/gitpod/experimental/v1/workspaces.pb';
 import * as grpc from '@grpc/grpc-js';
 import { timeout } from './common/async';
+import { MetricsReporter, getConnectMetricsInterceptor, getGrpcMetricsInterceptor } from './metrics';
+
+function isTelemetryEnabled(): boolean {
+	const TELEMETRY_CONFIG_ID = 'telemetry';
+	const TELEMETRY_CONFIG_ENABLED_ID = 'enableTelemetry';
+
+	if (vscode.env.isTelemetryEnabled !== undefined) {
+		return vscode.env.isTelemetryEnabled ? true : false;
+	}
+
+	// We use the old and new setting to determine the telemetry level as we must respect both
+	const config = vscode.workspace.getConfiguration(TELEMETRY_CONFIG_ID);
+	const enabled = config.get<boolean>(TELEMETRY_CONFIG_ENABLED_ID);
+	return !!enabled;
+}
 
 export class GitpodPublicApi extends Disposable {
 
@@ -23,6 +38,8 @@ export class GitpodPublicApi extends Disposable {
 
     private grpcWorkspaceClient!: WorkspacesServiceClient;
     private grpcMetadata: grpc.Metadata;
+
+    private metricsReporter: MetricsReporter;
 
     private _onWorkspaceStatusUpdate = this._register(new vscode.EventEmitter<WorkspaceStatus>);
     public readonly onWorkspaceStatusUpdate = this._onWorkspaceStatusUpdate.event;
@@ -37,11 +54,12 @@ export class GitpodPublicApi extends Disposable {
             req.header.set('Authorization', `Bearer ${accessToken}`);
             return await next(req);
         };
+        const metricsInterceptor = getConnectMetricsInterceptor();
 
         const transport = createConnectTransport({
             baseUrl: serviceUrl.toString(),
             httpVersion: '2',
-            interceptors: [authInterceptor],
+            interceptors: [authInterceptor, metricsInterceptor],
             useBinaryFormat: true,
         });
 
@@ -50,10 +68,17 @@ export class GitpodPublicApi extends Disposable {
         this.ideClientService = createPromiseClient(IDEClientService, transport);
 
         this.grpcWorkspaceClient = new WorkspacesServiceClient(`${serviceUrl.hostname}:443`, grpc.credentials.createSsl(), {
-            'grpc.keepalive_time_ms': 120000
+            'grpc.keepalive_time_ms': 120000,
+            interceptors: [getGrpcMetricsInterceptor()]
         });
         this.grpcMetadata = new grpc.Metadata();
         this.grpcMetadata.add('Authorization', `Bearer ${accessToken}`);
+
+
+        this.metricsReporter = new MetricsReporter(gitpodHost, logger);
+        if (isTelemetryEnabled()) {
+            this.metricsReporter.startReporting();
+        }
     }
 
     async getWorkspace(workspaceId: string): Promise<Workspace | undefined> {
@@ -110,5 +135,10 @@ export class GitpodPublicApi extends Disposable {
         call.on('error', (err) => {
             this.logger.trace(`Error in streamWorkspaceStatus`, err);
         });
+    }
+
+    public override dispose() {
+        super.dispose();
+        this.metricsReporter.stopReporting();
     }
 }

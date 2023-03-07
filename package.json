@@ -181,6 +181,7 @@
 		"yazl": "^2.5.1",
 		"@grpc/grpc-js": "^1.8.8",
 		"long":"^5.2.1",
-		"protobufjs": "^7.2.2"
+		"protobufjs": "^7.2.2",
+		"prom-client": "^14.1.1"
 	}
 }
