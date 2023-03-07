@@ -161,8 +161,8 @@ export default class RemoteConnector extends Disposable {
 		if (this.publicApi) {
 			return;
 		}
-		this.experiments;
-		const usePublicApi = true;//await this.experiments.getRaw<boolean>('gitpod_experimental_publicApi', session.account.id, { gitpodHost });
+
+		const usePublicApi = await this.experiments.getRaw<boolean>('gitpod_experimental_publicApi', session.account.id, { gitpodHost });
 		this.logger.info(`Going to use ${usePublicApi ? 'public' : 'server'} API`);
 		if (usePublicApi) {
 			this.publicApi = this._register(new GitpodPublicApi(session.accessToken, gitpodHost, this.logger));
@@ -738,10 +738,9 @@ export default class RemoteConnector extends Disposable {
 
 		await this.initPublicApi(session, params.gitpodHost);
 
-		const forceUseLocalApp = false;
-		// const forceUseLocalApp = getServiceURL(params.gitpodHost) === 'https://gitpod.io'
-		// 	? (await this.experiments.get<boolean>('gitpod.remote.useLocalApp', session.account.id, { gitpodHost: params.gitpodHost }))!
-		// 	: (await this.experiments.get<boolean>('gitpod.remote.useLocalApp', session.account.id, { gitpodHost: params.gitpodHost }, 'gitpod_remote_useLocalApp_sh'))!;
+		const forceUseLocalApp = getServiceURL(params.gitpodHost) === 'https://gitpod.io'
+			? (await this.experiments.get<boolean>('gitpod.remote.useLocalApp', session.account.id, { gitpodHost: params.gitpodHost }))!
+			: (await this.experiments.get<boolean>('gitpod.remote.useLocalApp', session.account.id, { gitpodHost: params.gitpodHost }, 'gitpod_remote_useLocalApp_sh'))!;
 		const userOverride = String(isUserOverrideSetting('gitpod.remote.useLocalApp'));
 		let sshDestination: SSHDestination | undefined;
 		if (!forceUseLocalApp) {
@@ -855,10 +854,9 @@ export default class RemoteConnector extends Disposable {
 	public async autoTunnelCommand(gitpodHost: string, instanceId: string, enabled: boolean) {
 		const session = await this.getGitpodSession(gitpodHost);
 		if (session) {
-			const forceUseLocalApp = false;
-			// const forceUseLocalApp = getServiceURL(gitpodHost) === 'https://gitpod.io'
-			// 	? (await this.experiments.get<boolean>('gitpod.remote.useLocalApp', session.account.id, { gitpodHost }))!
-			// 	: (await this.experiments.get<boolean>('gitpod.remote.useLocalApp', session.account.id, { gitpodHost }, 'gitpod_remote_useLocalApp_sh'))!;
+			const forceUseLocalApp = getServiceURL(gitpodHost) === 'https://gitpod.io'
+				? (await this.experiments.get<boolean>('gitpod.remote.useLocalApp', session.account.id, { gitpodHost }))!
+				: (await this.experiments.get<boolean>('gitpod.remote.useLocalApp', session.account.id, { gitpodHost }, 'gitpod_remote_useLocalApp_sh'))!;
 			if (!forceUseLocalApp) {
 				const authority = vscode.Uri.parse(gitpodHost).authority;
 				const configKey = `config/${authority}`;
