@@ -17,17 +17,17 @@ import { timeout } from './common/async';
 import { MetricsReporter, getConnectMetricsInterceptor, getGrpcMetricsInterceptor } from './metrics';
 
 function isTelemetryEnabled(): boolean {
-	const TELEMETRY_CONFIG_ID = 'telemetry';
-	const TELEMETRY_CONFIG_ENABLED_ID = 'enableTelemetry';
+    const TELEMETRY_CONFIG_ID = 'telemetry';
+    const TELEMETRY_CONFIG_ENABLED_ID = 'enableTelemetry';
 
-	if (vscode.env.isTelemetryEnabled !== undefined) {
-		return vscode.env.isTelemetryEnabled ? true : false;
-	}
+    if (vscode.env.isTelemetryEnabled !== undefined) {
+        return vscode.env.isTelemetryEnabled ? true : false;
+    }
 
-	// We use the old and new setting to determine the telemetry level as we must respect both
-	const config = vscode.workspace.getConfiguration(TELEMETRY_CONFIG_ID);
-	const enabled = config.get<boolean>(TELEMETRY_CONFIG_ENABLED_ID);
-	return !!enabled;
+    // We use the old and new setting to determine the telemetry level as we must respect both
+    const config = vscode.workspace.getConfiguration(TELEMETRY_CONFIG_ID);
+    const enabled = config.get<boolean>(TELEMETRY_CONFIG_ENABLED_ID);
+    return !!enabled;
 }
 
 export class GitpodPublicApi extends Disposable {
@@ -119,26 +119,36 @@ export class GitpodPublicApi extends Disposable {
         this._streamWorkspaceStatus(workspaceId);
     }
 
+    private _stopTimer: NodeJS.Timeout | undefined;
     private _streamWorkspaceStatus(workspaceId: string) {
         const call = this.grpcWorkspaceClient.streamWorkspaceStatus({ workspaceId }, this.grpcMetadata);
         call.on('data', (res) => {
             this._onWorkspaceStatusUpdate.fire(res.result!);
         });
         call.on('end', async () => {
-            await timeout(2000);
+            clearTimeout(this._stopTimer);
 
             if (this.isDisposed) { return; }
 
-            this.logger.trace(`streamWorkspaceStatus stream ended, retrying ...`);
+            this.logger.trace(`streamWorkspaceStatus stream ended`);
+
+            await timeout(1000);
             this._streamWorkspaceStatus(workspaceId);
         });
         call.on('error', (err) => {
             this.logger.trace(`Error in streamWorkspaceStatus`, err);
         });
+
+        // force reconnect after 7m to avoid unexpected 10m reconnection (internal error)
+        this._stopTimer = setTimeout(() => {
+            this.logger.trace(`streamWorkspaceStatus forcing cancel after 7 minutes`);
+            call.cancel();
+        }, 7 * 60 * 1000 /* 7 min */);
     }
 
     public override dispose() {
         super.dispose();
+        clearTimeout(this._stopTimer);
         this.metricsReporter.stopReporting();
     }
 }
