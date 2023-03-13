@@ -167,7 +167,9 @@ export default class RemoteConnector extends Disposable {
 
 		const usePublicApi = await this.experiments.getRaw<boolean>('gitpod_experimental_publicApi', session.account.id, { gitpodHost });
 		this.logger.info(`Going to use ${usePublicApi ? 'public' : 'server'} API`);
-		this.publicApi = new GitpodPublicApi(session.accessToken, gitpodHost, this.logger);
+		if (usePublicApi) {
+			this.publicApi = new GitpodPublicApi(session.accessToken, gitpodHost, this.logger);
+		}
 	}
 
 	private releaseStaleLocks(): void {
