@@ -534,7 +534,8 @@ export default class RemoteConnector extends Disposable {
 		}
 
 		const hostConfiguration = sshConfiguration.getHostConfiguration(hostname);
-		let identityKeys = await gatherIdentityFiles([], getAgentSock(hostConfiguration), false, this.logger);
+		const identityFiles: string[] = (hostConfiguration['IdentityFile'] as unknown as string[]) || [];
+		let identityKeys = await gatherIdentityFiles(identityFiles, getAgentSock(hostConfiguration), false, this.logger);
 
 		if (registeredSSHKeys) {
 			const registeredKeys = this.publicApi
