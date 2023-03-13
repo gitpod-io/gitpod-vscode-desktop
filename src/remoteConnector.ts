@@ -158,15 +158,16 @@ export default class RemoteConnector extends Disposable {
 	}
 
 	private async initPublicApi(session: vscode.AuthenticationSession, gitpodHost: string) {
-		if (this.publicApi) {
+		if (this.publicApi?.gitpodHost === gitpodHost) {
 			return;
 		}
 
+		this.publicApi?.dispose();
+		this.publicApi = undefined;
+
 		const usePublicApi = await this.experiments.getRaw<boolean>('gitpod_experimental_publicApi', session.account.id, { gitpodHost });
 		this.logger.info(`Going to use ${usePublicApi ? 'public' : 'server'} API`);
-		if (usePublicApi) {
-			this.publicApi = this._register(new GitpodPublicApi(session.accessToken, gitpodHost, this.logger));
-		}
+		this.publicApi = new GitpodPublicApi(session.accessToken, gitpodHost, this.logger);
 	}
 
 	private releaseStaleLocks(): void {
@@ -1118,8 +1119,9 @@ export default class RemoteConnector extends Disposable {
 	}
 
 	public override async dispose(): Promise<void> {
-		await this.heartbeatManager?.dispose();
+		this.publicApi?.dispose();
 		this.workspaceState?.dispose();
+		await this.heartbeatManager?.dispose();
 		super.dispose();
 	}
 }
