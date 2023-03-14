@@ -57,4 +57,9 @@ export class WorkspaceState extends Disposable {
             this._onWorkspaceStatusChanged.fire();
         }
     }
+
+    public override async dispose(): Promise<void> {
+        super.dispose();
+    }
+
 }
