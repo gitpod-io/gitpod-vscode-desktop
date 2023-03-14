@@ -158,17 +158,14 @@ export default class RemoteConnector extends Disposable {
 	}
 
 	private async initPublicApi(session: vscode.AuthenticationSession, gitpodHost: string) {
-		if (this.publicApi?.gitpodHost === gitpodHost) {
+		if (this.publicApi) {
 			return;
 		}
-
-		this.publicApi?.dispose();
-		this.publicApi = undefined;
 
 		const usePublicApi = await this.experiments.getRaw<boolean>('gitpod_experimental_publicApi', session.account.id, { gitpodHost });
 		this.logger.info(`Going to use ${usePublicApi ? 'public' : 'server'} API`);
 		if (usePublicApi) {
-			this.publicApi = new GitpodPublicApi(session.accessToken, gitpodHost, this.logger);
+			this.publicApi = this._register(new GitpodPublicApi(session.accessToken, gitpodHost, this.logger));
 		}
 	}
 
@@ -1078,6 +1075,10 @@ export default class RemoteConnector extends Disposable {
 			this.initializeRemoteExtensions({ ...syncExtFlow, quiet: false, flowId: uuid() });
 		}));
 
+		this._register(vscode.commands.registerCommand('__gitpod.workspaceShutdown', () => {
+			this.logger.warn('__gitpod.workspaceShutdown command executed');
+		}));
+
 		vscode.commands.executeCommand('setContext', 'gitpod.inWorkspace', true);
 	}
 
@@ -1118,9 +1119,8 @@ export default class RemoteConnector extends Disposable {
 	}
 
 	public override async dispose(): Promise<void> {
-		this.publicApi?.dispose();
-		this.workspaceState?.dispose();
 		await this.heartbeatManager?.dispose();
+		this.workspaceState?.dispose();
 		super.dispose();
 	}
 }

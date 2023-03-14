@@ -44,7 +44,7 @@ export class GitpodPublicApi extends Disposable {
     private _onWorkspaceStatusUpdate = this._register(new vscode.EventEmitter<WorkspaceStatus>);
     public readonly onWorkspaceStatusUpdate = this._onWorkspaceStatusUpdate.event;
 
-    constructor(accessToken: string, readonly gitpodHost: string, private logger: vscode.LogOutputChannel) {
+    constructor(accessToken: string, gitpodHost: string, private logger: vscode.LogOutputChannel) {
         super();
 
         const serviceUrl = new URL(gitpodHost);
