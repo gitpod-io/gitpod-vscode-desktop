@@ -1078,10 +1078,6 @@ export default class RemoteConnector extends Disposable {
 			this.initializeRemoteExtensions({ ...syncExtFlow, quiet: false, flowId: uuid() });
 		}));
 
-		this._register(vscode.commands.registerCommand('__gitpod.workspaceShutdown', () => {
-			this.logger.warn('__gitpod.workspaceShutdown command executed');
-		}));
-
 		vscode.commands.executeCommand('setContext', 'gitpod.inWorkspace', true);
 	}
 
