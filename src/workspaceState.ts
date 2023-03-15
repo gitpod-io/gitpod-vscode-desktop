@@ -6,7 +6,7 @@
 import { WorkspaceStatus, WorkspaceInstanceStatus_Phase } from './lib/gitpod/experimental/v1/workspaces.pb';
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
-import { GitpodPublicApi } from './publicApi';
+import { GitpodApi } from './gitpodApi';
 
 export class WorkspaceState extends Disposable {
 
@@ -19,15 +19,15 @@ export class WorkspaceState extends Disposable {
 
     constructor(
         readonly workspaceId: string,
-        private readonly publicApi: GitpodPublicApi,
+        private readonly gitpodApi: GitpodApi,
         private readonly logger: vscode.LogOutputChannel,
     ) {
         super();
 
         this.logger.trace(`WorkspaceState manager for workspace ${workspaceId} started`);
 
-        this._register(this.publicApi.onWorkspaceStatusUpdate(u => this.checkWorkspaceState(u)));
-        this.publicApi.startWorkspaceStatusStreaming(workspaceId);
+        this._register(this.gitpodApi.onWorkspaceStatusUpdate(u => this.checkWorkspaceState(u)));
+        this.gitpodApi.startWorkspaceStatusStreaming(workspaceId);
     }
 
     public isWorkspaceStopped() {

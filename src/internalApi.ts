@@ -75,7 +75,10 @@ class GitpodServerApi extends vscode.Disposable {
 	}
 }
 
-export function withServerApi<T>(accessToken: string, serviceUrl: string, cb: (service: GitpodConnection) => Promise<T>, logger: vscode.LogOutputChannel): Promise<T> {
+export function withServerApi<T>(accessToken: string | undefined, serviceUrl: string | undefined, cb: (service: GitpodConnection) => Promise<T>, logger: vscode.LogOutputChannel): Promise<T> {
+	if (!accessToken || !serviceUrl) {
+		return Promise.reject(new Error('No access token or service URL'));
+	}
 	const api = new GitpodServerApi(accessToken, serviceUrl, logger);
 	return Promise.race([
 		cb(api.service),

@@ -376,5 +376,7 @@ export class MetricsReporter {
         if (this.intervalHandler) {
             clearInterval(this.intervalHandler);
         }
+        // one last report before stopping
+        this.report().catch(e => this.logger.error('Error while reporting metrics', e))
     }
 }
