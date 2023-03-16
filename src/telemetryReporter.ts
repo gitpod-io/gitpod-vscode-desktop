@@ -45,6 +45,7 @@ const analyticsClientFactory = async (key: string): Promise<BaseTelemetryClient>
 			const jsonData = {
 				component: 'vscode-desktop-extension',
 				errorStack: exception.stack ?? String(exception),
+				version: properties['common.extversion'],
 				workspaceId,
 				instanceId,
 				userId,
