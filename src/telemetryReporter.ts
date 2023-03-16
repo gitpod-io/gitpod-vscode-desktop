@@ -21,17 +21,55 @@ const analyticsClientFactory = async (key: string): Promise<BaseTelemetryClient>
 					properties: data?.properties
 				});
 			} catch (e: any) {
-				throw new Error('Failed to log event to app analytics!\n' + e.message);
+				console.error('Failed to log event to app analytics!', e);
 			}
 		},
-		logException: (_exception: Error, _data?: AppenderData) => {
-			throw new Error('Failed to log exception to app analytics!\n');
+		logException: (exception: Error, data?: AppenderData) => {
+			const gitpodHost = vscode.workspace.getConfiguration('gitpod').get<string>('host')!;
+			const serviceUrl = new URL(gitpodHost);
+			const errorMetricsEndpoint = `https://ide.${serviceUrl.hostname}/metrics-api/reportError`;
+
+			const properties: { [key: string]: any } = Object.assign({}, data?.properties);
+			properties['error_name'] = exception.name;
+			properties['error_message'] = exception.message;
+			properties['debug_workspace'] = String(properties['debug_workspace'] ?? false);
+
+			const workspaceId  = properties['workspaceId'] ?? '';
+			const instanceId  = properties['instanceId'] ?? '';
+			const userId = properties['userId'] ?? '';
+
+			delete properties['workspaceId'];
+			delete properties['instanceId'];
+			delete properties['userId'];
+
+			const jsonData = {
+				component: 'vscode-desktop-extension',
+				errorStack: exception.stack ?? String(exception),
+				version: properties['common.extversion'],
+				workspaceId,
+				instanceId,
+				userId,
+				properties,
+			};
+			fetch(errorMetricsEndpoint, {
+				method: 'POST',
+				body: JSON.stringify(jsonData),
+				headers: {
+					'Content-Type': 'application/json',
+				},
+			}).then((resp) => {
+				if (!resp.ok) {
+					console.log(`Metrics endpoint responded with ${resp.status} ${resp.statusText}`);
+				}
+			}).catch((e) => {
+				console.error('Failed to report error to metrics endpoint!', e);
+			});
 		},
 		flush: async () => {
 			try {
 				await segmentAnalyticsClient.flush();
 			} catch (e: any) {
-				throw new Error('Failed to flush app analytics!\n' + e.message);
+				console.error('Failed to flush app analytics!', e);
 			}
 		}
 	};

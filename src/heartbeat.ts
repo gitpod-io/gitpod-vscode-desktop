@@ -29,7 +29,7 @@ export class HeartbeatManager extends Disposable {
         readonly workspaceId: string,
         readonly instanceId: string,
         readonly debugWorkspace: boolean,
-        private readonly accessToken: string,
+        private readonly session: vscode.AuthenticationSession,
         private readonly publicApi: GitpodPublicApi | undefined,
         private readonly logger: vscode.LogOutputChannel,
         private readonly telemetry: TelemetryReporter
@@ -90,7 +90,7 @@ export class HeartbeatManager extends Disposable {
             }
         }));
 
-        this.logger.debug(`Heartbeat manager for workspace ${workspaceId} (${instanceId}) - ${gitpodHost} started`);
+        this.logger.info(`Heartbeat manager for workspace ${workspaceId} (${instanceId}) - ${gitpodHost} started`);
 
         // Start heartbeating interval
         this.sendHeartBeat();
@@ -109,8 +109,8 @@ export class HeartbeatManager extends Disposable {
     }
 
     private updateLastActivity(event: string, document?: vscode.TextDocument) {
-            this.lastActivity = new Date().getTime();
-            this.lastActivityEvent = event;
+        this.lastActivity = new Date().getTime();
+        this.lastActivityEvent = event;
 
         const eventName = document ? `${event}:${document.uri.scheme}` : event;
 
@@ -120,7 +120,7 @@ export class HeartbeatManager extends Disposable {
 
     private async sendHeartBeat(wasClosed?: true) {
         try {
-            await withServerApi(this.accessToken, this.gitpodHost, async service => {
+            await withServerApi(this.session.accessToken, this.gitpodHost, async service => {
                 const workspaceInfo = this.publicApi
                     ? await this.publicApi.getWorkspace(this.workspaceId)
                     : await service.server.getWorkspace(this.workspaceId);
@@ -142,9 +142,11 @@ export class HeartbeatManager extends Disposable {
                     this.stopHeartbeat();
                 }
             }, this.logger);
-        } catch (err) {
+        } catch (e) {
             const suffix = wasClosed ? 'closed heartbeat' : 'heartbeat';
-            this.logger.error(`Failed to send ${suffix}, triggered by ${this.lastActivityEvent} event:`, err);
+            e.message = `Failed to send ${suffix}, triggered by event: ${this.lastActivityEvent}: ${e.message}`;
+            this.logger.error(e);
+            this.telemetry.sendTelemetryException(e, { workspaceId: this.workspaceId, instanceId: this.instanceId, userId: this.session.account.id });
         }
     }
 
