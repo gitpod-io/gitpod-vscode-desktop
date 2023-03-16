@@ -9,7 +9,7 @@ import { LocalAppClient } from '@gitpod/local-app-api-grpcweb/lib/localapp_pb_se
 import { NodeHttpTransport } from '@improbable-eng/grpc-web-node-http-transport';
 import { grpc } from '@improbable-eng/grpc-web';
 import { Workspace, WorkspaceInstanceStatus_Phase } from '@gitpod/public-api/lib/gitpod/experimental/v1/workspaces_pb';
-import { UserSSHPublicKeyValue, WorkspaceInfo } from '@gitpod/gitpod-protocol';
+import { UserSSHPublicKeyValue, WorkspaceInfo, WorkspaceInstancePhase } from '@gitpod/gitpod-protocol';
 import * as cp from 'child_process';
 import * as fs from 'fs';
 import * as http from 'http';
@@ -110,8 +110,8 @@ class LocalAppError extends Error {
 }
 
 class NoRunningInstanceError extends Error {
-	constructor(readonly workspaceId: string) {
-		super(`Failed to connect to ${workspaceId} Gitpod workspace, workspace not running`);
+	constructor(readonly workspaceId: string, phase?: WorkspaceInstancePhase) {
+		super(`Failed to connect to ${workspaceId} Gitpod workspace, workspace not running: ${phase}`);
 	}
 }
 
@@ -1024,9 +1024,12 @@ export default class RemoteConnector extends Disposable {
 				throw new Error('No Gitpod session available');
 			}
 
-			const workspaceInfo = await withServerApi(session.accessToken, connectionInfo.gitpodHost, service => service.server.getWorkspace(connectionInfo.workspaceId), this.logger);
+			const workspaceInfo = await retry(async () => {
+				return await withServerApi(session!.accessToken, connectionInfo.gitpodHost, service => service.server.getWorkspace(connectionInfo.workspaceId), this.logger);
+			}, 500, 3);
+
 			if (workspaceInfo.latestInstance?.status?.phase !== 'running') {
-				throw new NoRunningInstanceError(connectionInfo.workspaceId);
+				throw new NoRunningInstanceError(connectionInfo.workspaceId, workspaceInfo.latestInstance?.status?.phase);
 			}
 
 			if (workspaceInfo.latestInstance.id !== connectionInfo.instanceId) {
@@ -1069,8 +1072,12 @@ export default class RemoteConnector extends Disposable {
 
 			vscode.commands.executeCommand('setContext', 'gitpod.inWorkspace', true);
 		} catch (e) {
-            e.message = `Failed to resolve whole gitpod remote connection process: ${e.message}`;
-            this.logger.error(e);
+			if (e instanceof NoRunningInstanceError) {
+				this.logger.error('No Running instance:', e);
+				return;
+			}
+			e.message = `Failed to resolve whole gitpod remote connection process: ${e.message}`;
+			this.logger.error(e);
 			this.telemetry.sendTelemetryException(e, { workspaceId: connectionInfo.workspaceId, instanceId: connectionInfo.instanceId, userId: session?.account.id || '' });
 		}
 	}
