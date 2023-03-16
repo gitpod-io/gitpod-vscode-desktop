@@ -4,12 +4,30 @@ on:
   workflow_dispatch:
     inputs:
       patchVersion:
-        description: "Format: YYYYMMDDHH"
+        description: "Format: YYYYMMDDHHmm, empty fallback to parse from current date"
+        required: false
+  push:
+    branches:
+      - main
 
 jobs:
   nightly:
     runs-on: ubuntu-latest
     steps:
+      - name: "Set patchVersion outputs"
+        id: configuration
+        shell: bash
+        run: |
+            if [[ '${{ github.event.inputs.patchVersion }}' != '' ]]; then
+              # The workflow was triggered by workflow_dispatch
+              {
+                echo "version=${{ github.event.inputs.patchVersion }}"
+              } >> $GITHUB_OUTPUT
+            else
+              {
+                echo "version=$(date +'%Y%m%d%H%M')"
+              } >> $GITHUB_OUTPUT
+            fi
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
         with:
@@ -31,7 +49,7 @@ jobs:
       - name: Generate package.json
         run: |
           set -e
-          node ./scripts/prepare-nightly-build.js -v ${{ github.event.inputs.patchVersion }}
+          node ./scripts/prepare-nightly-build.js -v ${{ steps.configuration.outputs.version }}
           mv package.insiders.json package.json
 
       - name: Package extension
