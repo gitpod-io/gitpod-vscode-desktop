@@ -1069,7 +1069,7 @@ export default class RemoteConnector extends Disposable {
 
 			vscode.commands.executeCommand('setContext', 'gitpod.inWorkspace', true);
 		} catch (e) {
-            e.message = `Failed to start whole gitpod remote connection process: ${e.message}`;
+            e.message = `Failed to resolve whole gitpod remote connection process: ${e.message}`;
             this.logger.error(e);
 			this.telemetry.sendTelemetryException(e, { workspaceId: connectionInfo.workspaceId, instanceId: connectionInfo.instanceId, userId: session?.account.id || '' });
 		}
