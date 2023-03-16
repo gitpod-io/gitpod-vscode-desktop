@@ -11,6 +11,10 @@ import * as vscode from 'vscode';
 const analyticsClientFactory = async (key: string): Promise<BaseTelemetryClient> => {
 	let segmentAnalyticsClient = new SegmentAnalytics(key);
 
+	const gitpodHost = vscode.workspace.getConfiguration('gitpod').get<string>('host')!;
+	const serviceUrl = new URL(gitpodHost);
+	const errorMetricsEndpoint = `https://ide.${serviceUrl.hostname}/metrics-api/reportError`;
+
 	// Sets the analytics client into a standardized form
 	const telemetryClient: BaseTelemetryClient = {
 		logEvent: (eventName: string, data?: AppenderData) => {
@@ -21,17 +25,50 @@ const analyticsClientFactory = async (key: string): Promise<BaseTelemetryClient>
 					properties: data?.properties
 				});
 			} catch (e: any) {
-				throw new Error('Failed to log event to app analytics!\n' + e.message);
+				console.error('Failed to log event to app analytics!', e);
 			}
 		},
-		logException: (_exception: Error, _data?: AppenderData) => {
-			throw new Error('Failed to log exception to app analytics!\n');
+		logException: async (exception: Error, data?: AppenderData) => {
+			const properties: { [key: string]: any } = Object.assign({}, data?.properties);
+			properties['error_name'] = exception.name;
+			properties['error_message'] = exception.message;
+			properties['debug_workspace'] = String(false);
+
+			const workspaceId  = properties['workspaceId'] || '';
+			delete properties['workspaceId'];
+			const instanceId  = properties['instanceId'] || '';
+			delete properties['instanceId'];
+			const userId = properties['userId'] || '';
+			delete properties['userId'];
+
+			const jsonData = {
+				component: 'vscode-desktop-extension',
+				errorStack: exception.stack ?? String(exception),
+				workspaceId,
+				instanceId,
+				userId,
+				properties,
+			};
+			try {
+				const resp = await fetch(errorMetricsEndpoint, {
+					method: 'POST',
+					body: JSON.stringify(jsonData),
+					headers: {
+						'Content-Type': 'application/json',
+					},
+				});
+				if (!resp.ok) {
+					throw new Error(`Metrics endpoint responded with ${resp.status} ${resp.statusText}`);
+				}
+			} catch (e: any) {
+				console.error('Failed to report error to metrics endpoint!', e);
+			}
 		},
 		flush: async () => {
 			try {
 				await segmentAnalyticsClient.flush();
 			} catch (e: any) {
-				throw new Error('Failed to flush app analytics!\n' + e.message);
+				console.error('Failed to flush app analytics!', e);
 			}
 		}
 	};

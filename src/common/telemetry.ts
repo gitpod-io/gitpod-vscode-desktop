@@ -222,17 +222,6 @@ export class BaseTelemetryReporter extends Disposable {
 		return ret;
 	}
 
-	/**
-	 * Whether or not it is safe to send error telemetry
-	 */
-	private shouldSendErrorTelemetry(): boolean {
-		if (this.errorOptIn === false) {
-			return false;
-		}
-
-		return true;
-	}
-
 	// __GDPR__COMMON__ "common.os" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 	// __GDPR__COMMON__ "common.nodeArch" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 	// __GDPR__COMMON__ "common.platformversion" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
@@ -411,25 +400,14 @@ export class BaseTelemetryReporter extends Disposable {
 	 * Given an event name, some properties, and measurements sends an error event
 	 * @param eventName The name of the event
 	 * @param properties The properties to send with the event
-	 * @param errorProps If not present then we assume all properties belong to the error prop and will be anonymized
 	 */
-	public sendTelemetryErrorEvent(eventName: string, properties?: { [key: string]: string }, errorProps?: string[]): void {
+	public sendTelemetryErrorEvent(eventName: string, properties?: { [key: string]: string }): void {
 		if (this.errorOptIn && eventName !== '') {
 			// always clean the properties if first party
 			// do not send any error properties if we shouldn't send error telemetry
 			// if we have no errorProps, assume all are error props
 			properties = { ...properties, ...this.getCommonProperties() };
-			const cleanProperties = this.cloneAndChange(properties, (key: string, prop: string) => {
-				if (this.shouldSendErrorTelemetry()) {
-					return this.anonymizeFilePaths(prop, false);
-				}
-
-				if (errorProps === undefined || errorProps.indexOf(key) !== -1) {
-					return 'REDACTED';
-				}
-
-				return this.anonymizeFilePaths(prop, false);
-			});
+			const cleanProperties = this.cloneAndChange(properties, (_key: string, prop: string) => this.anonymizeFilePaths(prop, false));
 			this.telemetryAppender.logEvent(`${eventName}`, { properties: this.removePropertiesWithPossibleUserInfo(cleanProperties) });
 		}
 	}
@@ -440,7 +418,7 @@ export class BaseTelemetryReporter extends Disposable {
 	 * @param properties The properties to send with the event
 	 */
 	public sendTelemetryException(error: Error, properties?: TelemetryEventProperties): void {
-		if (this.shouldSendErrorTelemetry() && this.errorOptIn && error) {
+		if (this.errorOptIn && error) {
 			properties = { ...properties, ...this.getCommonProperties() };
 			const cleanProperties = this.cloneAndChange(properties, (_key: string, prop: string) => this.anonymizeFilePaths(prop, false));
 			// Also run the error stack through the anonymizer
