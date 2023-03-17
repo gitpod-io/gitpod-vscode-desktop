@@ -1070,13 +1070,25 @@ export default class RemoteConnector extends Disposable {
 
 			vscode.commands.executeCommand('setContext', 'gitpod.inWorkspace', true);
 		} catch (e) {
+			const remoteFlow = { ...connectionInfo, userId: session?.account.id, flow: 'remote_window' };
 			if (e instanceof NoRunningInstanceError) {
 				this.logger.error('No Running instance:', e);
+				const workspaceUrl = new URL(connectionInfo.gitpodHost);
+				workspaceUrl.pathname = '/start';
+				workspaceUrl.hash = connectionInfo.workspaceId;
+				this.showWsNotRunningDialog(connectionInfo.workspaceId, workspaceUrl.toString(), remoteFlow)
 				return;
 			}
 			e.message = `Failed to resolve whole gitpod remote connection process: ${e.message}`;
 			this.logger.error(e);
 			this.telemetry.sendTelemetryException(e, { workspaceId: connectionInfo.workspaceId, instanceId: connectionInfo.instanceId, userId: session?.account.id || '' });
+
+			this.logger.show();
+			const retry = 'Retry';
+			const action = await this.notifications.showErrorMessage(`Failed to resolve connection to Gitpod workspace: workspace could stop unexpectedly`, { flow: remoteFlow, id: uuid() }, retry);
+			if (action === retry) {
+				this.onGitpodRemoteConnection({ remoteAuthority, connectionInfo });
+			}
 		}
 	}
 
