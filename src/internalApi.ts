@@ -33,12 +33,13 @@ class GitpodServerApi extends vscode.Disposable {
 		const factory = new JsonRpcProxyFactory<GitpodServer>();
 		this.service = new GitpodServiceImpl<GitpodClient, GitpodServer>(factory.createProxy());
 
+		const maxRetries = 3;
 		const webSocket = new ReconnectingWebSocket(`${serviceUrl.replace('https', 'wss')}/api/v1`, undefined, {
 			maxReconnectionDelay: 10000,
 			minReconnectionDelay: 1000,
 			reconnectionDelayGrowFactor: 1.5,
 			connectionTimeout: 10000,
-			maxRetries: 3,
+			maxRetries,
 			debug: false,
 			startClosed: false,
 			WebSocket: class extends WebSocket {
@@ -54,7 +55,11 @@ class GitpodServerApi extends vscode.Disposable {
 				}
 			}
 		});
-		webSocket.onerror = (e: ErrorEvent) => this.onErrorEmitter.fire(e.error);
+		webSocket.onerror = (e: ErrorEvent) => {
+			if (webSocket.retryCount >= maxRetries ) {
+				this.onErrorEmitter.fire(e.error);
+			}
+		};
 
 		doListen({
 			webSocket: (webSocket as any),

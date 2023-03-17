@@ -1024,9 +1024,7 @@ export default class RemoteConnector extends Disposable {
 				throw new Error('No Gitpod session available');
 			}
 
-			const workspaceInfo = await retry(async () => {
-				return await withServerApi(session!.accessToken, connectionInfo.gitpodHost, service => service.server.getWorkspace(connectionInfo.workspaceId), this.logger);
-			}, 500, 3);
+			const workspaceInfo = await withServerApi(session!.accessToken, connectionInfo.gitpodHost, service => service.server.getWorkspace(connectionInfo.workspaceId), this.logger);
 
 			if (workspaceInfo.latestInstance?.status?.phase !== 'running') {
 				throw new NoRunningInstanceError(connectionInfo.workspaceId, workspaceInfo.latestInstance?.status?.phase);
