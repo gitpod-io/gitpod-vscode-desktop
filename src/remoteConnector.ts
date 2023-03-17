@@ -1077,7 +1077,7 @@ export default class RemoteConnector extends Disposable {
 				const workspaceUrl = new URL(connectionInfo.gitpodHost);
 				workspaceUrl.pathname = '/start';
 				workspaceUrl.hash = connectionInfo.workspaceId;
-				this.showWsNotRunningDialog(connectionInfo.workspaceId, workspaceUrl.toString(), remoteFlow)
+				this.showWsNotRunningDialog(connectionInfo.workspaceId, workspaceUrl.toString(), remoteFlow);
 				return;
 			}
 			e.message = `Failed to resolve whole gitpod remote connection process: ${e.message}`;
@@ -1086,7 +1086,7 @@ export default class RemoteConnector extends Disposable {
 
 			this.logger.show();
 			const retry = 'Retry';
-			const action = await this.notifications.showErrorMessage(`Failed to resolve connection to Gitpod workspace: workspace could stop unexpectedly`, { flow: remoteFlow, id: uuid() }, retry);
+			const action = await this.notifications.showErrorMessage(`Failed to resolve connection to Gitpod workspace: workspace could stop unexpectedly`, { flow: remoteFlow, id: 'unexpected_error' }, retry);
 			if (action === retry) {
 				this.onGitpodRemoteConnection({ remoteAuthority, connectionInfo });
 			}
@@ -1098,7 +1098,7 @@ export default class RemoteConnector extends Disposable {
 		this.logger.warn(msg);
 
 		const openUrl = 'Restart workspace';
-		const resp = await this.notifications.showErrorMessage(msg, { id: uuid(), flow }, openUrl);
+		const resp = await this.notifications.showErrorMessage(msg, { id: 'ws_not_running', flow }, openUrl);
 		if (resp === openUrl) {
 			const opened = await vscode.env.openExternal(vscode.Uri.parse(workspaceUrl));
 			if (opened) {
