@@ -1077,6 +1077,14 @@ export default class RemoteConnector extends Disposable {
 			e.message = `Failed to resolve whole gitpod remote connection process: ${e.message}`;
 			this.logger.error(e);
 			this.telemetry.sendTelemetryException(e, { workspaceId: connectionInfo.workspaceId, instanceId: connectionInfo.instanceId, userId: session?.account.id || '' });
+
+			const retry = 'Retry';
+			const remoteFlow = { ...connectionInfo, userId: session?.account.id, flow: 'remote_window' };
+			const action = await this.notifications.showErrorMessage(`Failed to setup connection to Gitpod workspace: workspace could stop unexpectedly`, { flow: remoteFlow, id: uuid() }, retry);
+			if (action === retry) {
+				this.logger.show();
+				this.onGitpodRemoteConnection({ remoteAuthority, connectionInfo });
+			}
 		}
 	}
 
