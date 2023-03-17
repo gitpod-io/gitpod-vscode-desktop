@@ -144,6 +144,7 @@ export default class RemoteConnector extends Disposable {
 		super();
 
 		const remoteConnectionInfo = getGitpodRemoteWindow(context);
+		this.logger.info('RemoteConnector initializing, isRemote: ' + !!remoteConnectionInfo);
 		if (remoteConnectionInfo) {
 			this._register(vscode.commands.registerCommand('gitpod.api.autoTunnel', this.autoTunnelCommand, this));
 

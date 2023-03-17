@@ -144,9 +144,10 @@ export class HeartbeatManager extends Disposable {
             }, this.logger);
         } catch (e) {
             const suffix = wasClosed ? 'closed heartbeat' : 'heartbeat';
-            e.message = `Failed to send ${suffix}, triggered by event: ${this.lastActivityEvent}: ${e.message}`;
+            const originMsg = e.message;
+            e.message = `Failed to send ${suffix}, triggered by event: ${this.lastActivityEvent}: ${originMsg}`;
             this.logger.error(e);
-            e.message = `Failed to send ${suffix}: ${e.message}`;
+            e.message = `Failed to send ${suffix}: ${originMsg}`;
             this.telemetry.sendTelemetryException(e, { workspaceId: this.workspaceId, instanceId: this.instanceId, userId: this.session.account.id });
         }
     }
