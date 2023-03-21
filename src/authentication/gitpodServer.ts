@@ -4,13 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { PromiseAdapter, promiseFromEvent } from './common/utils';
-import { withServerApi } from './internalApi';
+import { PromiseAdapter, promiseFromEvent } from '../common/utils';
+import { withServerApi } from '../internalApi';
 import pkceChallenge from 'pkce-challenge';
 import { v4 as uuid } from 'uuid';
-import { Disposable } from './common/dispose';
-import { NotificationService } from './notification';
-import { UserFlowTelemetry } from './common/telemetry';
+import { Disposable } from '../common/dispose';
+import { INotificationService } from '../notification';
+import { UserFlowTelemetry } from '../common/telemetry';
+import { ILogService } from '../logService';
 
 interface ExchangeTokenResponse {
 	token_type: 'Bearer';
@@ -20,7 +21,7 @@ interface ExchangeTokenResponse {
 	scope: string;
 }
 
-async function getUserInfo(token: string, serviceUrl: string, logger: vscode.LogOutputChannel) {
+async function getUserInfo(token: string, serviceUrl: string, logger: ILogService) {
 	const user = await withServerApi(token, serviceUrl, service => service.server.getLoggedInUser(), logger);
 	return {
 		id: user.id,
@@ -40,8 +41,8 @@ export default class GitpodServer extends Disposable {
 
 	constructor(
 		serviceUrl: string,
-		private readonly _logger: vscode.LogOutputChannel,
-		private readonly notifications: NotificationService
+		private readonly _logger: ILogService,
+		private readonly notifications: INotificationService
 	) {
 		super();
 

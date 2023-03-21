@@ -16,6 +16,7 @@ import { WorkspacesServiceClient, WorkspaceStatus } from './lib/gitpod/experimen
 import * as grpc from '@grpc/grpc-js';
 import { timeout } from './common/async';
 import { MetricsReporter, getConnectMetricsInterceptor, getGrpcMetricsInterceptor } from './metrics';
+import { ILogService } from './logService';
 
 function isTelemetryEnabled(): boolean {
     const TELEMETRY_CONFIG_ID = 'telemetry';
@@ -31,7 +32,17 @@ function isTelemetryEnabled(): boolean {
     return !!enabled;
 }
 
-export class GitpodPublicApi extends Disposable {
+export interface IGitpodAPI {
+    getWorkspace(workspaceId: string): Promise<Workspace | undefined>;
+    getOwnerToken(workspaceId: string): Promise<string>;
+    getSSHKeys(): Promise<SSHKey[]>;
+    sendHeartbeat(workspaceId: string): Promise<void>;
+    sendDidClose(workspaceId: string): Promise<void>;
+    getAuthenticatedUser(): Promise<User | undefined>;
+    workspaceStatusStreaming(workspaceId: string): { onStatusChanged: vscode.Event<WorkspaceStatus>; dispose: () => void };
+}
+
+export class GitpodPublicApi extends Disposable implements IGitpodAPI {
 
     private workspaceService!: PromiseClient<typeof WorkspacesService>;
     private userService!: PromiseClient<typeof UserService>;
@@ -42,10 +53,9 @@ export class GitpodPublicApi extends Disposable {
 
     private metricsReporter: MetricsReporter;
 
-    private _onWorkspaceStatusUpdate = this._register(new vscode.EventEmitter<WorkspaceStatus>);
-    public readonly onWorkspaceStatusUpdate = this._onWorkspaceStatusUpdate.event;
+    private workspaceStatusStreamMap = new Map<string, { onStatusChanged: vscode.Event<WorkspaceStatus>; dispose: () => void; increment: () => void }>();
 
-    constructor(accessToken: string, gitpodHost: string, private logger: vscode.LogOutputChannel) {
+    constructor(accessToken: string, gitpodHost: string, private logger: ILogService) {
         super();
 
         const serviceUrl = new URL(gitpodHost);
@@ -110,46 +120,69 @@ export class GitpodPublicApi extends Disposable {
         return response.user;
     }
 
-    private _startWorkspaceStatusStreaming = false;
-    async startWorkspaceStatusStreaming(workspaceId: string) {
-        if (this._startWorkspaceStatusStreaming) {
-            return;
-        }
-        this._startWorkspaceStatusStreaming = true;
+    workspaceStatusStreaming(workspaceId: string) {
+        if (!this.workspaceStatusStreamMap.has(workspaceId)) {
+            const emitter = new vscode.EventEmitter<WorkspaceStatus>;
+            let counter = 0;
+            let isDisposed = false;
 
-        this._streamWorkspaceStatus(workspaceId);
+            const onStreamEnd = async () => {
+                if (isDisposed) { return; }
+                clearTimeout(stopTimer);
+                await timeout(1000);
+                if (isDisposed) { return; }
+                [stream, stopTimer] = this._streamWorkspaceStatus(workspaceId, emitter, onStreamEnd);
+            };
+            let [stream, stopTimer] = this._streamWorkspaceStatus(workspaceId, emitter, onStreamEnd);
+
+            this.workspaceStatusStreamMap.set(workspaceId, {
+                onStatusChanged: emitter.event,
+                dispose: () => {
+                    if (isDisposed) { return; }
+                    if (--counter > 0) { return; }
+                    isDisposed = true;
+                    emitter.dispose();
+                    clearTimeout(stopTimer);
+                    stream.cancel();
+                    this.workspaceStatusStreamMap.delete(workspaceId);
+                },
+                increment: () => { ++counter; },
+            });
+        }
+
+        const { increment, ...result } = this.workspaceStatusStreamMap.get(workspaceId)!;
+        increment();
+        return result;
     }
 
-    private _stopTimer: NodeJS.Timeout | undefined;
-    private _streamWorkspaceStatus(workspaceId: string) {
-        const call = this.grpcWorkspaceClient.streamWorkspaceStatus({ workspaceId }, this.grpcMetadata);
-        call.on('data', (res) => {
-            this._onWorkspaceStatusUpdate.fire(res.result!);
+    private _streamWorkspaceStatus(workspaceId: string, onWorkspaceStatusUpdate: vscode.EventEmitter<WorkspaceStatus>, onStreamEnd: () => void) {
+        const stream = this.grpcWorkspaceClient.streamWorkspaceStatus({ workspaceId }, this.grpcMetadata);
+        stream.on('data', (res) => {
+            onWorkspaceStatusUpdate.fire(res.result!);
         });
-        call.on('end', async () => {
-            clearTimeout(this._stopTimer);
-
-            if (this.isDisposed) { return; }
-
-            this.logger.trace(`streamWorkspaceStatus stream ended`);
-
-            await timeout(1000);
-            this._streamWorkspaceStatus(workspaceId);
+        stream.on('end', () => {
+            this.logger.trace(`End streamWorkspaceStatus for ${workspaceId}`);
+            onStreamEnd();
         });
-        call.on('error', (err) => {
-            this.logger.trace(`Error in streamWorkspaceStatus`, err);
+        stream.on('error', (err) => {
+            this.logger.trace(`Error in streamWorkspaceStatus for ${workspaceId}`, err);
         });
 
         // force reconnect after 7m to avoid unexpected 10m reconnection (internal error)
-        this._stopTimer = setTimeout(() => {
+        let stopTimer = setTimeout(() => {
             this.logger.trace(`streamWorkspaceStatus forcing cancel after 7 minutes`);
-            call.cancel();
+            stream.cancel();
         }, 7 * 60 * 1000 /* 7 min */);
+
+        return [stream, stopTimer] as const;
     }
 
     public override dispose() {
         super.dispose();
-        clearTimeout(this._stopTimer);
+        for (const { dispose } of this.workspaceStatusStreamMap.values()) {
+            dispose();
+        }
+        this.workspaceStatusStreamMap.clear();
         this.metricsReporter.stopReporting();
     }
 }

@@ -12,11 +12,15 @@ export interface NotificationOption extends vscode.MessageOptions {
     flow: UserFlowTelemetry;
 }
 
-export class NotificationService {
+export interface INotificationService {
+    showInformationMessage<T extends vscode.MessageItem | string>(message: string, option: NotificationOption, ...items: T[]): Promise<T | undefined>;
+    showWarningMessage<T extends vscode.MessageItem | string>(message: string, option: NotificationOption, ...items: T[]): Promise<T | undefined>;
+    showErrorMessage<T extends vscode.MessageItem | string>(message: string, option: NotificationOption, ...items: T[]): Promise<T | undefined>;
+}
 
-    constructor(
-        private readonly telemetry: TelemetryReporter
-    ) { }
+export class NotificationService implements INotificationService {
+
+    constructor(private readonly telemetry: TelemetryReporter) { }
 
     showInformationMessage<T extends vscode.MessageItem | string>(message: string, option: NotificationOption, ...items: T[]): Promise<T | undefined> {
         return this.withTelemetry<T>(option, 'info', () =>

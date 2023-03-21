@@ -3,11 +3,11 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
 import * as grpc from '@grpc/grpc-js';
 import { Registry, Counter, Histogram, metric } from 'prom-client';
 import { MethodKind } from '@bufbuild/protobuf';
 import { StreamResponse, UnaryResponse, Code, connectErrorFromReason, Interceptor, StreamRequest, UnaryRequest } from '@bufbuild/connect';
+import { ILogService } from './logService';
 
 export type GrpcMethodType = 'unary' | 'client_stream' | 'server_stream' | 'bidi_stream';
 
@@ -258,7 +258,10 @@ export class MetricsReporter {
     private metricsHost: string;
     private intervalHandler: NodeJS.Timer | undefined;
 
-    constructor(gitpodHost: string, private logger: vscode.LogOutputChannel) {
+    constructor(
+        gitpodHost: string,
+        private readonly logger: ILogService
+    ) {
         const serviceUrl = new URL(gitpodHost);
         this.metricsHost = `ide.${serviceUrl.hostname}`;
     }

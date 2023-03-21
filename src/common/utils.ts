@@ -9,12 +9,31 @@ export function filterEvent<T>(event: Event<T>, filter: (e: T) => boolean): Even
 	return (listener, thisArgs = null, disposables?) => event(e => filter(e) && listener.call(thisArgs, e), null, disposables);
 }
 
+/**
+ * Given an event, returns another event which only fires once.
+ *
+ * @param event The event source for the new event.
+ */
 export function onceEvent<T>(event: Event<T>): Event<T> {
 	return (listener, thisArgs = null, disposables?) => {
-		const result = event(e => {
-			result.dispose();
+		// we need this, in case the event fires during the listener call
+		let didFire = false;
+		let result: Disposable | undefined = undefined;
+		result = event(e => {
+			if (didFire) {
+				return;
+			} else if (result) {
+				result.dispose();
+			} else {
+				didFire = true;
+			}
+
 			return listener.call(thisArgs, e);
 		}, null, disposables);
+
+		if (didFire) {
+			result.dispose();
+		}
 
 		return result;
 	};
@@ -74,6 +93,10 @@ export function promiseFromEvent<T, U>(
 		),
 		cancel
 	};
+}
+
+export function eventToPromise<T>(event: Event<T>): Promise<T> {
+	return new Promise(resolve => onceEvent(event)(resolve));
 }
 
 export function arrayEquals<T>(one: ReadonlyArray<T> | undefined, other: ReadonlyArray<T> | undefined, itemEquals: (a: T, b: T) => boolean = (a, b) => a === b): boolean {
