@@ -20,16 +20,16 @@ interface IFile {
 }
 
 export class ExportLogsCommand implements Command {
-    readonly id = 'gitpod.exportLogs';
+	readonly id = 'gitpod.exportLogs';
 
-    constructor(
-        private readonly extLocalLogsUri: vscode.Uri,
-        private readonly notificationService: INotificationService,
-        private readonly telemetry: TelemetryReporter,
-        private readonly logService: ILogService,
-    ) { }
+	constructor(
+		private readonly extLocalLogsUri: vscode.Uri,
+		private readonly notificationService: INotificationService,
+		private readonly telemetry: TelemetryReporter,
+		private readonly logService: ILogService,
+	) { }
 
-    async execute() {
+	async execute() {
 		const flow: UserFlowTelemetry = { flow: 'export_logs' };
 		this.telemetry.sendUserFlowStatus('exporting', flow);
 		try {
@@ -40,52 +40,52 @@ export class ExportLogsCommand implements Command {
 			this.notificationService.showErrorMessage(outputMessage, { id: 'failed', flow });
 			this.logService.error(outputMessage);
 		}
-    }
+	}
 
-    async exportLogs() {
-        const saveUri = await vscode.window.showSaveDialog({
-            title: 'Choose save location ...',
-            defaultUri: vscode.Uri.file(path.posix.join(os.homedir(), `vscode-desktop-logs-${new Date().toISOString().replace(/-|:|\.\d+Z$/g, '')}.zip`)),
-        });
-        if (!saveUri) {
-            return;
-        }
+	async exportLogs() {
+		const saveUri = await vscode.window.showSaveDialog({
+			title: 'Choose save location ...',
+			defaultUri: vscode.Uri.file(path.posix.join(os.homedir(), `vscode-desktop-logs-${new Date().toISOString().replace(/-|:|\.\d+Z$/g, '')}.zip`)),
+		});
+		if (!saveUri) {
+			return;
+		}
 
-        let extRemoteLogsUri: vscode.Uri | undefined;
-        try {
-            // Invoke command from gitpot-remote extension
-            extRemoteLogsUri = await vscode.commands.executeCommand('__gitpod.getGitpodRemoteLogsUri');
-        } catch {
-            // Ignore if not found
-        }
+		let extRemoteLogsUri: vscode.Uri | undefined;
+		try {
+			// Invoke command from gitpot-remote extension
+			extRemoteLogsUri = await vscode.commands.executeCommand('__gitpod.getGitpodRemoteLogsUri');
+		} catch {
+			// Ignore if not found
+		}
 
-        const remoteLogsUri = extRemoteLogsUri?.with({ path: path.posix.dirname(path.posix.dirname(extRemoteLogsUri.path)) });
-        const localLogsUri = this.extLocalLogsUri.with({ path: path.posix.dirname(path.posix.dirname(this.extLocalLogsUri.path)) });
+		const remoteLogsUri = extRemoteLogsUri?.with({ path: path.posix.dirname(path.posix.dirname(extRemoteLogsUri.path)) });
+		const localLogsUri = this.extLocalLogsUri.with({ path: path.posix.dirname(path.posix.dirname(this.extLocalLogsUri.path)) });
 
-        return vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: 'Exporting logs to zip file ...',
-            cancellable: true
-        }, async (_, token) => {
-            const remoteLogFiles: IFile[] = [];
-            if (remoteLogsUri) {
-                await traverseFolder(remoteLogsUri, remoteLogFiles, token);
-                remoteLogFiles.forEach(file => file.path = path.posix.join('./remote', path.posix.relative(remoteLogsUri.path, file.path)));
-                if (token.isCancellationRequested) {
-                    return;
-                }
-            }
+		return vscode.window.withProgress({
+			location: vscode.ProgressLocation.Notification,
+			title: 'Exporting logs to zip file ...',
+			cancellable: true
+		}, async (_, token) => {
+			const remoteLogFiles: IFile[] = [];
+			if (remoteLogsUri) {
+				await traverseFolder(remoteLogsUri, remoteLogFiles, token);
+				remoteLogFiles.forEach(file => file.path = path.posix.join('./remote', path.posix.relative(remoteLogsUri.path, file.path)));
+				if (token.isCancellationRequested) {
+					return;
+				}
+			}
 
-            const localLogFiles: IFile[] = [];
-            await traverseFolder(localLogsUri, localLogFiles, token);
-            localLogFiles.forEach(file => file.path = path.posix.join('./local', path.posix.relative(localLogsUri.path, file.path)));
-            if (token.isCancellationRequested) {
-                return;
-            }
+			const localLogFiles: IFile[] = [];
+			await traverseFolder(localLogsUri, localLogFiles, token);
+			localLogFiles.forEach(file => file.path = path.posix.join('./local', path.posix.relative(localLogsUri.path, file.path)));
+			if (token.isCancellationRequested) {
+				return;
+			}
 
-            return zip(saveUri.fsPath, remoteLogFiles.concat(localLogFiles));
-        });
-    }
+			return zip(saveUri.fsPath, remoteLogFiles.concat(localLogFiles));
+		});
+	}
 }
 
 function zip(zipPath: string, files: IFile[]): Promise<string> {

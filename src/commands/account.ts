@@ -7,11 +7,11 @@ import { Command } from '../commandManager';
 import { ISessionService } from '../sessionService';
 
 export class SignInCommand implements Command {
-    readonly id = 'gitpod.signIn';
+	readonly id = 'gitpod.signIn';
 
-    constructor(private readonly sessionService: ISessionService) { }
+	constructor(private readonly sessionService: ISessionService) { }
 
-    execute() {
-        this.sessionService.signIn();
-    }
+	execute() {
+		this.sessionService.signIn();
+	}
 }

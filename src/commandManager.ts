@@ -21,7 +21,7 @@ export class CommandManager {
 		return command;
 	}
 
-    public dispose() {
+	public dispose() {
 		for (const registration of this.commands.values()) {
 			registration.dispose();
 		}
