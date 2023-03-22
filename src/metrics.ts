@@ -6,9 +6,8 @@
 import * as vscode from 'vscode';
 import * as grpc from '@grpc/grpc-js';
 import { Registry, Counter, Histogram, metric } from 'prom-client';
-import { Code, connectErrorFromReason, Interceptor, StreamRequest, UnaryRequest } from '@bufbuild/connect-node';
 import { MethodKind } from '@bufbuild/protobuf';
-import { StreamResponse, UnaryResponse } from '@bufbuild/connect-core';
+import { StreamResponse, UnaryResponse, Code, connectErrorFromReason, Interceptor, StreamRequest, UnaryRequest } from '@bufbuild/connect';
 
 export type GrpcMethodType = 'unary' | 'client_stream' | 'server_stream' | 'bidi_stream';
 

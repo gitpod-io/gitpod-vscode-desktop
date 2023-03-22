@@ -4,12 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { AppenderData, BaseTelemetryAppender, BaseTelemetryClient, BaseTelemetryReporter } from './common/telemetry';
-import SegmentAnalytics from 'analytics-node';
+import { Analytics } from '@segment/analytics-node';
 import * as os from 'os';
 import * as vscode from 'vscode';
 
 const analyticsClientFactory = async (key: string): Promise<BaseTelemetryClient> => {
-	let segmentAnalyticsClient = new SegmentAnalytics(key);
+	let segmentAnalyticsClient = new Analytics({ writeKey: key });
 
 	// Sets the analytics client into a standardized form
 	const telemetryClient: BaseTelemetryClient = {
@@ -34,8 +34,8 @@ const analyticsClientFactory = async (key: string): Promise<BaseTelemetryClient>
 			properties['error_message'] = exception.message;
 			properties['debug_workspace'] = String(properties['debug_workspace'] ?? false);
 
-			const workspaceId  = properties['workspaceId'] ?? '';
-			const instanceId  = properties['instanceId'] ?? '';
+			const workspaceId = properties['workspaceId'] ?? '';
+			const instanceId = properties['instanceId'] ?? '';
 			const userId = properties['userId'] ?? '';
 
 			delete properties['workspaceId'];
@@ -67,7 +67,7 @@ const analyticsClientFactory = async (key: string): Promise<BaseTelemetryClient>
 		},
 		flush: async () => {
 			try {
-				await segmentAnalyticsClient.flush();
+				await segmentAnalyticsClient.closeAndFlush({ timeout: 3000 });
 			} catch (e: any) {
 				console.error('Failed to flush app analytics!', e);
 			}
