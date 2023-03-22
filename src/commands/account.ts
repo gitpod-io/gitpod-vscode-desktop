@@ -11,7 +11,7 @@ export class SignInCommand implements Command {
 
 	constructor(private readonly sessionService: ISessionService) { }
 
-	execute() {
-		this.sessionService.signIn();
+	async execute() {
+		await this.sessionService.signIn();
 	}
 }
