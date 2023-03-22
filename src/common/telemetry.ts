@@ -429,8 +429,8 @@ export class BaseTelemetryReporter extends Disposable {
 		}
 	}
 
-	public override async dispose(): Promise<any> {
-		await this.telemetryAppender.flush();
+	public override async dispose(): Promise<void> {
 		super.dispose();
+		await this.telemetryAppender.flush();
 	}
 }

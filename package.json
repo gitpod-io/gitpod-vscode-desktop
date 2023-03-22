@@ -136,8 +136,6 @@
 		"test": "mocha -u tdd"
 	},
 	"devDependencies": {
-		"@types/analytics-node": "^3.1.9",
-		"@types/crypto-js": "4.1.1",
 		"@types/google-protobuf": "^3.7.4",
 		"@types/js-yaml": "^4.0.5",
 		"@types/mocha": "^9.1.1",
@@ -163,12 +161,12 @@
 		"webpack-cli": "^4.7.2"
 	},
 	"dependencies": {
-		"@bufbuild/connect-node": "^0.7.0",
+		"@bufbuild/connect-node": "^0.8.4",
 		"@gitpod/gitpod-protocol": "main",
 		"@gitpod/local-app-api-grpcweb": "main",
 		"@gitpod/public-api": "^0.1.5-main.6530",
 		"@improbable-eng/grpc-web-node-http-transport": "^0.14.0",
-		"analytics-node": "^6.2.0",
+		"@segment/analytics-node": "^1.0.0-beta.24",
 		"configcat-node": "^8.0.0",
 		"js-yaml": "^4.1.0",
 		"node-fetch-commonjs": "^3.2.4",
