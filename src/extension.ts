@@ -13,7 +13,7 @@ import { exportLogs } from './exportLogs';
 import GitpodServer from './gitpodServer';
 import { NotificationService } from './notification';
 import { ReleaseNotes } from './releaseNotes';
-import RemoteConnector from './remoteConnector';
+import { RemoteConnector, getGitpodRemoteWindow } from './remoteConnector';
 import { SettingsSync } from './settingsSync';
 import TelemetryReporter from './telemetryReporter';
 
@@ -92,6 +92,16 @@ export async function activate(context: vscode.ExtensionContext) {
 		await context.globalState.update(FIRST_INSTALL_KEY, true);
 		telemetry.sendTelemetryEvent('gitpod_desktop_installation', { kind: 'install' });
 	}
+
+	const remoteConnectionInfo = getGitpodRemoteWindow(context);
+	telemetry.sendTelemetryEvent('vscode_desktop_activate', {
+		remoteName: vscode.env.remoteName || '',
+		remoteUri: String(!!(vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.[0].uri)),
+		workspaceId: remoteConnectionInfo?.connectionInfo.workspaceId || '',
+		instanceId: remoteConnectionInfo?.connectionInfo.instanceId || '',
+		gitpodHost: remoteConnectionInfo?.connectionInfo.gitpodHost || '',
+		debugWorkspace: remoteConnectionInfo ? String(!!remoteConnectionInfo.connectionInfo.debugWorkspace) : '',
+	});
 }
 
 export async function deactivate() {

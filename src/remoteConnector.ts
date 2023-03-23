@@ -121,7 +121,7 @@ class NoSSHGatewayError extends Error {
 	}
 }
 
-export default class RemoteConnector extends Disposable {
+export class RemoteConnector extends Disposable {
 
 	public static SSH_DEST_KEY = 'ssh-dest:';
 	public static AUTH_COMPLETE_PATH = '/auth-complete';
@@ -1136,7 +1136,7 @@ export default class RemoteConnector extends Disposable {
 	}
 }
 
-function getGitpodRemoteWindow(context: vscode.ExtensionContext): { remoteAuthority: string; connectionInfo: SSHConnectionInfo } | undefined {
+export function getGitpodRemoteWindow(context: vscode.ExtensionContext): { remoteAuthority: string; connectionInfo: SSHConnectionInfo } | undefined {
 	const remoteUri = vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.[0].uri;
 	if (vscode.env.remoteName === 'ssh-remote' && context.extension.extensionKind === vscode.ExtensionKind.UI && remoteUri) {
 		const [, sshDestStr] = remoteUri.authority.split('+');
