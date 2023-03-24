@@ -11,9 +11,8 @@ import { HeartbeatManager } from './heartbeat';
 import { WorkspaceState } from './workspaceState';
 import { ISyncExtension, NoSettingsSyncSession, NoSyncStoreError, SettingsSync, SyncResource, parseSyncData } from './settingsSync';
 import { ExperimentalSettings } from './experiments';
-import TelemetryReporter from './telemetryReporter';
-import { INotificationService } from './notification';
-import { UserFlowTelemetry } from './common/telemetry';
+import { ITelemetryService, UserFlowTelemetry } from './telemetryService';
+import { INotificationService } from './notificationService';
 import { retry } from './common/async';
 import { withServerApi } from './internalApi';
 import { ScopeFeature } from './featureSupport';
@@ -37,7 +36,7 @@ export class RemoteSession extends Disposable {
 		private readonly settingsSync: SettingsSync,
 		private readonly experiments: ExperimentalSettings,
 		private readonly logService: ILogService,
-		private readonly telemetry: TelemetryReporter,
+		private readonly telemetryService: ITelemetryService,
 		private readonly notificationService: INotificationService,
 	) {
 		super();
@@ -95,7 +94,7 @@ export class RemoteSession extends Disposable {
 
 			const heartbeatSupported = this.sessionService.getScopes().includes(ScopeFeature.LocalHeartbeat);
 			if (heartbeatSupported) {
-				this.heartbeatManager = new HeartbeatManager(this.connectionInfo, this.sessionService, this.logService, this.telemetry, this.usePublicApi);
+				this.heartbeatManager = new HeartbeatManager(this.connectionInfo, this.sessionService, this.logService, this.telemetryService, this.usePublicApi);
 			} else {
 				this.logService.error(`Local heartbeat not supported in ${this.connectionInfo.gitpodHost}, using version ${gitpodVersion.raw}`);
 			}
@@ -116,7 +115,7 @@ export class RemoteSession extends Disposable {
 			}
 			e.message = `Failed to resolve whole gitpod remote connection process: ${e.message}`;
 			this.logService.error(e);
-			this.telemetry.sendTelemetryException(e, { workspaceId: this.connectionInfo.workspaceId, instanceId: this.connectionInfo.instanceId, userId: this.sessionService.getUserId() });
+			this.telemetryService.sendTelemetryException(e, { workspaceId: this.connectionInfo.workspaceId, instanceId: this.connectionInfo.instanceId, userId: this.sessionService.getUserId() });
 
 			this.logService.show();
 			const retry = 'Retry';
@@ -128,7 +127,7 @@ export class RemoteSession extends Disposable {
 	}
 
 	private async initializeRemoteExtensions(flow: UserFlowTelemetry & { quiet: boolean; flowId: string }) {
-		this.telemetry.sendUserFlowStatus('enabled', flow);
+		this.telemetryService.sendUserFlowStatus('enabled', flow);
 		let syncData: { ref: string; content: string } | undefined;
 		try {
 			syncData = await this.settingsSync.readResource(SyncResource.Extensions);
@@ -139,7 +138,7 @@ export class RemoteSession extends Disposable {
 
 				const status = 'no_sync_store';
 				if (flow.quiet) {
-					this.telemetry.sendUserFlowStatus(status, flow);
+					this.telemetryService.sendUserFlowStatus(status, flow);
 				} else {
 					const addSyncProvider = 'Settings Sync: Enable Sign In with Gitpod';
 					const action = await this.notificationService.showInformationMessage(msg, { flow, id: status }, addSyncProvider);
@@ -153,7 +152,7 @@ export class RemoteSession extends Disposable {
 
 				const status = 'no_settings_sync';
 				if (flow.quiet) {
-					this.telemetry.sendUserFlowStatus(status, flow);
+					this.telemetryService.sendUserFlowStatus(status, flow);
 				} else {
 					const enableSettingsSync = 'Enable Settings Sync';
 					const action = await this.notificationService.showInformationMessage(msg, { flow, id: status }, enableSettingsSync);
@@ -166,7 +165,7 @@ export class RemoteSession extends Disposable {
 
 				const status = 'failed_to_fetch';
 				if (flow.quiet) {
-					this.telemetry.sendUserFlowStatus(status, flow);
+					this.telemetryService.sendUserFlowStatus(status, flow);
 				} else {
 					const seeLogs = 'See Logs';
 					const action = await this.notificationService.showErrorMessage(`Error while fetching settings sync extension data.`, { flow, id: status }, seeLogs);
@@ -185,7 +184,7 @@ export class RemoteSession extends Disposable {
 
 			const status = 'failed_to_parse_content';
 			if (flow.quiet) {
-				this.telemetry.sendUserFlowStatus(status, flow);
+				this.telemetryService.sendUserFlowStatus(status, flow);
 			} else {
 				await this.notificationService.showErrorMessage(msg, { flow, id: status });
 			}
@@ -201,7 +200,7 @@ export class RemoteSession extends Disposable {
 
 			const status = 'failed_to_parse_json';
 			if (flow.quiet) {
-				this.telemetry.sendUserFlowStatus(status, flow);
+				this.telemetryService.sendUserFlowStatus(status, flow);
 			} else {
 				await this.notificationService.showErrorMessage(msg, { flow, id: status });
 			}
@@ -211,7 +210,7 @@ export class RemoteSession extends Disposable {
 		extensions = extensions.filter(e => e.installed);
 		flow.extensions = extensions.length;
 		if (!extensions.length) {
-			this.telemetry.sendUserFlowStatus('synced', flow);
+			this.telemetryService.sendUserFlowStatus('synced', flow);
 			return;
 		}
 
@@ -225,14 +224,14 @@ export class RemoteSession extends Disposable {
 				this.logService.error(`Could not execute '__gitpod.initializeRemoteExtensions' command`);
 				throw e;
 			}
-			this.telemetry.sendUserFlowStatus('synced', flow);
+			this.telemetryService.sendUserFlowStatus('synced', flow);
 		} catch {
 			const msg = `Error while installing local extensions on remote.`;
 			this.logService.error(msg);
 
 			const status = 'failed';
 			if (flow.quiet) {
-				this.telemetry.sendUserFlowStatus(status, flow);
+				this.telemetryService.sendUserFlowStatus(status, flow);
 			} else {
 				const seeLogs = 'See Logs';
 				const action = await this.notificationService.showErrorMessage(msg, { flow, id: status }, seeLogs);

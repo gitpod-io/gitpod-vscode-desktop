@@ -21,14 +21,13 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
 import { withServerApi } from './internalApi';
-import TelemetryReporter from './telemetryReporter';
+import { ITelemetryService, UserFlowTelemetry } from './telemetryService';
 import { addHostToHostFile, checkNewHostInHostkeys } from './ssh/hostfile';
 import { ScopeFeature } from './featureSupport';
 import SSHConfiguration from './ssh/sshConfig';
 import { ExperimentalSettings, isUserOverrideSetting } from './experiments';
 import { getOpenSSHVersion } from './ssh/sshVersion';
-import { INotificationService } from './notification';
-import { UserFlowTelemetry } from './common/telemetry';
+import { INotificationService } from './notificationService';
 import { SSHKey } from '@gitpod/public-api/lib/gitpod/experimental/v1/user_pb';
 import { getAgentSock, SSHError, testSSHConnection } from './sshTestConnection';
 import { gatherIdentityFiles } from './ssh/identityFiles';
@@ -105,7 +104,7 @@ export class RemoteConnector extends Disposable {
 		private readonly hostService: IHostService,
 		private readonly experiments: ExperimentalSettings,
 		private readonly logService: ILogService,
-		private readonly telemetry: TelemetryReporter,
+		private readonly telemetryService: ITelemetryService,
 		private readonly notificationService: INotificationService
 	) {
 		super();
@@ -660,7 +659,7 @@ export class RemoteConnector extends Disposable {
 			const openSSHVersion = await getOpenSSHVersion();
 			const gatewayFlow: UserFlowTelemetry = { kind: 'gateway', openSSHVersion, userOverride, ...sshFlow };
 			try {
-				this.telemetry.sendUserFlowStatus('connecting', gatewayFlow);
+				this.telemetryService.sendUserFlowStatus('connecting', gatewayFlow);
 
 				const { destination, password } = await this.getWorkspaceSSHDestination(params);
 				sshDestination = destination;
@@ -671,9 +670,9 @@ export class RemoteConnector extends Disposable {
 					await this.showSSHPasswordModal(password, gatewayFlow);
 				}
 
-				this.telemetry.sendUserFlowStatus('connected', gatewayFlow);
+				this.telemetryService.sendUserFlowStatus('connected', gatewayFlow);
 			} catch (e) {
-				this.telemetry.sendUserFlowStatus('failed', { ...gatewayFlow, reason: e.toString() });
+				this.telemetryService.sendUserFlowStatus('failed', { ...gatewayFlow, reason: e.toString() });
 				if (e instanceof NoSSHGatewayError) {
 					this.logService.error('No SSH gateway:', e);
 					const ok = 'OK';
@@ -714,15 +713,15 @@ export class RemoteConnector extends Disposable {
 			// debug workspace does not support local app mode
 			const localAppFlow = { kind: 'local-app', userOverride, ...sshFlow };
 			try {
-				this.telemetry.sendUserFlowStatus('connecting', localAppFlow);
+				this.telemetryService.sendUserFlowStatus('connecting', localAppFlow);
 
 				const localAppDestData = await this.getWorkspaceLocalAppSSHDestination(params);
 				sshDestination = localAppDestData.destination;
 				localAppSSHConfigPath = localAppDestData.localAppSSHConfigPath;
 
-				this.telemetry.sendUserFlowStatus('connected', localAppFlow);
+				this.telemetryService.sendUserFlowStatus('connected', localAppFlow);
 			} catch (e) {
-				this.telemetry.sendUserFlowStatus('failed', { reason: e.toString(), ...localAppFlow });
+				this.telemetryService.sendUserFlowStatus('failed', { reason: e.toString(), ...localAppFlow });
 				this.logService.error(`Failed to connect ${params.workspaceId} Gitpod workspace:`, e);
 				if (e instanceof LocalAppError) {
 					const seeLogs = 'See Logs';

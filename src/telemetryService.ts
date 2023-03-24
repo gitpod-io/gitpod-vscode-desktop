@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { AppenderData, BaseTelemetryAppender, BaseTelemetryClient, BaseTelemetryReporter } from './common/telemetry';
+import { AppenderData, BaseTelemetryAppender, BaseTelemetryClient, BaseTelemetryReporter, RawTelemetryEventProperties, TelemetryEventProperties } from './common/telemetry';
 import { Analytics } from '@segment/analytics-node';
 import * as os from 'os';
 import * as vscode from 'vscode';
@@ -76,7 +76,31 @@ const analyticsClientFactory = async (key: string): Promise<BaseTelemetryClient>
 	return telemetryClient;
 };
 
-export default class TelemetryReporter extends BaseTelemetryReporter {
+interface TelemetryOptions {
+	gitpodHost?: string;
+	gitpodVersion?: string;
+
+	workspaceId?: string;
+	instanceId?: string;
+
+	userId?: string;
+
+	[prop: string]: any;
+}
+
+export interface UserFlowTelemetry extends TelemetryOptions {
+	flow: string;
+}
+
+export interface ITelemetryService {
+	sendTelemetryEvent(eventName: string, properties?: TelemetryEventProperties): void;
+	sendRawTelemetryEvent(eventName: string, properties?: RawTelemetryEventProperties): void;
+	sendTelemetryException(error: Error, properties?: TelemetryEventProperties): void;
+
+	sendUserFlowStatus(status: string, flow: UserFlowTelemetry): void;
+}
+
+export class TelemetryService extends BaseTelemetryReporter implements ITelemetryService {
 	constructor(extensionId: string, extensionVersion: string, key: string) {
 		const appender = new BaseTelemetryAppender(key, (key) => analyticsClientFactory(key));
 		super(extensionId, extensionVersion, appender, {
@@ -84,5 +108,11 @@ export default class TelemetryReporter extends BaseTelemetryReporter {
 			platform: os.platform(),
 			architecture: os.arch(),
 		});
+	}
+
+	sendUserFlowStatus(status: string, flow: UserFlowTelemetry): void {
+		const properties: TelemetryOptions = { ...flow, status };
+		delete properties['flow'];
+		this.sendRawTelemetryEvent('vscode_desktop_' + flow.flow, properties);
 	}
 }

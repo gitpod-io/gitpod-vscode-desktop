@@ -5,9 +5,8 @@
 
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
-import { UserFlowTelemetry } from './common/telemetry';
-import { INotificationService } from './notification';
-import TelemetryReporter from './telemetryReporter';
+import { INotificationService } from './notificationService';
+import { ITelemetryService, UserFlowTelemetry } from './telemetryService';
 import { ILogService } from './logService';
 import { CommandManager } from './commandManager';
 
@@ -110,7 +109,7 @@ export class SettingsSync extends Disposable {
 	constructor(
 		commandManager: CommandManager,
 		private readonly logService: ILogService,
-		private readonly telemetry: TelemetryReporter,
+		private readonly telemetryService: ITelemetryService,
 		private readonly notificationService: INotificationService
 	) {
 		super();
@@ -161,7 +160,7 @@ export class SettingsSync extends Disposable {
 	private async enableSettingsSync(enabled: boolean): Promise<void> {
 		const gitpodHost = this.getServiceUrl().origin;
 		const flow = { ...this.flow, enabled: String(enabled), gitpodHost };
-		this.telemetry.sendUserFlowStatus('changing_enablement', flow);
+		this.telemetryService.sendUserFlowStatus('changing_enablement', flow);
 		try {
 			let newSyncProviderConfig: ConfigurationSyncStore | undefined;
 			let newIgnoredSettingsConfig: string[] | undefined;

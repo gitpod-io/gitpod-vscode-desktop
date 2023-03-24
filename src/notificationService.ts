@@ -4,8 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { UserFlowTelemetry } from './common/telemetry';
-import TelemetryReporter from './telemetryReporter';
+import { ITelemetryService, UserFlowTelemetry } from './telemetryService';
 
 export interface NotificationOption extends vscode.MessageOptions {
     id: string;
@@ -20,7 +19,7 @@ export interface INotificationService {
 
 export class NotificationService implements INotificationService {
 
-    constructor(private readonly telemetry: TelemetryReporter) { }
+    constructor(private readonly telemetryService: ITelemetryService) { }
 
     showInformationMessage<T extends vscode.MessageItem | string>(message: string, option: NotificationOption, ...items: T[]): Promise<T | undefined> {
         return this.withTelemetry<T>(option, 'info', () =>
@@ -49,7 +48,7 @@ export class NotificationService implements INotificationService {
             element += '_notification';
         }
         const flowOptions = { ...option.flow, severity };
-        this.telemetry.sendUserFlowStatus('show_' + element, flowOptions);
+        this.telemetryService.sendUserFlowStatus('show_' + element, flowOptions);
         let result: T | undefined;
         try {
             result = await cb();
@@ -57,7 +56,7 @@ export class NotificationService implements INotificationService {
             const duration = new Date().getTime() - startTime;
             const closed = result === undefined || (typeof result === 'object' && result.isCloseAffordance === true);
             const action = typeof result === 'string' ? result : result?.title;
-            this.telemetry.sendUserFlowStatus('hide_' + element, { ...flowOptions, action, duration, closed });
+            this.telemetryService.sendUserFlowStatus('hide_' + element, { ...flowOptions, action, duration, closed });
         }
         return result;
     }

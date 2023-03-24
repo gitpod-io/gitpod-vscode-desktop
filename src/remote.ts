@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { UserFlowTelemetry } from './common/telemetry';
-import { INotificationService } from './notification';
+import { UserFlowTelemetry } from './telemetryService';
+import { INotificationService } from './notificationService';
 import { ILogService } from './logService';
 
 export interface SSHConnectionParams {

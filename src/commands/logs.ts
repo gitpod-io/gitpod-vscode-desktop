@@ -9,10 +9,9 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as vscode from 'vscode';
 import { Command } from '../commandManager';
-import { UserFlowTelemetry } from '../common/telemetry';
 import { ILogService } from '../logService';
-import { INotificationService } from '../notification';
-import TelemetryReporter from '../telemetryReporter';
+import { INotificationService } from '../notificationService';
+import { ITelemetryService, UserFlowTelemetry } from '../telemetryService';
 
 interface IFile {
 	path: string;
@@ -25,16 +24,16 @@ export class ExportLogsCommand implements Command {
 	constructor(
 		private readonly extLocalLogsUri: vscode.Uri,
 		private readonly notificationService: INotificationService,
-		private readonly telemetry: TelemetryReporter,
+		private readonly telemetryService: ITelemetryService,
 		private readonly logService: ILogService,
 	) { }
 
 	async execute() {
 		const flow: UserFlowTelemetry = { flow: 'export_logs' };
-		this.telemetry.sendUserFlowStatus('exporting', flow);
+		this.telemetryService.sendUserFlowStatus('exporting', flow);
 		try {
 			await this.exportLogs();
-			this.telemetry.sendUserFlowStatus('exported', flow);
+			this.telemetryService.sendUserFlowStatus('exported', flow);
 		} catch (e) {
 			const outputMessage = `Error exporting logs: ${e}`;
 			this.notificationService.showErrorMessage(outputMessage, { id: 'failed', flow });

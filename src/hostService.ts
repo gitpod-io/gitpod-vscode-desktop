@@ -6,9 +6,9 @@
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
 import { GitpodVersion, getGitpodVersion } from './featureSupport';
-import { INotificationService } from './notification';
+import { INotificationService } from './notificationService';
 import { getGitpodRemoteWindowConnectionInfo } from './remote';
-import { UserFlowTelemetry } from './common/telemetry';
+import { UserFlowTelemetry } from './telemetryService';
 import { ILogService } from './logService';
 
 export interface IHostService {

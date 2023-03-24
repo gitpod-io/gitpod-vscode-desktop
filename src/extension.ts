@@ -9,11 +9,11 @@ import fetch, { Headers, Request, Response, AbortError, FetchError } from 'node-
 import GitpodAuthenticationProvider from './authentication/authentication';
 import { ExperimentalSettings } from './experiments';
 import GitpodServer from './authentication/gitpodServer';
-import { NotificationService } from './notification';
+import { NotificationService } from './notificationService';
 import { ReleaseNotes } from './releaseNotes';
 import { RemoteConnector } from './remoteConnector';
 import { SettingsSync } from './settingsSync';
-import TelemetryReporter from './telemetryReporter';
+import { TelemetryService } from './telemetryService';
 import { RemoteSession } from './remoteSession';
 import { checkForStoppedWorkspaces, getGitpodRemoteWindowConnectionInfo } from './remote';
 import { HostService } from './hostService';
@@ -34,7 +34,7 @@ if (!global.fetch) {
 
 const FIRST_INSTALL_KEY = 'gitpod-desktop.firstInstall';
 
-let telemetry: TelemetryReporter;
+let telemetryService: TelemetryService;
 let remoteSession: RemoteSession;
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -55,15 +55,15 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	logger.info(`${extensionId}/${packageJSON.version} (${os.release()} ${os.platform()} ${os.arch()}) vscode/${vscode.version} (${vscode.env.appName})`);
 
-	telemetry = new TelemetryReporter(extensionId, packageJSON.version, packageJSON.segmentKey);
+	telemetryService = new TelemetryService(extensionId, packageJSON.version, packageJSON.segmentKey);
 
-	const notificationService = new NotificationService(telemetry);
+	const notificationService = new NotificationService(telemetryService);
 
 	const commandManager = new CommandManager();
 	context.subscriptions.push(commandManager);
 
 	// Create auth provider as soon as possible
-	const authProvider = new GitpodAuthenticationProvider(context, logger, telemetry, notificationService);
+	const authProvider = new GitpodAuthenticationProvider(context, logger, telemetryService, notificationService);
 	context.subscriptions.push(authProvider);
 
 	const hostService = new HostService(context, notificationService, logger);
@@ -75,10 +75,10 @@ export async function activate(context: vscode.ExtensionContext) {
 	const experiments = new ExperimentalSettings('gitpod', packageJSON.version, sessionService, context, logger);
 	context.subscriptions.push(experiments);
 
-	const settingsSync = new SettingsSync(commandManager, logger, telemetry, notificationService);
+	const settingsSync = new SettingsSync(commandManager, logger, telemetryService, notificationService);
 	context.subscriptions.push(settingsSync);
 
-	const remoteConnector = new RemoteConnector(context, sessionService, hostService, experiments, logger, telemetry, notificationService);
+	const remoteConnector = new RemoteConnector(context, sessionService, hostService, experiments, logger, telemetryService, notificationService);
 	context.subscriptions.push(remoteConnector);
 
 	context.subscriptions.push(vscode.window.registerUriHandler({
@@ -96,7 +96,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	if (remoteConnectionInfo) {
 		commandManager.register({ id: 'gitpod.api.autoTunnel', execute: () => remoteConnector.autoTunnelCommand });
 
-		remoteSession = new RemoteSession(remoteConnectionInfo.remoteAuthority, remoteConnectionInfo.connectionInfo, context, hostService, sessionService, settingsSync, experiments, logger, telemetry, notificationService);
+		remoteSession = new RemoteSession(remoteConnectionInfo.remoteAuthority, remoteConnectionInfo.connectionInfo, context, hostService, sessionService, settingsSync, experiments, logger, telemetryService, notificationService);
 		// Don't await this on purpose so it doesn't block extension activation.
 		// Internally requesting a Gitpod Session requires the extension to be already activated.
 		remoteSession.initialize();
@@ -109,14 +109,14 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	if (!context.globalState.get<boolean>(FIRST_INSTALL_KEY, false)) {
 		await context.globalState.update(FIRST_INSTALL_KEY, true);
-		telemetry.sendTelemetryEvent('gitpod_desktop_installation', { kind: 'install' });
+		telemetryService.sendTelemetryEvent('gitpod_desktop_installation', { kind: 'install' });
 	}
 
 	// Register global commands
 	commandManager.register(new SignInCommand(sessionService));
-	commandManager.register(new ExportLogsCommand(context.logUri, notificationService, telemetry, logger));
+	commandManager.register(new ExportLogsCommand(context.logUri, notificationService, telemetryService, logger));
 
-	telemetry.sendTelemetryEvent('vscode_desktop_activate', {
+	telemetryService.sendTelemetryEvent('vscode_desktop_activate', {
 		remoteName: vscode.env.remoteName || '',
 		remoteUri: String(!!(vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.[0].uri)),
 		workspaceId: remoteConnectionInfo?.connectionInfo.workspaceId || '',
@@ -128,5 +128,5 @@ export async function activate(context: vscode.ExtensionContext) {
 
 export async function deactivate() {
 	await remoteSession?.dispose();
-	await telemetry?.dispose();
+	await telemetryService?.dispose();
 }
