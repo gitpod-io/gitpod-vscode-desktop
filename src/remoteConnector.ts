@@ -9,7 +9,7 @@ import { LocalAppClient } from '@gitpod/local-app-api-grpcweb/lib/localapp_pb_se
 import { NodeHttpTransport } from '@improbable-eng/grpc-web-node-http-transport';
 import { grpc } from '@improbable-eng/grpc-web';
 import { Workspace, WorkspaceInstanceStatus_Phase } from '@gitpod/public-api/lib/gitpod/experimental/v1/workspaces_pb';
-import { UserSSHPublicKeyValue, WorkspaceInfo, WorkspaceInstancePhase } from '@gitpod/gitpod-protocol';
+import { UserSSHPublicKeyValue, WorkspaceInfo } from '@gitpod/gitpod-protocol';
 import * as cp from 'child_process';
 import * as fs from 'fs';
 import * as http from 'http';
@@ -110,7 +110,7 @@ class LocalAppError extends Error {
 }
 
 class NoRunningInstanceError extends Error {
-	constructor(readonly workspaceId: string, phase?: WorkspaceInstancePhase) {
+	constructor(readonly workspaceId: string, readonly phase?: string) {
 		super(`Failed to connect to ${workspaceId} Gitpod workspace, workspace not running: ${phase}`);
 	}
 }
@@ -480,11 +480,16 @@ export class RemoteConnector extends Disposable {
 			sshKeysSupported ? (this.publicApi ? this.publicApi.getSSHKeys() : service.server.getSSHPublicKeys()) : undefined
 		]), this.logger);
 
-		const isRunning = this.publicApi
-			? (workspaceInfo as Workspace)?.status?.instance?.status?.phase === WorkspaceInstanceStatus_Phase.RUNNING
-			: (workspaceInfo as WorkspaceInfo).latestInstance?.status?.phase === 'running';
-		if (!isRunning) {
-			throw new NoRunningInstanceError(workspaceId);
+		const isNotRunning = this.publicApi
+			? !((workspaceInfo as Workspace)?.status?.instance) || (workspaceInfo as Workspace)?.status?.instance?.status?.phase === WorkspaceInstanceStatus_Phase.STOPPING || (workspaceInfo as Workspace)?.status?.instance?.status?.phase === WorkspaceInstanceStatus_Phase.STOPPED
+			: !((workspaceInfo as WorkspaceInfo).latestInstance) || (workspaceInfo as WorkspaceInfo).latestInstance?.status?.phase === 'stopping' || (workspaceInfo as WorkspaceInfo).latestInstance?.status?.phase === 'stopped';
+		if (isNotRunning) {
+			throw new NoRunningInstanceError(
+				workspaceId,
+				this.publicApi
+					? (workspaceInfo as Workspace)?.status?.instance?.status?.phase ? WorkspaceInstanceStatus_Phase[(workspaceInfo as Workspace)?.status?.instance?.status?.phase!] : undefined
+					: (workspaceInfo as WorkspaceInfo).latestInstance?.status?.phase
+			);
 		}
 
 		const workspaceUrl = this.publicApi
@@ -747,7 +752,7 @@ export class RemoteConnector extends Disposable {
 		let sshDestination: SSHDestination | undefined;
 		if (!forceUseLocalApp) {
 			const openSSHVersion = await getOpenSSHVersion();
-			const gatewayFlow = { kind: 'gateway', openSSHVersion, userOverride, ...sshFlow };
+			const gatewayFlow: UserFlowTelemetry = { kind: 'gateway', openSSHVersion, userOverride, ...sshFlow };
 			try {
 				this.telemetry.sendUserFlowStatus('connecting', gatewayFlow);
 
@@ -775,6 +780,7 @@ export class RemoteConnector extends Disposable {
 					// Do nothing and continue execution
 				} else if (e instanceof NoRunningInstanceError) {
 					this.logger.error('No Running instance:', e);
+					gatewayFlow['phase'] = e.phase;
 					this.notifications.showErrorMessage(`Failed to connect to ${e.workspaceId} Gitpod workspace: workspace not running`, { flow: gatewayFlow, id: 'no_running_instance' });
 					return;
 				} else {
@@ -1027,7 +1033,7 @@ export class RemoteConnector extends Disposable {
 
 			const workspaceInfo = await withServerApi(session!.accessToken, connectionInfo.gitpodHost, service => service.server.getWorkspace(connectionInfo.workspaceId), this.logger);
 
-			if (workspaceInfo.latestInstance?.status?.phase !== 'running') {
+			if (!workspaceInfo.latestInstance || workspaceInfo.latestInstance?.status?.phase === 'stopping' || workspaceInfo.latestInstance?.status?.phase === 'stopped') {
 				throw new NoRunningInstanceError(connectionInfo.workspaceId, workspaceInfo.latestInstance?.status?.phase);
 			}
 
@@ -1071,12 +1077,13 @@ export class RemoteConnector extends Disposable {
 
 			vscode.commands.executeCommand('setContext', 'gitpod.inWorkspace', true);
 		} catch (e) {
-			const remoteFlow = { ...connectionInfo, userId: session?.account.id, flow: 'remote_window' };
+			const remoteFlow: UserFlowTelemetry = { ...connectionInfo, userId: session?.account.id, flow: 'remote_window' };
 			if (e instanceof NoRunningInstanceError) {
 				this.logger.error('No Running instance:', e);
 				const workspaceUrl = new URL(connectionInfo.gitpodHost);
 				workspaceUrl.pathname = '/start';
 				workspaceUrl.hash = connectionInfo.workspaceId;
+				remoteFlow['phase'] = e.phase;
 				this.showWsNotRunningDialog(connectionInfo.workspaceId, workspaceUrl.toString(), remoteFlow);
 				return;
 			}
