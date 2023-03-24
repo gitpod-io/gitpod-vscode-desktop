@@ -62,17 +62,8 @@ export class SessionService extends Disposable implements ISessionService {
         const oldSession = this.session;
         this.session = undefined as vscode.AuthenticationSession | undefined;
         await this.tryLoadSession(false);
-        let didChange = false;
-        if (oldSession && !this.session) {
-            // sign out
-            didChange = true;
-        } else if (!oldSession && this.session) {
-            // sign in
-            didChange = true;
-        } else if (oldSession?.id !== this.session?.id) {
-            // host changed
-            didChange = true;
-        }
+        // host changed, sign out, sign in
+        const didChange = oldSession?.id !== this.session?.id;
         if (didChange) {
             this._publicApi?.dispose();
             this._publicApi = undefined;
