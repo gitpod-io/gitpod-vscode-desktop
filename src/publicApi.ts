@@ -53,7 +53,7 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
 
     private metricsReporter: MetricsReporter;
 
-    private workspaceStatusStreamMap = new Map<string, { onStatusChanged: vscode.Event<WorkspaceStatus>; dispose: () => void; increment: () => void }>();
+    private workspaceStatusStreamMap = new Map<string, { onStatusChanged: vscode.Event<WorkspaceStatus>; dispose: (force?: boolean) => void; increment: () => void }>();
 
     constructor(accessToken: string, gitpodHost: string, private logger: ILogService) {
         super();
@@ -137,9 +137,9 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
 
             this.workspaceStatusStreamMap.set(workspaceId, {
                 onStatusChanged: emitter.event,
-                dispose: () => {
+                dispose: (force: boolean = false) => {
                     if (isDisposed) { return; }
-                    if (--counter > 0) { return; }
+                    if (!force && --counter > 0) { return; }
                     isDisposed = true;
                     emitter.dispose();
                     clearTimeout(stopTimer);
@@ -180,7 +180,7 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
     public override dispose() {
         super.dispose();
         for (const { dispose } of this.workspaceStatusStreamMap.values()) {
-            dispose();
+            dispose(true);
         }
         this.workspaceStatusStreamMap.clear();
         this.metricsReporter.stopReporting();
