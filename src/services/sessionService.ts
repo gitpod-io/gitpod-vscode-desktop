@@ -110,9 +110,9 @@ export class SessionService extends Disposable implements ISessionService {
         }
     }
 
-    private async tryLoadSession(createIfNone: boolean) {
+    private async tryLoadSession(force: boolean) {
         try {
-            if (this.session && !createIfNone) {
+            if (this.session && !force) {
                 return;
             }
 
@@ -128,8 +128,8 @@ export class SessionService extends Disposable implements ISessionService {
                 'gitpod',
                 sessionScopes,
                 {
-                    createIfNone,
-                    silent: !createIfNone,
+                    createIfNone: force,
+                    silent: !force,
                 }
             );
         } catch (e) {
