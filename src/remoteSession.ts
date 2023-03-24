@@ -11,14 +11,14 @@ import { HeartbeatManager } from './heartbeat';
 import { WorkspaceState } from './workspaceState';
 import { ISyncExtension, NoSettingsSyncSession, NoSyncStoreError, SettingsSync, SyncResource, parseSyncData } from './settingsSync';
 import { ExperimentalSettings } from './experiments';
-import { ITelemetryService, UserFlowTelemetry } from './telemetryService';
-import { INotificationService } from './notificationService';
+import { ITelemetryService, UserFlowTelemetry } from './services/telemetryService';
+import { INotificationService } from './services/notificationService';
 import { retry } from './common/async';
 import { withServerApi } from './internalApi';
 import { ScopeFeature } from './featureSupport';
-import { ISessionService } from './sessionService';
-import { IHostService } from './hostService';
-import { ILogService } from './logService';
+import { ISessionService } from './services/sessionService';
+import { IHostService } from './services/hostService';
+import { ILogService } from './services/logService';
 
 export class RemoteSession extends Disposable {
 

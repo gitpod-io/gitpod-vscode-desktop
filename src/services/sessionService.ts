@@ -4,11 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { Disposable } from './common/dispose';
-import { isFeatureSupported, isOauthInspectSupported } from './featureSupport';
+import { Disposable } from '../common/dispose';
+import { isFeatureSupported, isOauthInspectSupported } from '../featureSupport';
 import { IHostService } from './hostService';
-import { GitpodPublicApi, IGitpodAPI } from './publicApi';
-import { eventToPromise } from './common/utils';
+import { GitpodPublicApi, IGitpodAPI } from '../publicApi';
+import { eventToPromise } from '../common/utils';
 import { ILogService } from './logService';
 
 export class NoSignedInError extends Error {

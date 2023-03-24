@@ -9,9 +9,9 @@ import { withServerApi } from '../internalApi';
 import pkceChallenge from 'pkce-challenge';
 import { v4 as uuid } from 'uuid';
 import { Disposable } from '../common/dispose';
-import { INotificationService } from '../notificationService';
-import { UserFlowTelemetry } from '../telemetryService';
-import { ILogService } from '../logService';
+import { INotificationService } from '../services/notificationService';
+import { UserFlowTelemetry } from '../services/telemetryService';
+import { ILogService } from '../services/logService';
 
 interface ExchangeTokenResponse {
 	token_type: 'Bearer';

@@ -16,7 +16,7 @@ import { WorkspacesServiceClient, WorkspaceStatus } from './lib/gitpod/experimen
 import * as grpc from '@grpc/grpc-js';
 import { timeout } from './common/async';
 import { MetricsReporter, getConnectMetricsInterceptor, getGrpcMetricsInterceptor } from './metrics';
-import { ILogService } from './logService';
+import { ILogService } from './services/logService';
 
 function isTelemetryEnabled(): boolean {
     const TELEMETRY_CONFIG_ID = 'telemetry';

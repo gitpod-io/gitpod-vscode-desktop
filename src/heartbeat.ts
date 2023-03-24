@@ -8,10 +8,10 @@ import { Workspace, WorkspaceInstanceStatus_Phase } from '@gitpod/public-api/lib
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
 import { withServerApi } from './internalApi';
-import { ITelemetryService } from './telemetryService';
+import { ITelemetryService } from './services/telemetryService';
 import { SSHConnectionParams } from './remote';
-import { ISessionService } from './sessionService';
-import { ILogService } from './logService';
+import { ISessionService } from './services/sessionService';
+import { ILogService } from './services/logService';
 
 export class HeartbeatManager extends Disposable {
 

@@ -7,7 +7,7 @@ import * as grpc from '@grpc/grpc-js';
 import { Registry, Counter, Histogram, metric } from 'prom-client';
 import { MethodKind } from '@bufbuild/protobuf';
 import { StreamResponse, UnaryResponse, Code, connectErrorFromReason, Interceptor, StreamRequest, UnaryRequest } from '@bufbuild/connect';
-import { ILogService } from './logService';
+import { ILogService } from './services/logService';
 
 export type GrpcMethodType = 'unary' | 'client_stream' | 'server_stream' | 'bidi_stream';
 

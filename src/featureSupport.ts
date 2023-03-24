@@ -5,7 +5,7 @@
 import * as vscode from 'vscode';
 import * as semver from 'semver';
 import { retry } from './common/async';
-import { ILogService } from './logService';
+import { ILogService } from './services/logService';
 
 export class GitpodVersion {
     static MAX_VERSION = '9999.99.99';

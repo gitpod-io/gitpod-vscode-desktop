@@ -9,9 +9,9 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as vscode from 'vscode';
 import { Command } from '../commandManager';
-import { ILogService } from '../logService';
-import { INotificationService } from '../notificationService';
-import { ITelemetryService, UserFlowTelemetry } from '../telemetryService';
+import { ILogService } from '../services/logService';
+import { INotificationService } from '../services/notificationService';
+import { ITelemetryService, UserFlowTelemetry } from '../services/telemetryService';
 
 interface IFile {
 	path: string;

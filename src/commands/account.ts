@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Command } from '../commandManager';
-import { ISessionService } from '../sessionService';
+import { ISessionService } from '../services/sessionService';
 
 export class SignInCommand implements Command {
 	readonly id = 'gitpod.signIn';

@@ -21,22 +21,22 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
 import { withServerApi } from './internalApi';
-import { ITelemetryService, UserFlowTelemetry } from './telemetryService';
+import { ITelemetryService, UserFlowTelemetry } from './services/telemetryService';
 import { addHostToHostFile, checkNewHostInHostkeys } from './ssh/hostfile';
 import { ScopeFeature } from './featureSupport';
 import SSHConfiguration from './ssh/sshConfig';
 import { ExperimentalSettings, isUserOverrideSetting } from './experiments';
 import { getOpenSSHVersion } from './ssh/sshVersion';
-import { INotificationService } from './notificationService';
+import { INotificationService } from './services/notificationService';
 import { SSHKey } from '@gitpod/public-api/lib/gitpod/experimental/v1/user_pb';
 import { getAgentSock, SSHError, testSSHConnection } from './sshTestConnection';
 import { gatherIdentityFiles } from './ssh/identityFiles';
 import { isWindows } from './common/platform';
 import SSHDestination from './ssh/sshDestination';
 import { NoRunningInstanceError, NoSSHGatewayError, SSHConnectionParams, SSH_DEST_KEY } from './remote';
-import { ISessionService } from './sessionService';
-import { ILogService } from './logService';
-import { IHostService } from './hostService';
+import { ISessionService } from './services/sessionService';
+import { ILogService } from './services/logService';
+import { IHostService } from './services/hostService';
 
 interface LocalAppConfig {
 	gitpodHost: string;

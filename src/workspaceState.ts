@@ -6,8 +6,8 @@
 import { WorkspaceStatus, WorkspaceInstanceStatus_Phase } from './lib/gitpod/experimental/v1/workspaces.pb';
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
-import { ISessionService } from './sessionService';
-import { ILogService } from './logService';
+import { ISessionService } from './services/sessionService';
+import { ILogService } from './services/logService';
 
 export class WorkspaceState extends Disposable {
     private workspaceState: WorkspaceStatus | undefined;

@@ -9,7 +9,7 @@ import { listen as doListen } from 'vscode-ws-jsonrpc';
 import WebSocket, { ErrorEvent } from 'ws';
 import ReconnectingWebSocket from 'reconnecting-websocket';
 import * as vscode from 'vscode';
-import { ILogService } from './logService';
+import { ILogService } from './services/logService';
 
 type UsedGitpodFunction = ['getLoggedInUser', 'getWorkspace', 'getOwnerToken', 'getSSHPublicKeys', 'sendHeartBeat'];
 type Union<Tuple extends any[], Union = never> = Tuple[number] | Union;

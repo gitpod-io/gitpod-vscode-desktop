@@ -13,7 +13,7 @@ import { gatherIdentityFiles, SSHKey } from './ssh/identityFiles';
 import SSHConfiguration from './ssh/sshConfig';
 import SSHConnection from './ssh/sshConnection';
 import SSHDestination from './ssh/sshDestination';
-import { ILogService } from './logService';
+import { ILogService } from './services/logService';
 
 export class SSHError extends Error {
     constructor(cause: Error) {

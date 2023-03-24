@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { load } from 'js-yaml';
 import { CacheHelper } from './common/cache';
 import { Disposable, disposeAll } from './common/dispose';
-import { ILogService } from './logService';
+import { ILogService } from './services/logService';
 import { CommandManager } from './commandManager';
 
 export class ReleaseNotes extends Disposable {

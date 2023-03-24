@@ -9,9 +9,9 @@ import Keychain from '../common/keychain';
 import GitpodServer from './gitpodServer';
 import { arrayEquals } from '../common/utils';
 import { Disposable } from '../common/dispose';
-import { ITelemetryService, UserFlowTelemetry } from '../telemetryService';
-import { INotificationService } from '../notificationService';
-import { ILogService } from '../logService';
+import { ITelemetryService, UserFlowTelemetry } from '../services/telemetryService';
+import { INotificationService } from '../services/notificationService';
+import { ILogService } from '../services/logService';
 
 interface SessionData {
 	id: string;

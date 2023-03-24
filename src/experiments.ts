@@ -7,8 +7,8 @@ import * as vscode from 'vscode';
 import * as configcat from 'configcat-node';
 import * as configcatcommon from 'configcat-common';
 import * as semver from 'semver';
-import { ISessionService } from './sessionService';
-import { ILogService } from './logService';
+import { ISessionService } from './services/sessionService';
+import { ILogService } from './services/logService';
 
 const EXPERTIMENTAL_SETTINGS = [
     'gitpod.remote.useLocalApp'
