@@ -53,12 +53,12 @@ export class HostService extends Disposable implements IHostService {
         }));
     }
 
-    async changeHost(newHost: string, force: boolean = false) {
+    async changeHost(newHost: string, skipRemoteWindowCheck: boolean = false) {
         if (new URL(this._gitpodHost).host !== new URL(newHost).host) {
             const flow: UserFlowTelemetry = { flow: 'changeHost', gitpodHost: newHost };
 
             // Don't allow to change gitpod host if we are in a remote window
-            if (!force && !!getGitpodRemoteWindowConnectionInfo(this.context)) {
+            if (!skipRemoteWindowCheck && !!getGitpodRemoteWindowConnectionInfo(this.context)) {
                 this.notificationService.showWarningMessage(`Cannot to swith to '${newHost}' while connected to '${this._gitpodHost}'. Please close the window first`, { id: 'switch_gitpod_host_remote_window', flow });
                 return false;
             }
