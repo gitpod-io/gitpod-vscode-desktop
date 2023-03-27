@@ -6,12 +6,10 @@
 import { WorkspaceStatus, WorkspaceInstanceStatus_Phase } from './lib/gitpod/experimental/v1/workspaces.pb';
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
-import { GitpodPublicApi } from './publicApi';
+import { ISessionService } from './services/sessionService';
+import { ILogService } from './services/logService';
 
 export class WorkspaceState extends Disposable {
-
-    private workspaceStatePromiseResolver!: () => void;
-    readonly workspaceStatePromise = new Promise<void>((r) => this.workspaceStatePromiseResolver = r);
     private workspaceState: WorkspaceStatus | undefined;
 
     private _onWorkspaceStatusChanged = this._register(new vscode.EventEmitter<void>());
@@ -19,15 +17,16 @@ export class WorkspaceState extends Disposable {
 
     constructor(
         readonly workspaceId: string,
-        private readonly publicApi: GitpodPublicApi,
-        private readonly logger: vscode.LogOutputChannel,
+        private readonly sessionService: ISessionService,
+        private readonly logger: ILogService,
     ) {
         super();
 
         this.logger.trace(`WorkspaceState manager for workspace ${workspaceId} started`);
 
-        this._register(this.publicApi.onWorkspaceStatusUpdate(u => this.checkWorkspaceState(u)));
-        this.publicApi.startWorkspaceStatusStreaming(workspaceId);
+        const { onStatusChanged, dispose } = this.sessionService.getAPI().workspaceStatusStreaming(workspaceId);
+        this._register(onStatusChanged(u => this.checkWorkspaceState(u)));
+        this._register({ dispose });
     }
 
     public isWorkspaceStopped() {
@@ -52,14 +51,8 @@ export class WorkspaceState extends Disposable {
         const phase = workspaceState?.instance?.status?.phase;
         const oldPhase = this.workspaceState?.instance?.status?.phase;
         this.workspaceState = workspaceState;
-        this.workspaceStatePromiseResolver();
         if (phase && oldPhase && phase !== oldPhase) {
             this._onWorkspaceStatusChanged.fire();
         }
     }
-
-    public override async dispose(): Promise<void> {
-        super.dispose();
-    }
-
 }

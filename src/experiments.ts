@@ -7,6 +7,8 @@ import * as vscode from 'vscode';
 import * as configcat from 'configcat-node';
 import * as configcatcommon from 'configcat-common';
 import * as semver from 'semver';
+import { ISessionService } from './services/sessionService';
+import { ILogService } from './services/logService';
 
 const EXPERTIMENTAL_SETTINGS = [
     'gitpod.remote.useLocalApp'
@@ -19,8 +21,9 @@ export class ExperimentalSettings {
     constructor(
         key: string,
         extensionVersion: string,
+        private readonly sessionService: ISessionService,
         private readonly context: vscode.ExtensionContext,
-        private readonly logger: vscode.LogOutputChannel
+        private readonly logger: ILogService
     ) {
         this.configcatClient = configcat.createClientWithLazyLoad(key, {
             baseUrl: new URL('/configcat', this.context.extensionMode === vscode.ExtensionMode.Production ? 'https://gitpod.io' : 'https://gitpod-staging.com').href,
@@ -39,19 +42,17 @@ export class ExperimentalSettings {
 
     async getRaw<T>(
         configcatKey: string,
-        userId: string,
         custom: {
             gitpodHost: string;
             [key: string]: string;
         }
     ) {
-        const user = userId ? new configcatcommon.User(userId, undefined, undefined, custom) : undefined;
+        const user = this.sessionService.isSignedIn() ? new configcatcommon.User(this.sessionService.getUserId(), undefined, undefined, custom) : undefined;
         return (await this.configcatClient.getValueAsync(configcatKey, undefined, user)) as T | undefined;
     }
 
     async get<T>(
         key: string,
-        userId: string,
         custom: {
             gitpodHost: string;
             [key: string]: string;
@@ -73,7 +74,7 @@ export class ExperimentalSettings {
             return values.globalValue;
         }
 
-        const user = userId ? new configcatcommon.User(userId, undefined, undefined, custom) : undefined;
+        const user = this.sessionService.isSignedIn() ? new configcatcommon.User(this.sessionService.getUserId(), undefined, undefined, custom) : undefined;
         configcatKey = configcatKey ?? key.replace(/\./g, '_'); // '.' are not allowed in configcat
         const experimentValue = (await this.configcatClient.getValueAsync(configcatKey, undefined, user)) as T | undefined;
 
@@ -82,7 +83,6 @@ export class ExperimentalSettings {
 
     async inspect<T>(
         key: string,
-        userId: string,
         custom: {
             gitpodHost: string;
             [key: string]: string;
@@ -96,7 +96,7 @@ export class ExperimentalSettings {
             return values;
         }
 
-        const user = userId ? new configcatcommon.User(userId, undefined, undefined, custom) : undefined;
+        const user = this.sessionService.isSignedIn() ? new configcatcommon.User(this.sessionService.getUserId(), undefined, undefined, custom) : undefined;
         configcatKey = configcatKey ?? key.replace(/\./g, '_'); // '.' are not allowed in configcat
         const experimentValue = (await this.configcatClient.getValueAsync(configcatKey, undefined, user)) as T | undefined;
 

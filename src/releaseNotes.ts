@@ -7,6 +7,8 @@ import * as vscode from 'vscode';
 import { load } from 'js-yaml';
 import { CacheHelper } from './common/cache';
 import { Disposable, disposeAll } from './common/dispose';
+import { ILogService } from './services/logService';
+import { CommandManager } from './commandManager';
 
 export class ReleaseNotes extends Disposable {
 	public static readonly viewType = 'gitpodReleaseNotes';
@@ -20,13 +22,14 @@ export class ReleaseNotes extends Disposable {
 
 	constructor(
 		private readonly context: vscode.ExtensionContext,
-		private readonly logger: vscode.LogOutputChannel,
+		commandManager: CommandManager,
+		private readonly logger: ILogService,
 	) {
 		super();
 
 		this.lastReadId = this.context.globalState.get<string>(ReleaseNotes.RELEASE_NOTES_LAST_READ_KEY);
 
-		this._register(vscode.commands.registerCommand('gitpod.showReleaseNotes', () => this.createOrShow()));
+		commandManager.register({ id: 'gitpod.showReleaseNotes', execute: () => this.createOrShow() });
 
 		this.showIfNewRelease(this.lastReadId);
 	}

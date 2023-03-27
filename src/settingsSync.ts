@@ -5,9 +5,10 @@
 
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
-import { UserFlowTelemetry } from './common/telemetry';
-import { NotificationService } from './notification';
-import TelemetryReporter from './telemetryReporter';
+import { INotificationService } from './services/notificationService';
+import { ITelemetryService, UserFlowTelemetry } from './services/telemetryService';
+import { ILogService } from './services/logService';
+import { CommandManager } from './commandManager';
 
 export class NoSyncStoreError extends Error {
 	constructor() {
@@ -106,9 +107,10 @@ export class SettingsSync extends Disposable {
 	private readonly flow: Readonly<UserFlowTelemetry> = { flow: 'settings_sync' };
 
 	constructor(
-		private readonly logger: vscode.LogOutputChannel,
-		private readonly telemetry: TelemetryReporter,
-		private readonly notifications: NotificationService
+		commandManager: CommandManager,
+		private readonly logService: ILogService,
+		private readonly telemetryService: ITelemetryService,
+		private readonly notificationService: INotificationService
 	) {
 		super();
 
@@ -119,15 +121,16 @@ export class SettingsSync extends Disposable {
 				const addedSyncProvider = await this.updateSyncContext();
 				if (!addedSyncProvider) {
 					const action = 'Settings Sync: Enable Sign In with Gitpod';
-					const result = await this.notifications.showInformationMessage(`[Settings Sync](https://www.gitpod.io/docs/ides-and-editors/settings-sync#enabling-settings-sync-in-vs-code-desktop) with ${gitpodHost} is disabled.`, { flow, id: 'invalid' }, action);
+					const result = await this.notificationService.showInformationMessage(`[Settings Sync](https://www.gitpod.io/docs/ides-and-editors/settings-sync#enabling-settings-sync-in-vs-code-desktop) with ${gitpodHost} is disabled.`, { flow, id: 'invalid' }, action);
 					if (result === action) {
 						vscode.commands.executeCommand('gitpod.syncProvider.add');
 					}
 				}
 			}
 		}));
-		this._register(vscode.commands.registerCommand('gitpod.syncProvider.add', () => this.enableSettingsSync(true)));
-		this._register(vscode.commands.registerCommand('gitpod.syncProvider.remove', () => this.enableSettingsSync(false)));
+
+		commandManager.register({ id: 'gitpod.syncProvider.add', execute: () => this.enableSettingsSync(true) });
+		commandManager.register({ id: 'gitpod.syncProvider.remove', execute: () => this.enableSettingsSync(false) });
 
 		this.updateSyncContext();
 	}
@@ -157,7 +160,7 @@ export class SettingsSync extends Disposable {
 	private async enableSettingsSync(enabled: boolean): Promise<void> {
 		const gitpodHost = this.getServiceUrl().origin;
 		const flow = { ...this.flow, enabled: String(enabled), gitpodHost };
-		this.telemetry.sendUserFlowStatus('changing_enablement', flow);
+		this.telemetryService.sendUserFlowStatus('changing_enablement', flow);
 		try {
 			let newSyncProviderConfig: ConfigurationSyncStore | undefined;
 			let newIgnoredSettingsConfig: string[] | undefined;
@@ -189,14 +192,14 @@ export class SettingsSync extends Disposable {
 				title: 'Learn More',
 				isCloseAffordance: true
 			};
-			const action = await this.notifications.showInformationMessage('Please entirely quit VS Code for the Settings Sync configuration to take effect.', { flow, modal: true, id: 'quit_to_apply' }, learnMore);
+			const action = await this.notificationService.showInformationMessage('Please entirely quit VS Code for the Settings Sync configuration to take effect.', { flow, modal: true, id: 'quit_to_apply' }, learnMore);
 			if (action === learnMore) {
 				vscode.env.openExternal(vscode.Uri.parse('https://www.gitpod.io/docs/ides-and-editors/settings-sync#enabling-settings-sync-in-vs-code-desktop'));
 			}
 		} catch (e) {
 			const outputMessage = `Error setting up Settings Sync with Gitpod: ${e}`;
-			this.notifications.showErrorMessage(outputMessage, { flow, id: 'failed' });
-			this.logger.error(outputMessage);
+			this.notificationService.showErrorMessage(outputMessage, { flow, id: 'failed' });
+			this.logService.error(outputMessage);
 		}
 	}
 

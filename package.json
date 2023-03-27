@@ -111,6 +111,11 @@
 				"command": "gitpod.installLocalExtensions",
 				"title": "Gitpod: Install Local Extensions...",
 				"enablement": "gitpod.inWorkspace == true"
+			},
+			{
+				"command": "gitpod.signIn",
+				"category": "Gitpod",
+				"title": "Sign In"
 			}
 		],
 		"menus": {

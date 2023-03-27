@@ -5,6 +5,7 @@
 import * as vscode from 'vscode';
 import * as semver from 'semver';
 import { retry } from './common/async';
+import { ILogService } from './services/logService';
 
 export class GitpodVersion {
     static MAX_VERSION = '9999.99.99';
@@ -36,7 +37,7 @@ export class GitpodVersion {
 }
 
 let cacheGitpodVersion: { host: string; version: GitpodVersion } | undefined;
-async function getOrFetchVersionInfo(serviceUrl: string, logger: vscode.LogOutputChannel) {
+async function getOrFetchVersionInfo(serviceUrl: string, logger: ILogService) {
     if (serviceUrl === 'https://gitpod.io') {
         // SaaS default allow all features, should proper handle SaaS feature support if needed in the future
         return {
@@ -82,7 +83,7 @@ async function getOrFetchVersionInfo(serviceUrl: string, logger: vscode.LogOutpu
     return cacheGitpodVersion;
 }
 
-export async function getGitpodVersion(gitpodHost: string, logger: vscode.LogOutputChannel) {
+export async function getGitpodVersion(gitpodHost: string, logger: ILogService) {
     const serviceUrl = new URL(gitpodHost).toString().replace(/\/$/, '');
     const versionInfo = await getOrFetchVersionInfo(serviceUrl, logger);
     return versionInfo.version;

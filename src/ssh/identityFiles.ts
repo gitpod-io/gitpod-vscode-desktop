@@ -10,7 +10,7 @@ import * as crypto from 'crypto';
 import { ParsedKey } from 'ssh2-streams';
 import * as ssh2 from 'ssh2';
 import { untildify, exists as fileExists } from '../common/files';
-import * as vscode from 'vscode';
+import { ILogService } from '../services/logService';
 
 const homeDir = os.homedir();
 const PATH_SSH_CLIENT_ID_DSA = path.join(homeDir, '.ssh', '/id_dsa');
@@ -40,7 +40,7 @@ export interface SSHKey {
 }
 
 // From https://github.com/openssh/openssh-portable/blob/acb2059febaddd71ee06c2ebf63dcf211d9ab9f2/sshconnect2.c#L1689-L1690
-export async function gatherIdentityFiles(identityFiles: string[], sshAgentSock: string | undefined, identitiesOnly: boolean, logger: vscode.LogOutputChannel) {
+export async function gatherIdentityFiles(identityFiles: string[], sshAgentSock: string | undefined, identitiesOnly: boolean, logger: ILogService) {
     identityFiles = identityFiles.map(untildify).map(i => i.replace(/\.pub$/, ''));
     if (identityFiles.length === 0) {
         identityFiles.push(...DEFAULT_IDENTITY_FILES);

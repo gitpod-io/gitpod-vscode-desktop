@@ -4,13 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { PromiseAdapter, promiseFromEvent } from './common/utils';
-import { withServerApi } from './internalApi';
+import { PromiseAdapter, promiseFromEvent } from '../common/utils';
+import { withServerApi } from '../internalApi';
 import pkceChallenge from 'pkce-challenge';
 import { v4 as uuid } from 'uuid';
-import { Disposable } from './common/dispose';
-import { NotificationService } from './notification';
-import { UserFlowTelemetry } from './common/telemetry';
+import { Disposable } from '../common/dispose';
+import { INotificationService } from '../services/notificationService';
+import { UserFlowTelemetry } from '../services/telemetryService';
+import { ILogService } from '../services/logService';
 
 interface ExchangeTokenResponse {
 	token_type: 'Bearer';
@@ -20,7 +21,7 @@ interface ExchangeTokenResponse {
 	scope: string;
 }
 
-async function getUserInfo(token: string, serviceUrl: string, logger: vscode.LogOutputChannel) {
+async function getUserInfo(token: string, serviceUrl: string, logger: ILogService) {
 	const user = await withServerApi(token, serviceUrl, service => service.server.getLoggedInUser(), logger);
 	return {
 		id: user.id,
@@ -40,8 +41,8 @@ export default class GitpodServer extends Disposable {
 
 	constructor(
 		serviceUrl: string,
-		private readonly _logger: vscode.LogOutputChannel,
-		private readonly notifications: NotificationService
+		private readonly logService: ILogService,
+		private readonly notificationService: INotificationService
 	) {
 		super();
 
@@ -49,7 +50,7 @@ export default class GitpodServer extends Disposable {
 	}
 
 	public async login(scopes: string, flow: UserFlowTelemetry): Promise<string> {
-		this._logger.info(`Logging in for the following scopes: ${scopes}`);
+		this.logService.info(`Logging in for the following scopes: ${scopes}`);
 
 		const callbackUri = await vscode.env.asExternalUri(vscode.Uri.parse(`${vscode.env.uriScheme}://gitpod.gitpod-desktop/complete-gitpod-auth`));
 
@@ -108,12 +109,12 @@ export default class GitpodServer extends Disposable {
 			const state = query.get('state');
 
 			if (!code) {
-				this._logger.error('No code in response.');
+				this.logService.error('No code in response.');
 				return;
 			}
 
 			if (!state) {
-				this._logger.error('No state in response.');
+				this.logService.error('No state in response.');
 				return;
 			}
 
@@ -124,17 +125,17 @@ export default class GitpodServer extends Disposable {
 				// 2. Before finishing 1, you trigger a sign in with a different set of scopes
 				// In this scenario we should just return and wait for the next UriHandler event
 				// to run as we are probably still waiting on the user to hit 'Continue'
-				this._logger.info('Nonce not found in accepted nonces. Skipping this execution...');
+				this.logService.info('Nonce not found in accepted nonces. Skipping this execution...');
 				return;
 			}
 
 			const verifier = this._pendingVerifiers.get(state);
 			if (!verifier) {
-				this._logger.error('Code verifier not found in memory.');
+				this.logService.error('Code verifier not found in memory.');
 				return;
 			}
 
-			this._logger.info('Exchanging code for token...');
+			this.logService.info('Exchanging code for token...');
 
 			const callbackUri = await vscode.env.asExternalUri(vscode.Uri.parse(`${vscode.env.uriScheme}://gitpod.gitpod-desktop${GitpodServer.AUTH_COMPLETE_PATH}`));
 			try {
@@ -150,7 +151,7 @@ export default class GitpodServer extends Disposable {
 				});
 
 				if (!exchangeTokenResponse.ok) {
-					this.notifications.showErrorMessage(`Couldn't connect (token exchange): ${exchangeTokenResponse.statusText}, ${await exchangeTokenResponse.text()}`, { flow, id: 'failed_to_exchange' });
+					this.notificationService.showErrorMessage(`Couldn't connect (token exchange): ${exchangeTokenResponse.statusText}, ${await exchangeTokenResponse.text()}`, { flow, id: 'failed_to_exchange' });
 					reject(exchangeTokenResponse.statusText);
 					return;
 				}
@@ -160,13 +161,13 @@ export default class GitpodServer extends Disposable {
 				const accessToken = JSON.parse(Buffer.from(jwtToken.split('.')[1], 'base64').toString())['jti'];
 				resolve(accessToken);
 			} catch (err) {
-				this.notifications.showErrorMessage(`Couldn't connect (token exchange): ${err}`, { flow, id: 'failed_to_exchange' });
+				this.notificationService.showErrorMessage(`Couldn't connect (token exchange): ${err}`, { flow, id: 'failed_to_exchange' });
 				reject(err);
 			}
 		};
 
 	public getUserInfo(token: string): Promise<{ id: string; accountName: string }> {
-		return getUserInfo(token, this._serviceUrl, this._logger);
+		return getUserInfo(token, this._serviceUrl, this.logService);
 	}
 
 	public handleUri(uri: vscode.Uri) {

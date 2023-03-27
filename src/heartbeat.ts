@@ -8,8 +8,10 @@ import { Workspace, WorkspaceInstanceStatus_Phase } from '@gitpod/public-api/lib
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
 import { withServerApi } from './internalApi';
-import { GitpodPublicApi } from './publicApi';
-import TelemetryReporter from './telemetryReporter';
+import { ITelemetryService } from './services/telemetryService';
+import { SSHConnectionParams } from './remote';
+import { ISessionService } from './services/sessionService';
+import { ILogService } from './services/logService';
 
 export class HeartbeatManager extends Disposable {
 
@@ -25,14 +27,11 @@ export class HeartbeatManager extends Disposable {
     private eventCounterHandle: NodeJS.Timer | undefined;
 
     constructor(
-        readonly gitpodHost: string,
-        readonly workspaceId: string,
-        readonly instanceId: string,
-        readonly debugWorkspace: boolean,
-        private readonly session: vscode.AuthenticationSession,
-        private readonly publicApi: GitpodPublicApi | undefined,
-        private readonly logger: vscode.LogOutputChannel,
-        private readonly telemetry: TelemetryReporter
+        private readonly connectionInfo: SSHConnectionParams,
+        private readonly sessionService: ISessionService,
+        private readonly logService: ILogService,
+        private readonly telemetryService: ITelemetryService,
+        private readonly usePublicApi: boolean,
     ) {
         super();
         this._register(vscode.window.onDidChangeActiveTextEditor(e => this.updateLastActivity('onDidChangeActiveTextEditor', e?.document)));
@@ -90,7 +89,7 @@ export class HeartbeatManager extends Disposable {
             }
         }));
 
-        this.logger.info(`Heartbeat manager for workspace ${workspaceId} (${instanceId}) - ${gitpodHost} started`);
+        this.logService.info(`Heartbeat manager for workspace ${this.connectionInfo.workspaceId} (${this.connectionInfo.instanceId}) - ${this.connectionInfo.gitpodHost} started`);
 
         // Start heartbeating interval
         this.sendHeartBeat();
@@ -120,35 +119,35 @@ export class HeartbeatManager extends Disposable {
 
     private async sendHeartBeat(wasClosed?: true) {
         try {
-            await withServerApi(this.session.accessToken, this.gitpodHost, async service => {
-                const workspaceInfo = this.publicApi
-                    ? await this.publicApi.getWorkspace(this.workspaceId)
-                    : await service.server.getWorkspace(this.workspaceId);
-                this.isWorkspaceRunning = this.publicApi
-                    ? (workspaceInfo as Workspace)?.status?.instance?.status?.phase === WorkspaceInstanceStatus_Phase.RUNNING && (workspaceInfo as Workspace)?.status?.instance?.instanceId === this.instanceId
-                    : (workspaceInfo as WorkspaceInfo).latestInstance?.status?.phase === 'running' && (workspaceInfo as WorkspaceInfo).latestInstance?.id === this.instanceId;
+            await withServerApi(this.sessionService.getGitpodToken(), this.connectionInfo.gitpodHost, async service => {
+                const workspaceInfo = this.usePublicApi
+                    ? await this.sessionService.getAPI().getWorkspace(this.connectionInfo.workspaceId)
+                    : await service.server.getWorkspace(this.connectionInfo.workspaceId);
+                this.isWorkspaceRunning = this.usePublicApi
+                    ? (workspaceInfo as Workspace)?.status?.instance?.status?.phase === WorkspaceInstanceStatus_Phase.RUNNING && (workspaceInfo as Workspace)?.status?.instance?.instanceId === this.connectionInfo.instanceId
+                    : (workspaceInfo as WorkspaceInfo).latestInstance?.status?.phase === 'running' && (workspaceInfo as WorkspaceInfo).latestInstance?.id === this.connectionInfo.instanceId;
                 if (this.isWorkspaceRunning) {
-                    this.publicApi
-                        ? (!wasClosed ? await this.publicApi.sendHeartbeat(this.workspaceId) : await this.publicApi.sendDidClose(this.workspaceId))
-                        : await service.server.sendHeartBeat({ instanceId: this.instanceId, wasClosed });
+                    this.usePublicApi
+                        ? (!wasClosed ? await this.sessionService.getAPI().sendHeartbeat(this.connectionInfo.workspaceId) : await this.sessionService.getAPI().sendDidClose(this.connectionInfo.workspaceId))
+                        : await service.server.sendHeartBeat({ instanceId: this.connectionInfo.instanceId, wasClosed });
                     if (wasClosed) {
-                        this.telemetry.sendTelemetryEvent('ide_close_signal', { workspaceId: this.workspaceId, instanceId: this.instanceId, gitpodHost: this.gitpodHost, clientKind: 'vscode', debugWorkspace: String(!!this.debugWorkspace) });
-                        this.logger.trace(`Send closed heartbeat`);
+                        this.telemetryService.sendTelemetryEvent('ide_close_signal', { workspaceId: this.connectionInfo.workspaceId, instanceId: this.connectionInfo.instanceId, gitpodHost: this.connectionInfo.gitpodHost, clientKind: 'vscode', debugWorkspace: String(!!this.connectionInfo.debugWorkspace) });
+                        this.logService.trace(`Send closed heartbeat`);
                     } else {
-                        this.logger.trace(`Send heartbeat, triggered by ${this.lastActivityEvent} event`);
+                        this.logService.trace(`Send heartbeat, triggered by ${this.lastActivityEvent} event`);
                     }
                 } else {
-                    this.logger.trace('Stopping heartbeat as workspace is not running');
+                    this.logService.trace('Stopping heartbeat as workspace is not running');
                     this.stopHeartbeat();
                 }
-            }, this.logger);
+            }, this.logService);
         } catch (e) {
             const suffix = wasClosed ? 'closed heartbeat' : 'heartbeat';
             const originMsg = e.message;
             e.message = `Failed to send ${suffix}, triggered by event: ${this.lastActivityEvent}: ${originMsg}`;
-            this.logger.error(e);
+            this.logService.error(e);
             e.message = `Failed to send ${suffix}: ${originMsg}`;
-            this.telemetry.sendTelemetryException(e, { workspaceId: this.workspaceId, instanceId: this.instanceId, userId: this.session.account.id });
+            this.telemetryService.sendTelemetryException(e, { workspaceId: this.connectionInfo.workspaceId, instanceId: this.connectionInfo.instanceId});
         }
     }
 
@@ -160,7 +159,7 @@ export class HeartbeatManager extends Disposable {
     }
 
     private sendEventData() {
-        this.telemetry.sendRawTelemetryEvent('vscode_desktop_heartbeat_delta', { events: Object.fromEntries(this.eventCounterMap), workspaceId: this.workspaceId, instanceId: this.instanceId, gitpodHost: this.gitpodHost, clientKind: 'vscode' });
+        this.telemetryService.sendRawTelemetryEvent('vscode_desktop_heartbeat_delta', { events: Object.fromEntries(this.eventCounterMap), workspaceId: this.connectionInfo.workspaceId, instanceId: this.connectionInfo.instanceId, gitpodHost: this.connectionInfo.gitpodHost, clientKind: 'vscode' });
         this.eventCounterMap.clear();
     }
 
@@ -172,12 +171,12 @@ export class HeartbeatManager extends Disposable {
     }
 
     public override async dispose(): Promise<void> {
+        super.dispose();
         this.stopEventCounter();
         this.sendEventData();
         this.stopHeartbeat();
         if (this.isWorkspaceRunning) {
             await this.sendHeartBeat(true);
         }
-        super.dispose();
     }
 }
