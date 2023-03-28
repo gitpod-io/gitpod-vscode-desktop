@@ -32,7 +32,6 @@
 		}
 	},
 	"activationEvents": [
-		"onResolveRemoteAuthority:ssh-remote",
 		"onCommand:gitpod.syncProvider.add",
 		"onCommand:gitpod.syncProvider.remove",
 		"onCommand:gitpod.exportLogs",
