@@ -10,6 +10,7 @@ import { LocalSSHServiceImpl, startLocalSSHService } from './ipc/localssh';
 import { SupervisorSSHTunnel } from './sshTunnel';
 
 // TODO(hw): make it configurable / default should be different between stable and insiders?
+// sudo lsof -i:42025
 const LOCAL_SSH_GATEWAY_SERVER_PORT = 42025;
 // TODO(hw): generate one?
 const TEST_HOST_KEY = `-----BEGIN OPENSSH PRIVATE KEY-----

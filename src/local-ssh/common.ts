@@ -40,12 +40,12 @@ export interface ILogger {
 const DefaultLogFormatter = winston.format.combine(winston.format.timestamp(), winston.format.errors({ stack: true }), winston.format.simple())
 export class Logger implements ILogger {
 	private logger: winston.Logger = winston.createLogger({
-		level: 'info',
+		level: 'debug',
 		defaultMeta: { pid: process.pid },
 		transports: [
 			new winston.transports.File({ format: DefaultLogFormatter, filename: '/tmp/gp-daemon.log', options: { flags: 'a' }, maxsize: 1024 * 1024 * 10 /* 10M */, maxFiles: 2 /* 2 file turns */ }),
 			// for debug
-			// new winston.transports.File({ filename: '/tmp/gp-daemon.' + process.pid + '.log', options: { flags: 'a' }, maxsize: 1024 * 1024 * 10 /* 10M */, maxFiles: 2 /* 2 file turns */ }),
+			new winston.transports.File({ filename: '/tmp/gp-daemon.' + process.pid + '.log', options: { flags: 'a' }, maxsize: 1024 * 1024 * 10 /* 10M */, maxFiles: 2 /* 2 file turns */ }),
 		],
 		exitOnError: false,
 	});

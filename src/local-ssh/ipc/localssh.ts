@@ -23,7 +23,7 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
     }
 
     async inactive(request: InactiveRequest, _context: CallContext): Promise<{}> {
-        this.inactiveClientID(request.id);
+        this.inactiveClientID(request.id, 'request');
         return {};
     }
 
@@ -40,9 +40,9 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
         this.logger.info(`extension svc activated, id: ${id}, current clients: ${this.extensionServices.length}`);
     }
 
-    private async inactiveClientID(id: string) {
+    private async inactiveClientID(id: string, reason: 'schedulePing' | 'request') {
         this.extensionServices = this.extensionServices.filter(e => e.id !== id);
-        this.logger.info(`extension svc inactivated, id: ${id}, current clients: ${this.extensionServices.length}`);
+        this.logger.info(`extension svc inactivated: ${reason}, id: ${id}, current clients: ${this.extensionServices.length}`);
     }
 
     private pingExtensionServices() {
@@ -57,7 +57,7 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
                     inactiveIdList.add(ext.id);
                 }
             }
-            inactiveIdList.forEach(id => this.inactiveClientID(id));
+            inactiveIdList.forEach(id => this.inactiveClientID(id, 'schedulePing'));
             if (this.extensionServices.length === 0) {
                 if (this.exitCancel) {
                     return;
