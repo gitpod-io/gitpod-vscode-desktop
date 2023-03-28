@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package ipc.v1;
+
+service LocalSSHService {
+    // Active is called when extension is activated
+    rpc Active(ActiveRequest) returns (ActiveResponse) {}
+
+    // Inactive is called when extension is deactivated
+    rpc Inactive(InactiveRequest) returns (InactiveResponse) {}
+
+    rpc Ping (PingRequest) returns (PingResponse) {}
+}
+
+service ExtensionService {
+    rpc Ping (PingRequest) returns (PingResponse) {}
+    rpc GetWorkspaceAuthInfo (GetWorkspaceAuthInfoRequest) returns (GetWorkspaceAuthInfoResponse) {}
+}
+
+message ActiveRequest {
+    // id is the extenson id
+    string id = 1;
+}
+
+message ActiveResponse {}
+
+message InactiveRequest {
+    string id = 1;
+}
+
+message InactiveResponse {}
+
+message PingRequest {}
+
+message PingResponse {}
+
+message GetWorkspaceAuthInfoRequest {
+    string workspace_id = 1;
+}
+
+message GetWorkspaceAuthInfoResponse {
+    string workspace_id = 1;
+    string workspace_host = 2;
+    string owner_token = 3;
+}

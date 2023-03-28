@@ -106,7 +106,7 @@ export class RemoteConnector extends Disposable {
 		private readonly experiments: ExperimentalSettings,
 		private readonly logService: ILogService,
 		private readonly telemetryService: ITelemetryService,
-		private readonly notificationService: INotificationService
+		private readonly notificationService: INotificationService,
 	) {
 		super();
 
@@ -414,6 +414,7 @@ export class RemoteConnector extends Disposable {
 		}
 	}
 
+	// @ts-ignore
 	private async getWorkspaceSSHDestination({ workspaceId, gitpodHost, debugWorkspace }: SSHConnectionParams): Promise<{ destination: SSHDestination; password?: string }> {
 		const sshKeysSupported = this.sessionService.getScopes().includes(ScopeFeature.SSHPublicKeys);
 
@@ -492,7 +493,7 @@ export class RemoteConnector extends Disposable {
 						return { name: k.name, fingerprint: '' };
 					}
 
-					const parsedKey = parsedResult as ParsedKey;
+					const parsedKey = parsedResult as unknown as ParsedKey;
 					return { name: k.name, fingerprint: crypto.createHash('sha256').update(parsedKey.getPublicSSH()).digest('base64') };
 				})
 				: (registeredSSHKeys as UserSSHPublicKeyValue[]).map(k => ({ name: k.name, fingerprint: k.fingerprint }));
@@ -510,6 +511,33 @@ export class RemoteConnector extends Disposable {
 		return {
 			destination: new SSHDestination(hostname, user),
 			password: identityKeys.length === 0 ? ownerToken : undefined
+		};
+	}
+
+	private async getLocalSSHWorkspaceSSHDestination({ workspaceId, gitpodHost, debugWorkspace }: SSHConnectionParams): Promise<{ destination: SSHDestination; password?: string }> {
+		const workspaceInfo = await withServerApi(this.sessionService.getGitpodToken(), getServiceURL(gitpodHost), async service => this.usePublicApi ? this.sessionService.getAPI().getWorkspace(workspaceId) : service.server.getWorkspace(workspaceId), this.logService);
+
+		const isNotRunning = this.usePublicApi
+			? !((workspaceInfo as Workspace)?.status?.instance) || (workspaceInfo as Workspace)?.status?.instance?.status?.phase === WorkspaceInstanceStatus_Phase.STOPPING || (workspaceInfo as Workspace)?.status?.instance?.status?.phase === WorkspaceInstanceStatus_Phase.STOPPED
+			: !((workspaceInfo as WorkspaceInfo).latestInstance) || (workspaceInfo as WorkspaceInfo).latestInstance?.status?.phase === 'stopping' || (workspaceInfo as WorkspaceInfo).latestInstance?.status?.phase === 'stopped';
+		if (isNotRunning) {
+			throw new NoRunningInstanceError(
+				workspaceId,
+				this.usePublicApi
+					? (workspaceInfo as Workspace)?.status?.instance?.status?.phase ? WorkspaceInstanceStatus_Phase[(workspaceInfo as Workspace)?.status?.instance?.status?.phase!] : undefined
+					: (workspaceInfo as WorkspaceInfo).latestInstance?.status?.phase
+			);
+		}
+
+		let user = workspaceId;
+		// See https://github.com/gitpod-io/gitpod/pull/9786 for reasoning about `.ssh` suffix
+		let hostname = workspaceId + '.local.hwen.dev';
+		if (debugWorkspace) {
+			user = 'debug-' + workspaceId;
+		}
+		return {
+			destination: new SSHDestination(hostname, user, 42025),
+			password: '',
 		};
 	}
 
@@ -660,7 +688,9 @@ export class RemoteConnector extends Disposable {
 			try {
 				this.telemetryService.sendUserFlowStatus('connecting', gatewayFlow);
 
-				const { destination, password } = await this.getWorkspaceSSHDestination(params);
+				// TODO(hw): Feature flag
+				// const { destination, password } = await this.getWorkspaceSSHDestination(params);
+				const { destination, password } = await this.getLocalSSHWorkspaceSSHDestination(params);
 				sshDestination = destination;
 
 				Object.assign(gatewayFlow, { auth: password ? 'password' : 'key' });

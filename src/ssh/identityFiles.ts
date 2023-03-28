@@ -83,7 +83,7 @@ export async function gatherIdentityFiles(identityFiles: string[], sshAgentSock:
                 if (err) {
                     reject(err);
                 } else {
-                    resolve(publicKeys || []);
+                    resolve(publicKeys as any || []);
                 }
             });
         });
