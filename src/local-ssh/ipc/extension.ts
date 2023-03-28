@@ -6,7 +6,6 @@
 import { ExtensionServiceDefinition, ExtensionServiceImplementation, GetWorkspaceAuthInfoRequest, LocalSSHServiceDefinition, PingRequest } from '../../proto/typescript/ipc/v1/ipc';
 import { Disposable } from '../../common/dispose';
 import { retry, timeout } from '../../common/async';
-import { LOCAL_SSH_SOCK_UNIX } from '../common';
 export { ExtensionServiceDefinition } from '../../proto/typescript/ipc/v1/ipc';
 import { ensureDaemonStarted } from '../../daemonStarter';
 import { GitpodPublicApi } from '../../publicApi';
@@ -18,6 +17,7 @@ import { SessionService } from '../../services/sessionService';
 import { CallContext, ServerError, Status } from 'nice-grpc-common';
 import { HostService } from '../../services/hostService';
 import { Server, createClient, createServer, createChannel } from 'nice-grpc';
+import { getLocalSSHIPCHandlePath } from '../common';
 
 export class ExtensionServiceImpl implements ExtensionServiceImplementation {
     async ping(_request: PingRequest, _context: CallContext): Promise<{}> {
@@ -57,7 +57,8 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
 
 export class ExtensionServiceServer extends Disposable {
     private server: Server;
-    private localSSHServiceClient = createClient(LocalSSHServiceDefinition, createChannel(LOCAL_SSH_SOCK_UNIX));
+
+    private localSSHServiceClient = createClient(LocalSSHServiceDefinition, createChannel('unix://' + getLocalSSHIPCHandlePath()));
     public publicApi: GitpodPublicApi | undefined;
     private readonly id: string = Math.random().toString(36).slice(2);
     constructor(

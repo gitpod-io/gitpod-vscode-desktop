@@ -5,6 +5,8 @@
 
 import winston from 'winston';
 import { existsSync, unlinkSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import { GetWorkspaceAuthInfoResponse } from '../proto/typescript/ipc/v1/ipc';
 
 export const PID_LOCK_FILE = '/tmp/gp-daemon.lock';
@@ -65,10 +67,19 @@ export class Logger implements ILogger {
 	}
 }
 
-export const LOCAL_SSH_SOCK = '/tmp/gp-localssh.sock';
-export const LOCAL_SSH_SOCK_UNIX = 'unix://' + LOCAL_SSH_SOCK;
+function getIPCHandlePath(id: string): string {
+	if (process.platform === 'win32') {
+		return `\\\\.\\pipe\\gp-${id}-sock`;
+	}
+	return join(tmpdir(), `gp-${id}.sock`);
+}
 
-export const EXTENSION_SOCK = (id: string) => `/tmp/gp-ext-${id}.sock`;
-export const EXTENSION_SOCK_UNIX = (id: string) => 'unix://' + EXTENSION_SOCK(id);
+export function getLocalSSHIPCHandlePath(): string {
+	return getIPCHandlePath('localssh');
+}
 
-export type WorkspaceAuthInfo = GetWorkspaceAuthInfoResponse
+export function getExtensionIPCHandlePath(id: string): string {
+	return getIPCHandlePath('ext-' + id);
+}
+
+export type WorkspaceAuthInfo = GetWorkspaceAuthInfoResponse;
