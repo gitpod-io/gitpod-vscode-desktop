@@ -67,11 +67,15 @@ export class Logger implements ILogger {
 	}
 }
 
-function getIPCHandlePath(id: string): string {
+function getIPCHandlePath(id: string, isAddr: boolean = false): string {
 	if (process.platform === 'win32') {
 		return `\\\\.\\pipe\\gp-${id}-sock`;
 	}
-	return join(tmpdir(), `gp-${id}.sock`);
+	const p = join(tmpdir(), `gp-${id}.sock`);
+	if (isAddr) {
+		return 'unix://' + p;
+	}
+	return p;
 }
 
 export function getLocalSSHIPCHandlePath(): string {
@@ -80,6 +84,14 @@ export function getLocalSSHIPCHandlePath(): string {
 
 export function getExtensionIPCHandlePath(id: string): string {
 	return getIPCHandlePath('ext-' + id);
+}
+
+export function getLocalSSHIPCHandleAddr(): string {
+	return getIPCHandlePath('localssh', true);
+}
+
+export function getExtensionIPCHandleAddr(id: string): string {
+	return getIPCHandlePath('ext-' + id, true);
 }
 
 export type WorkspaceAuthInfo = GetWorkspaceAuthInfoResponse;

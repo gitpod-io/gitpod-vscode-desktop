@@ -17,7 +17,7 @@ import { SessionService } from '../../services/sessionService';
 import { CallContext, ServerError, Status } from 'nice-grpc-common';
 import { HostService } from '../../services/hostService';
 import { Server, createClient, createServer, createChannel } from 'nice-grpc';
-import { getLocalSSHIPCHandlePath } from '../common';
+import { getExtensionIPCHandleAddr, getLocalSSHIPCHandleAddr } from '../common';
 
 export class ExtensionServiceImpl implements ExtensionServiceImplementation {
     async ping(_request: PingRequest, _context: CallContext): Promise<{}> {
@@ -58,7 +58,7 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
 export class ExtensionServiceServer extends Disposable {
     private server: Server;
 
-    private localSSHServiceClient = createClient(LocalSSHServiceDefinition, createChannel('unix://' + getLocalSSHIPCHandlePath()));
+    private localSSHServiceClient = createClient(LocalSSHServiceDefinition, createChannel(getLocalSSHIPCHandleAddr()));
     public publicApi: GitpodPublicApi | undefined;
     private readonly id: string = Math.random().toString(36).slice(2);
     constructor(
@@ -71,7 +71,7 @@ export class ExtensionServiceServer extends Disposable {
         const server = createServer();
         const serviceImpl = new ExtensionServiceImpl(this.logService, this.sessionService, this.hostService);
         server.add(ExtensionServiceDefinition, serviceImpl);
-        server.listen(`unix:///tmp/gp-ext-${this.id}.sock`).then(() => {
+        server.listen(getExtensionIPCHandleAddr(this.id)).then(() => {
             this.logService.info('extension ipc service server started to listen with id: ' + this.id);
         }).catch(this.logService.error);
         this.server = server;

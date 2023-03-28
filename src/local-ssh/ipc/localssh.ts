@@ -5,7 +5,7 @@
 
 import { ActiveRequest, ExtensionServiceDefinition, InactiveRequest, LocalSSHServiceDefinition, LocalSSHServiceImplementation, PingRequest } from '../../proto/typescript/ipc/v1/ipc';
 import { CallContext, Client, createChannel, createClient, createServer } from 'nice-grpc';
-import { ExitCode, exitProcess, getExtensionIPCHandlePath, getLocalSSHIPCHandlePath, Logger } from '../common';
+import { ExitCode, exitProcess, getExtensionIPCHandleAddr, getLocalSSHIPCHandleAddr, getLocalSSHIPCHandlePath, Logger } from '../common';
 import { existsSync, unlinkSync } from 'fs';
 import { retry } from '../../common/async';
 
@@ -36,7 +36,8 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
             return;
         }
 
-        this.extensionServices.unshift({ id, client: createClient(ExtensionServiceDefinition, createChannel('unix://' + getExtensionIPCHandlePath(id))) });
+        this.extensionServices.unshift({ id, client: createClient(ExtensionServiceDefinition, createChannel(getExtensionIPCHandleAddr(id))) });
+        this.logger.info(`channel: ${getExtensionIPCHandleAddr(id)}`);
         this.logger.info(`extension svc activated, id: ${id}, current clients: ${this.extensionServices.length}`);
     }
 
@@ -98,6 +99,6 @@ export async function startLocalSSHService(serviceImpl: LocalSSHServiceImpl) {
     }
     const server = createServer();
     server.add(LocalSSHServiceDefinition, serviceImpl);
-    await server.listen('unix://' + sockFile);
+    await server.listen(getLocalSSHIPCHandleAddr());
     return server;
 }
