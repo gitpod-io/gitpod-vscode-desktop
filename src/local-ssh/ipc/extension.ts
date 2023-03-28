@@ -10,14 +10,30 @@ export { ExtensionServiceDefinition } from '../../proto/typescript/ipc/v1/ipc';
 import { ensureDaemonStarted } from '../../daemonStarter';
 import { GitpodPublicApi } from '../../publicApi';
 import { withServerApi } from '../../internalApi';
-import { Workspace } from '@gitpod/public-api/lib/gitpod/experimental/v1';
-import { WorkspaceInfo } from '@gitpod/gitpod-protocol';
+import { Workspace, WorkspaceInstanceStatus_Phase } from '@gitpod/public-api/lib/gitpod/experimental/v1';
+import { WorkspaceInfo, WorkspaceInstancePhase } from '@gitpod/gitpod-protocol';
 import { ILogService } from '../../services/logService';
-import { SessionService } from '../../services/sessionService';
+import { ISessionService } from '../../services/sessionService';
 import { CallContext, ServerError, Status } from 'nice-grpc-common';
-import { HostService } from '../../services/hostService';
+import { IHostService } from '../../services/hostService';
 import { Server, createClient, createServer, createChannel } from 'nice-grpc';
 import { getExtensionIPCHandleAddr, getLocalSSHIPCHandleAddr } from '../common';
+import { INotificationService } from '../../services/notificationService';
+import { showWsNotRunningDialog } from '../../remote';
+import { UserFlowTelemetry } from '../../services/telemetryService';
+
+const phaseMap: Record<WorkspaceInstanceStatus_Phase, WorkspaceInstancePhase | undefined> = {
+    [WorkspaceInstanceStatus_Phase.CREATING]: 'pending',
+    [WorkspaceInstanceStatus_Phase.IMAGEBUILD]: 'building',
+    [WorkspaceInstanceStatus_Phase.INITIALIZING]: 'initializing',
+    [WorkspaceInstanceStatus_Phase.INTERRUPTED]: 'running',
+    [WorkspaceInstanceStatus_Phase.PENDING]: 'stopping',
+    [WorkspaceInstanceStatus_Phase.PREPARING]: 'stopped',
+    [WorkspaceInstanceStatus_Phase.RUNNING]: 'running',
+    [WorkspaceInstanceStatus_Phase.STOPPED]: 'stopped',
+    [WorkspaceInstanceStatus_Phase.STOPPING]: 'stopping',
+    [WorkspaceInstanceStatus_Phase.UNSPECIFIED]: undefined,
+};
 
 export class ExtensionServiceImpl implements ExtensionServiceImplementation {
     async ping(_request: PingRequest, _context: CallContext): Promise<{}> {
@@ -31,10 +47,19 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
         }
         const workspaceId = request.workspaceId;
 
-        const [workspace, ownerToken] = await withServerApi(accessToken, this.hostService.gitpodHost, svc => Promise.all([
+        const gitpodHost = this.hostService.gitpodHost;
+        const [workspace, ownerToken] = await withServerApi(accessToken, gitpodHost, svc => Promise.all([
             this.usePublicApi ? this.sessionService.getAPI().getWorkspace(workspaceId) : svc.server.getWorkspace(workspaceId),
             this.usePublicApi ? this.sessionService.getAPI().getOwnerToken(workspaceId) : svc.server.getOwnerToken(workspaceId),
         ]), this.logService);
+
+        const phase = this.usePublicApi ? phaseMap[(workspace as Workspace).status?.instance?.status?.phase ?? WorkspaceInstanceStatus_Phase.UNSPECIFIED] : (workspace as WorkspaceInfo).latestInstance?.status.phase;
+        if (phase !== 'running') {
+            const flow: UserFlowTelemetry = { workspaceId, gitpodHost, userId: this.sessionService.getUserId(), flow: 'extension_ipc' };
+            // TODO: show notification only once
+            showWsNotRunningDialog(workspaceId, gitpodHost, flow, this.notificationService, this.logService);
+            throw new ServerError(Status.UNAVAILABLE, 'workspace is not running, current phase: ' + phase);
+        }
 
         const ideUrl = this.usePublicApi ? (workspace as Workspace).status?.instance?.status?.url : (workspace as WorkspaceInfo).latestInstance?.ideUrl;
         if (!ideUrl) {
@@ -52,7 +77,7 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
     // TODO(hw): get from experiment
     public usePublicApi: boolean = false;
 
-    constructor(private logService: ILogService, private sessionService: SessionService, private hostService: HostService) { }
+    constructor(private logService: ILogService, private sessionService: ISessionService, private hostService: IHostService, private notificationService: INotificationService) { }
 }
 
 export class ExtensionServiceServer extends Disposable {
@@ -63,13 +88,14 @@ export class ExtensionServiceServer extends Disposable {
     private readonly id: string = Math.random().toString(36).slice(2);
     constructor(
         private readonly logService: ILogService,
-        private readonly sessionService: SessionService,
-        private readonly hostService: HostService,
+        private readonly sessionService: ISessionService,
+        private readonly hostService: IHostService,
+        private readonly notificationService: INotificationService,
     ) {
         super();
         this.logService.info('going to start extension ipc service server with id', this.id);
         const server = createServer();
-        const serviceImpl = new ExtensionServiceImpl(this.logService, this.sessionService, this.hostService);
+        const serviceImpl = new ExtensionServiceImpl(this.logService, this.sessionService, this.hostService, this.notificationService);
         server.add(ExtensionServiceDefinition, serviceImpl);
         server.listen(getExtensionIPCHandleAddr(this.id)).then(() => {
             this.logService.info('extension ipc service server started to listen with id: ' + this.id);

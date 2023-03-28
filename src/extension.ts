@@ -87,7 +87,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		const remoteConnector = new RemoteConnector(context, sessionService, hostService, experiments, logger, telemetryService, notificationService);
 		context.subscriptions.push(remoteConnector);
 
-		const extensionIPCService = new ExtensionServiceServer(logger, sessionService, hostService);
+		const extensionIPCService = new ExtensionServiceServer(logger, sessionService, hostService, notificationService);
 		context.subscriptions.push(extensionIPCService);
 
 		context.subscriptions.push(vscode.window.registerUriHandler({
