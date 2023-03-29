@@ -15,7 +15,7 @@ import { RemoteConnector } from './remoteConnector';
 import { SettingsSync } from './settingsSync';
 import { TelemetryService } from './services/telemetryService';
 import { RemoteSession } from './remoteSession';
-import { checkForStoppedWorkspaces, getGitpodRemoteWindowConnectionInfo } from './remote';
+import { SSHConnectionParams, checkForStoppedWorkspaces, getGitpodRemoteWindowConnectionInfo } from './remote';
 import { HostService } from './services/hostService';
 import { SessionService } from './services/sessionService';
 import { CommandManager } from './commandManager';
@@ -41,6 +41,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	const extensionId = context.extension.id;
 	const packageJSON = context.extension.packageJSON;
 
+	let remoteConnectionInfo: { remoteAuthority: string; connectionInfo: SSHConnectionParams } | undefined;
+	let success = false;
 	try {
 		// sync between machines
 		context.globalState.setKeysForSync([ReleaseNotes.RELEASE_NOTES_LAST_READ_KEY]);
@@ -99,21 +101,12 @@ export async function activate(context: vscode.ExtensionContext) {
 		commandManager.register(new SignInCommand(sessionService));
 		commandManager.register(new ExportLogsCommand(context.logUri, notificationService, telemetryService, logger));
 
-		const remoteConnectionInfo = getGitpodRemoteWindowConnectionInfo(context);
-		telemetryService.sendTelemetryEvent('vscode_desktop_activate', {
-			remoteName: vscode.env.remoteName || '',
-			remoteUri: String(!!(vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.[0].uri)),
-			workspaceId: remoteConnectionInfo?.connectionInfo.workspaceId || '',
-			instanceId: remoteConnectionInfo?.connectionInfo.instanceId || '',
-			gitpodHost: remoteConnectionInfo?.connectionInfo.gitpodHost || '',
-			debugWorkspace: remoteConnectionInfo ? String(!!remoteConnectionInfo.connectionInfo.debugWorkspace) : '',
-		});
-
 		if (!context.globalState.get<boolean>(FIRST_INSTALL_KEY, false)) {
 			context.globalState.update(FIRST_INSTALL_KEY, true);
 			telemetryService.sendTelemetryEvent('gitpod_desktop_installation', { kind: 'install' });
 		}
 
+		remoteConnectionInfo = getGitpodRemoteWindowConnectionInfo(context);
 		// Because auth provider implementation is in the same extension, we need to wait for it to activate first
 		sessionService.didFirstLoad.then(async () => {
 			if (remoteConnectionInfo) {
@@ -126,9 +119,21 @@ export async function activate(context: vscode.ExtensionContext) {
 				checkForStoppedWorkspaces(context, hostService.gitpodHost, restartFlow, notificationService, logger);
 			}
 		});
+
+		success = true;
 	} catch (e) {
 		telemetryService?.sendTelemetryException(e);
 		throw e;
+	} finally {
+		telemetryService?.sendTelemetryEvent('vscode_desktop_activate', {
+			remoteName: vscode.env.remoteName || '',
+			remoteUri: String(!!(vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.[0].uri)),
+			workspaceId: remoteConnectionInfo?.connectionInfo.workspaceId || '',
+			instanceId: remoteConnectionInfo?.connectionInfo.instanceId || '',
+			gitpodHost: remoteConnectionInfo?.connectionInfo.gitpodHost || '',
+			debugWorkspace: remoteConnectionInfo ? String(!!remoteConnectionInfo.connectionInfo.debugWorkspace) : '',
+			success: String(success)
+		});
 	}
 }
 
