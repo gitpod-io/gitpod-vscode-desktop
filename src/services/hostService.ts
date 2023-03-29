@@ -10,6 +10,7 @@ import { INotificationService } from './notificationService';
 import { getGitpodRemoteWindowConnectionInfo } from '../remote';
 import { UserFlowTelemetry } from './telemetryService';
 import { ILogService } from './logService';
+import { Configuration } from '../configuration';
 
 export interface IHostService {
     gitpodHost: string;
@@ -39,11 +40,11 @@ export class HostService extends Disposable implements IHostService {
     ) {
         super();
 
-        this._gitpodHost = vscode.workspace.getConfiguration('gitpod').get<string>('host')!;
+        this._gitpodHost = Configuration.getGitpodHost();
 
         this._register(vscode.workspace.onDidChangeConfiguration(e => {
             if (e.affectsConfiguration('gitpod.host')) {
-                const newGitpodHost = vscode.workspace.getConfiguration('gitpod').get<string>('host')!;
+                const newGitpodHost = Configuration.getGitpodHost();
                 if (new URL(this._gitpodHost).host !== new URL(newGitpodHost).host) {
                     this._gitpodHost = newGitpodHost;
                     this._version = undefined;

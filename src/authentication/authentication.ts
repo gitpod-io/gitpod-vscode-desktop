@@ -12,6 +12,7 @@ import { Disposable } from '../common/dispose';
 import { ITelemetryService, UserFlowTelemetry } from '../services/telemetryService';
 import { INotificationService } from '../services/notificationService';
 import { ILogService } from '../services/logService';
+import { Configuration } from '../configuration';
 
 interface SessionData {
 	id: string;
@@ -59,7 +60,7 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 	}
 
 	private reconcile(): void {
-		const gitpodHost = vscode.workspace.getConfiguration('gitpod').get<string>('host')!;
+		const gitpodHost = Configuration.getGitpodHost();
 		const gitpodHostUrl = new URL(gitpodHost);
 		this._serviceUrl = gitpodHostUrl.toString().replace(/\/$/, '');
 		Object.assign(this.flow, { gitpodHost: this._serviceUrl });
