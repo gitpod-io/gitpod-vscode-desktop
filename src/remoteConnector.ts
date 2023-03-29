@@ -37,6 +37,7 @@ import { NoRunningInstanceError, NoSSHGatewayError, SSHConnectionParams, SSH_DES
 import { ISessionService } from './services/sessionService';
 import { ILogService } from './services/logService';
 import { IHostService } from './services/hostService';
+import { Configuration } from './configuration';
 
 interface LocalAppConfig {
 	gitpodHost: string;
@@ -650,9 +651,7 @@ export class RemoteConnector extends Disposable {
 		this.usePublicApi = await this.experiments.getRaw<boolean>('gitpod_experimental_publicApi', { gitpodHost: params.gitpodHost }) ?? false;
 		this.logService.info(`Going to use ${this.usePublicApi ? 'public' : 'server'} API`);
 
-		const forceUseLocalApp = getServiceURL(params.gitpodHost) === 'https://gitpod.io'
-			? (await this.experiments.get<boolean>('gitpod.remote.useLocalApp', { gitpodHost: params.gitpodHost }))!
-			: (await this.experiments.get<boolean>('gitpod.remote.useLocalApp', { gitpodHost: params.gitpodHost }, 'gitpod_remote_useLocalApp_sh'))!;
+		const forceUseLocalApp = Configuration.getUseLocalApp();
 		const userOverride = String(isUserOverrideSetting('gitpod.remote.useLocalApp'));
 		let sshDestination: SSHDestination | undefined;
 		if (!forceUseLocalApp) {
@@ -766,9 +765,7 @@ export class RemoteConnector extends Disposable {
 
 	public async autoTunnelCommand(gitpodHost: string, instanceId: string, enabled: boolean) {
 		if (this.sessionService.isSignedIn()) {
-			const forceUseLocalApp = getServiceURL(gitpodHost) === 'https://gitpod.io'
-				? (await this.experiments.get<boolean>('gitpod.remote.useLocalApp', { gitpodHost }))!
-				: (await this.experiments.get<boolean>('gitpod.remote.useLocalApp', { gitpodHost }, 'gitpod_remote_useLocalApp_sh'))!;
+			const forceUseLocalApp = Configuration.getUseLocalApp();
 			if (!forceUseLocalApp) {
 				const authority = vscode.Uri.parse(gitpodHost).authority;
 				const configKey = `config/${authority}`;

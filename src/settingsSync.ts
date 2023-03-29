@@ -9,6 +9,7 @@ import { INotificationService } from './services/notificationService';
 import { ITelemetryService, UserFlowTelemetry } from './services/telemetryService';
 import { ILogService } from './services/logService';
 import { CommandManager } from './commandManager';
+import { Configuration } from './configuration';
 
 export class NoSyncStoreError extends Error {
 	constructor() {
@@ -219,8 +220,7 @@ export class SettingsSync extends Disposable {
 	}
 
 	private getServiceUrl() {
-		const config = vscode.workspace.getConfiguration();
-		const serviceUrl = new URL(config.get<string>('gitpod.host')!);
+		const serviceUrl = new URL(Configuration.getGitpodHost());
 		serviceUrl.pathname = '/code-sync';
 		return serviceUrl;
 	}

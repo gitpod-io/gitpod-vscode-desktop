@@ -53,9 +53,6 @@ export class RemoteSession extends Disposable {
 	public async initialize() {
 		this.logService.info('On remote window, RemoteSession initializing');
 
-		// Because auth provider implementation is in the same extension, we need to wait for it to activate first
-		await this.sessionService.didFirstLoad;
-
 		if (!this.sessionService.isSignedIn()) {
 			this.showSignInDialog();
 			return;

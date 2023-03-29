@@ -9,6 +9,7 @@ import { CacheHelper } from './common/cache';
 import { Disposable, disposeAll } from './common/dispose';
 import { ILogService } from './services/logService';
 import { CommandManager } from './commandManager';
+import { Configuration } from './configuration';
 
 export class ReleaseNotes extends Disposable {
 	public static readonly viewType = 'gitpodReleaseNotes';
@@ -162,7 +163,7 @@ export class ReleaseNotes extends Disposable {
 	}
 
 	private async showIfNewRelease(lastReadId: string | undefined) {
-		const showReleaseNotes = vscode.workspace.getConfiguration('gitpod').get<boolean>('showReleaseNotes');
+		const showReleaseNotes = Configuration.getShowReleaseNotes();
 		if (showReleaseNotes) {
 			const releaseId = await this.getLastPublish();
 			if (releaseId && releaseId !== lastReadId) {

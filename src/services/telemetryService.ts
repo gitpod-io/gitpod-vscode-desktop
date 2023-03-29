@@ -7,6 +7,7 @@ import { AppenderData, BaseTelemetryAppender, BaseTelemetryClient, BaseTelemetry
 import { Analytics } from '@segment/analytics-node';
 import * as os from 'os';
 import * as vscode from 'vscode';
+import { Configuration } from '../configuration';
 
 const analyticsClientFactory = async (key: string): Promise<BaseTelemetryClient> => {
 	let segmentAnalyticsClient = new Analytics({ writeKey: key });
@@ -25,7 +26,7 @@ const analyticsClientFactory = async (key: string): Promise<BaseTelemetryClient>
 			}
 		},
 		logException: (exception: Error, data?: AppenderData) => {
-			const gitpodHost = vscode.workspace.getConfiguration('gitpod').get<string>('host')!;
+			const gitpodHost = Configuration.getGitpodHost();
 			const serviceUrl = new URL(gitpodHost);
 			const errorMetricsEndpoint = `https://ide.${serviceUrl.hostname}/metrics-api/reportError`;
 
