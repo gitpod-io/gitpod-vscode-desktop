@@ -38,6 +38,7 @@ import { ISessionService } from './services/sessionService';
 import { ILogService } from './services/logService';
 import { IHostService } from './services/hostService';
 import { Configuration } from './configuration';
+import { getServiceURL } from './common/utils';
 
 interface LocalAppConfig {
 	gitpodHost: string;
@@ -679,7 +680,7 @@ export class RemoteConnector extends Disposable {
 		this.usePublicApi = await this.experiments.getRaw<boolean>('gitpod_experimental_publicApi', { gitpodHost: params.gitpodHost }) ?? false;
 		this.logService.info(`Going to use ${this.usePublicApi ? 'public' : 'server'} API`);
 
-		const forceUseLocalApp = Configuration.getUseLocalApp();
+		const forceUseLocalApp = Configuration.getUseLocalApp(await this.experiments.getUseLocalSSHServer(params.gitpodHost));
 		const userOverride = String(isUserOverrideSetting('gitpod.remote.useLocalApp'));
 		let sshDestination: SSHDestination | undefined;
 		if (!forceUseLocalApp) {
@@ -688,9 +689,9 @@ export class RemoteConnector extends Disposable {
 			try {
 				this.telemetryService.sendUserFlowStatus('connecting', gatewayFlow);
 
-				// TODO(hw): Feature flag
-				// const { destination, password } = await this.getWorkspaceSSHDestination(params);
-				const { destination, password } = await this.getLocalSSHWorkspaceSSHDestination(params);
+				const useLocalSSHServer = await this.experiments.getUseLocalSSHServer(params.gitpodHost)
+				const { destination, password } = useLocalSSHServer ? await this.getLocalSSHWorkspaceSSHDestination(params) : await this.getWorkspaceSSHDestination(params);
+
 				sshDestination = destination;
 
 				Object.assign(gatewayFlow, { auth: password ? 'password' : 'key' });
@@ -795,7 +796,7 @@ export class RemoteConnector extends Disposable {
 
 	public async autoTunnelCommand(gitpodHost: string, instanceId: string, enabled: boolean) {
 		if (this.sessionService.isSignedIn()) {
-			const forceUseLocalApp = Configuration.getUseLocalApp();
+			const forceUseLocalApp = Configuration.getUseLocalApp(await this.experiments.getUseLocalSSHServer(gitpodHost));
 			if (!forceUseLocalApp) {
 				const authority = vscode.Uri.parse(gitpodHost).authority;
 				const configKey = `config/${authority}`;
@@ -820,8 +821,4 @@ export class RemoteConnector extends Disposable {
 			this.logService.error('Failed to disable auto tunneling:', e);
 		}
 	}
-}
-
-function getServiceURL(gitpodHost: string): string {
-	return new URL(gitpodHost).toString().replace(/\/$/, '');
 }

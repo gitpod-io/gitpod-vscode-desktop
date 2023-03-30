@@ -120,3 +120,7 @@ export function arrayEquals<T>(one: ReadonlyArray<T> | undefined, other: Readonl
 
 	return true;
 }
+
+export function getServiceURL(gitpodHost: string): string {
+	return new URL(gitpodHost).toString().replace(/\/$/, '');
+}

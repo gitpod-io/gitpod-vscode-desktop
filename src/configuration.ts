@@ -17,7 +17,10 @@ function getShowReleaseNotes() {
     return vscode.workspace.getConfiguration('gitpod').get<boolean>('showReleaseNotes', true);
 }
 
-function getUseLocalApp() {
+function getUseLocalApp(useLocalSSHServer?: boolean) {
+    if (useLocalSSHServer) {
+        return false;
+    }
     return vscode.workspace.getConfiguration('gitpod').get<boolean>('remote.useLocalApp', false);
 }
 
