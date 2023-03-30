@@ -7,25 +7,31 @@ import { join } from 'path';
 import { spawn } from 'child_process';
 import { ExitCode } from './local-ssh/common';
 import { ILogService } from './services/logService';
-
-const sleep = (sec: number) => new Promise(resolve => setTimeout(resolve, sec * 1000));
+import { timeout } from './common/async';
 
 export async function ensureDaemonStarted(logService: ILogService, retry = 10) {
     if (retry < 0) {
         return;
     }
     const localAppProcess = await tryStartDaemon(logService);
-    localAppProcess.once('exit', code => {
-        switch (code) {
-            case ExitCode.OK:
-            case ExitCode.ListenPortFailed:
-                logService.error('exit with code: ' + code);
-                return;
-        }
-        logService.error('unexpectedly exit with code: ' + code + ' attempt retry: ' + retry);
-        ensureDaemonStarted(logService, retry - 1);
-    });
-    await sleep(1);
+    const ok = await new Promise<boolean>(async resolve => {
+        localAppProcess.once('exit', async code => {
+            switch (code) {
+                case ExitCode.OK:
+                case ExitCode.ListenPortFailed:
+                    logService.error('exit with code: ' + code);
+                    resolve(true);
+                    return;
+            }
+            logService.error('unexpectedly exit with code: ' + code + ' attempt retry: ' + retry);
+            resolve(false);
+            
+        });
+    })
+    if (!ok) {
+        await timeout(1000);
+        await ensureDaemonStarted(logService, retry - 1);
+    }
 }
 
 export async function tryStartDaemon(logService: ILogService) {

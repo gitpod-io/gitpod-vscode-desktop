@@ -4,12 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import winston from 'winston';
-import { existsSync, unlinkSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { GetWorkspaceAuthInfoResponse } from '../proto/typescript/ipc/v1/ipc';
-
-export const PID_LOCK_FILE = '/tmp/gp-daemon.lock';
 
 export enum ExitCode {
 	OK = 0,
@@ -17,14 +14,7 @@ export enum ExitCode {
 	UnexpectedError = 100,
 }
 
-export function exitProcess(logger: Logger, code: ExitCode, cleanup: boolean = false) {
-	if (cleanup) {
-		logger.info('exiting...', code);
-		if (existsSync(PID_LOCK_FILE)) {
-			logger.info('going to unlinking pid lock file');
-			unlinkSync(PID_LOCK_FILE);
-		}
-	}
+export function exitProcess(code: ExitCode) {
 	process.exit(code);
 }
 
@@ -69,9 +59,9 @@ export class Logger implements ILogger {
 
 function getIPCHandlePath(id: string, isAddr: boolean = false): string {
 	if (process.platform === 'win32') {
-		return `\\\\.\\pipe\\gp-${id}-sock`;
+		return `\\\\.\\pipe\\gitpod-vscode--${id}-sock`;
 	}
-	const p = join(tmpdir(), `gp-${id}.sock`);
+	const p = join(tmpdir(), `gitpod-vscode--${id}.sock`);
 	if (isAddr) {
 		return 'unix://' + p;
 	}

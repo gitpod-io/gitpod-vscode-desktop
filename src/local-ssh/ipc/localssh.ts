@@ -63,11 +63,8 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
                 if (this.exitCancel) {
                     return;
                 }
-                exitProcess(this.logger, ExitCode.OK, true);
-                // this.logger.info('no extension service client activated, going to stop daemon in 3m');
-                // this.exitCancel = setTimeout(() => {
-                //     exitProcess(this.logger, ExitCode.OK, true);
-                // }, 3 * 60 * 1000);
+                // exit immediately if no extension service client activated
+                exitProcess(ExitCode.OK);
             } else if (this.exitCancel) {
                 clearTimeout(this.exitCancel);
             }

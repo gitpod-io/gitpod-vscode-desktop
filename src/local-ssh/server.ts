@@ -10,7 +10,7 @@ import { LocalSSHServiceImpl, startLocalSSHService } from './ipc/localssh';
 import { SupervisorSSHTunnel } from './sshTunnel';
 
 // TODO(hw): make it configurable / default should be different between stable and insiders?
-// sudo lsof -i:42025
+// use `sudo lsof -i:42025` to check if the port is already in use
 const LOCAL_SSH_GATEWAY_SERVER_PORT = 42025;
 // TODO(hw): generate one?
 const TEST_HOST_KEY = `-----BEGIN OPENSSH PRIVATE KEY-----
@@ -96,7 +96,7 @@ export class LocalSSHGatewayServer {
 		});
 		server.on('error', (err: any) => {
 			this.logger.error(err, 'failed to start local ssh gateway server, going to exit');
-			exitProcess(this.logger, ExitCode.ListenPortFailed, false);
+			exitProcess(ExitCode.ListenPortFailed);
 		});
 		server.listen(LOCAL_SSH_GATEWAY_SERVER_PORT, '127.0.0.1', () => {
 			this.logger.info('local ssh gateway is listening on port ' + LOCAL_SSH_GATEWAY_SERVER_PORT);
