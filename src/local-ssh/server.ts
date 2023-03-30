@@ -9,9 +9,6 @@ import { Logger, WorkspaceAuthInfo, ExitCode, exitProcess } from './common';
 import { LocalSSHServiceImpl, startLocalSSHService } from './ipc/localssh';
 import { SupervisorSSHTunnel } from './sshTunnel';
 
-// TODO(hw): make it configurable / default should be different between stable and insiders?
-// use `sudo lsof -i:42025` to check if the port is already in use
-const LOCAL_SSH_GATEWAY_SERVER_PORT = 42025;
 // TODO(hw): generate one?
 const TEST_HOST_KEY = `-----BEGIN OPENSSH PRIVATE KEY-----
 b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
@@ -26,6 +23,7 @@ export class LocalSSHGatewayServer {
 	private localsshServiceServer?: GrpcServer;
 	constructor(
 		private readonly logger: Logger,
+		private readonly port: number,
 	) { }
 
 	public startServer() {
@@ -98,8 +96,8 @@ export class LocalSSHGatewayServer {
 			this.logger.error(err, 'failed to start local ssh gateway server, going to exit');
 			exitProcess(ExitCode.ListenPortFailed);
 		});
-		server.listen(LOCAL_SSH_GATEWAY_SERVER_PORT, '127.0.0.1', () => {
-			this.logger.info('local ssh gateway is listening on port ' + LOCAL_SSH_GATEWAY_SERVER_PORT);
+		server.listen(this.port, '127.0.0.1', () => {
+			this.logger.info('local ssh gateway is listening on port ' + this.port);
 			// start local-ssh ipc service
 			this.localsshService = new LocalSSHServiceImpl(this.logger);
 			startLocalSSHService(this.localsshService).then(server => {

@@ -8,6 +8,10 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { GetWorkspaceAuthInfoResponse } from '../proto/typescript/ipc/v1/ipc';
 
+// TODO(hw): default should be different between stable and insiders?
+// use `sudo lsof -i:42025` to check if the port is already in use
+export const LOCAL_SSH_GATEWAY_SERVER_PORT = 42025;
+
 export enum ExitCode {
 	OK = 0,
 	ListenPortFailed = 1,

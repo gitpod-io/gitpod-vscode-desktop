@@ -72,6 +72,12 @@
 						"description": "Use the local companion app to connect to a remote workspace.\nWarning: Connecting to a remote workspace using local companion app will be removed in the near future.",
 						"default": false,
 						"scope": "application"
+					},
+					"gitpod.localSSHServerPort": {
+						"type": "number",
+						"description": "The port to use for the local SSH server.",
+						"default": 42025,
+						"scope": "application"
 					}
 				}
 			},
