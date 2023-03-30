@@ -144,7 +144,7 @@ export class ExtensionServiceServer extends Disposable {
             try {
                 await this.localSSHServiceClient.ping({});
             } catch (err) {
-                // TODO(local-ssh): backoff
+                // TODO(local-ssh): backoff with retry limit
                 this.logService.error('failed to ping local ssh service, going to start a new one', err);
                 ensureDaemonStarted(this.logService);
                 this.backoffActive();

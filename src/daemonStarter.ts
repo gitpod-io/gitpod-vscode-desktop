@@ -26,7 +26,7 @@ export async function ensureDaemonStarted(logService: ILogService, retry = 10) {
             }
             logService.error('unexpectedly exit with code: ' + code + ' attempt retry: ' + retry);
             resolve(false);
-            
+            // TODO(local-ssh): send telemetry?
         });
     })
     if (!ok) {
