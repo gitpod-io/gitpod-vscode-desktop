@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import dns from 'dns';
 import winston from 'winston';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -92,3 +93,19 @@ export function getExtensionIPCHandleAddr(id: string): string {
 }
 
 export type WorkspaceAuthInfo = GetWorkspaceAuthInfoResponse;
+
+
+export function isDNSPointToLocalhost(domain: string): Promise<boolean> {
+	return new Promise(resolve => {
+		dns.lookup('*.' + domain, { all: true }, (err, addresses) => {
+			if (err) {
+				resolve(false);
+			} else {
+				console.log(addresses);
+				resolve(true);
+			}
+		});
+	});
+}
+
+export const GitpodDefaultLocalhost = 'local.hwen.dev';

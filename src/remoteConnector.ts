@@ -39,6 +39,7 @@ import { ILogService } from './services/logService';
 import { IHostService } from './services/hostService';
 import { Configuration } from './configuration';
 import { getServiceURL } from './common/utils';
+import { GitpodDefaultLocalhost as GITPOD_DEFAULT_LOCALHOST_RECORD, isDNSPointToLocalhost } from './local-ssh/common';
 
 interface LocalAppConfig {
 	gitpodHost: string;
@@ -531,8 +532,10 @@ export class RemoteConnector extends Disposable {
 
 		let user = workspaceId;
 		// See https://github.com/gitpod-io/gitpod/pull/9786 for reasoning about `.ssh` suffix
-		// TODO(local-ssh): Ping if `*.<local-ssh-domain>` is point to localhost
-		let hostname = workspaceId + '.local.hwen.dev';
+		// TODO(local-ssh): get link from somewhere else / config
+		const domain = 'local.hwen.dev';
+		const ok = await isDNSPointToLocalhost(domain);
+		const hostname = workspaceId + '.' + (ok ? domain : GITPOD_DEFAULT_LOCALHOST_RECORD);
 		if (debugWorkspace) {
 			user = 'debug-' + workspaceId;
 		}
