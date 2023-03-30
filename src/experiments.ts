@@ -124,7 +124,7 @@ export class ExperimentalSettings {
     }
 
     async getUsePublicAPI(gitpodHost: string): Promise<boolean> {
-        return await this.getRaw<boolean>('gitpod_experimental_publicApi', { gitpodHost }) ?? false;
+        return (await this.getRaw<boolean>('gitpod_experimental_publicApi', { gitpodHost })) ?? false;
     }
 }
 

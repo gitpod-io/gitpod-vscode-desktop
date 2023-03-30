@@ -18,6 +18,11 @@ AAAECaxo8pV52PZg8MEQDzgP/aEAyr2tcJ1c1JX0nSbx7okydETaM70AtO2PjoCqsIYp7q
 HqerXzpC659MyXS1NkhUAAAAEWh3ZW5AcG90YWxhLmxvY2FsAQIDBA==
 -----END OPENSSH PRIVATE KEY-----`;
 
+const DefaultConnConfig: ConnectConfig = {
+	keepaliveInterval: 20000, // 20s
+	keepaliveCountMax: 20, // 20 not respond requests can be ignored
+};
+
 export class LocalSSHGatewayServer {
 	private localsshService!: LocalSSHServiceImpl;
 	private localsshServiceServer?: GrpcServer;
@@ -44,12 +49,11 @@ export class LocalSSHGatewayServer {
 						this.logger.info('trying to get auth of ' + workspaceID);
 						workspaceInfo = await this.localsshService.getWorkspaceAuthInfo(workspaceID);
 						try {
-							// throw new Error('test force tunnel');
-							conn = await this.connectSSH(this.getDirectSSHConfig(workspaceInfo));
+							conn = await this.connectSSH({ ...this.getDirectSSHConfig(workspaceInfo), ...DefaultConnConfig });
 						} catch (e) {
 							e.message = 'failed to connect to workspace via ssh: ' + e.message + ' trying to connect via tunnel';
 							this.logger.error(e);
-							conn = await this.connectSSH(await this.getTunnelSSHConfig(workspaceInfo));
+							conn = await this.connectSSH({ ...(await this.getTunnelSSHConfig(workspaceInfo)), ...DefaultConnConfig });
 						}
 						this.logger.info(JSON.stringify(workspaceInfo, null, 4));
 						ctx.accept();
