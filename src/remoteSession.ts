@@ -59,7 +59,7 @@ export class RemoteSession extends Disposable {
 		}
 
 		try {
-			this.usePublicApi = await this.experiments.getRaw<boolean>('gitpod_experimental_publicApi', { gitpodHost: this.connectionInfo.gitpodHost }) ?? false;
+			this.usePublicApi = await this.experiments.getUsePublicAPI(this.connectionInfo.gitpodHost);
 			this.logService.info(`Going to use ${this.usePublicApi ? 'public' : 'server'} API`);
 
 			const workspaceInfo = await withServerApi(this.sessionService.getGitpodToken(), this.connectionInfo.gitpodHost, service => service.server.getWorkspace(this.connectionInfo.workspaceId), this.logService);

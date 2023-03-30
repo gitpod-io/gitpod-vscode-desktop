@@ -9,7 +9,6 @@ import * as configcatcommon from 'configcat-common';
 import * as semver from 'semver';
 import { ISessionService } from './services/sessionService';
 import { ILogService } from './services/logService';
-import { getServiceURL } from './common/utils';
 
 const EXPERTIMENTAL_SETTINGS = [
     'gitpod.remote.useLocalApp',
@@ -122,6 +121,10 @@ export class ExperimentalSettings {
      */
     async getUseLocalSSHServer(gitpodHost: string): Promise<boolean> {
         return (await this.get<boolean>('gitpod.remote.useLocalSSHServer', { gitpodHost }, 'gitpod_desktop_use_local_ssh_server')) ?? false;
+    }
+
+    async getUsePublicAPI(gitpodHost: string): Promise<boolean> {
+        return await this.getRaw<boolean>('gitpod_experimental_publicApi', { gitpodHost }) ?? false;
     }
 }
 

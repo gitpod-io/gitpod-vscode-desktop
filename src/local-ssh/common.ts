@@ -8,7 +8,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { GetWorkspaceAuthInfoResponse } from '../proto/typescript/ipc/v1/ipc';
 
-// TODO(hw): default should be different between stable and insiders?
+// TODO(local-ssh): default should be different between stable and insiders?
 // use `sudo lsof -i:42025` to check if the port is already in use
 export const LOCAL_SSH_GATEWAY_SERVER_PORT = 42025;
 
@@ -30,7 +30,7 @@ export interface ILogger {
 	error(error: string | Error, ...args: any[]): void;
 }
 
-// TODO: !!!!!!!!!!!!!! winston is **, we should use a better logger
+// TODO(local-ssh): !!!!!!!!!!!!!! winston is **, we should use a better logger
 const DefaultLogFormatter = winston.format.combine(winston.format.timestamp(), winston.format.errors({ stack: true }), winston.format.simple())
 export class Logger implements ILogger {
 	private logger: winston.Logger = winston.createLogger({

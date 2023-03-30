@@ -20,7 +20,8 @@ import { Server, createClient, createServer, createChannel } from 'nice-grpc';
 import { getExtensionIPCHandleAddr, getLocalSSHIPCHandleAddr } from '../common';
 import { INotificationService } from '../../services/notificationService';
 import { showWsNotRunningDialog } from '../../remote';
-import { UserFlowTelemetry } from '../../services/telemetryService';
+import { ITelemetryService, UserFlowTelemetry } from '../../services/telemetryService';
+import { ExperimentalSettings } from '../../experiments';
 
 const phaseMap: Record<WorkspaceInstanceStatus_Phase, WorkspaceInstancePhase | undefined> = {
     [WorkspaceInstanceStatus_Phase.CREATING]: 'pending',
@@ -48,20 +49,21 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
         const workspaceId = request.workspaceId;
 
         const gitpodHost = this.hostService.gitpodHost;
+        const usePublicApi = await this.experiments.getUsePublicAPI(gitpodHost);
         const [workspace, ownerToken] = await withServerApi(accessToken, gitpodHost, svc => Promise.all([
-            this.usePublicApi ? this.sessionService.getAPI().getWorkspace(workspaceId) : svc.server.getWorkspace(workspaceId),
-            this.usePublicApi ? this.sessionService.getAPI().getOwnerToken(workspaceId) : svc.server.getOwnerToken(workspaceId),
+            usePublicApi ? this.sessionService.getAPI().getWorkspace(workspaceId) : svc.server.getWorkspace(workspaceId),
+            usePublicApi ? this.sessionService.getAPI().getOwnerToken(workspaceId) : svc.server.getOwnerToken(workspaceId),
         ]), this.logService);
 
-        const phase = this.usePublicApi ? phaseMap[(workspace as Workspace).status?.instance?.status?.phase ?? WorkspaceInstanceStatus_Phase.UNSPECIFIED] : (workspace as WorkspaceInfo).latestInstance?.status.phase;
+        const phase = usePublicApi ? phaseMap[(workspace as Workspace).status?.instance?.status?.phase ?? WorkspaceInstanceStatus_Phase.UNSPECIFIED] : (workspace as WorkspaceInfo).latestInstance?.status.phase;
         if (phase !== 'running') {
             const flow: UserFlowTelemetry = { workspaceId, gitpodHost, userId: this.sessionService.getUserId(), flow: 'extension_ipc' };
-            // TODO: show notification only once
+            // TODO(local-ssh): show notification only once
             showWsNotRunningDialog(workspaceId, gitpodHost, flow, this.notificationService, this.logService);
             throw new ServerError(Status.UNAVAILABLE, 'workspace is not running, current phase: ' + phase);
         }
 
-        const ideUrl = this.usePublicApi ? (workspace as Workspace).status?.instance?.status?.url : (workspace as WorkspaceInfo).latestInstance?.ideUrl;
+        const ideUrl = usePublicApi ? (workspace as Workspace).status?.instance?.status?.url : (workspace as WorkspaceInfo).latestInstance?.ideUrl;
         if (!ideUrl) {
             throw new ServerError(Status.DATA_LOSS, 'no ide url found');
         }
@@ -74,10 +76,7 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
         };
     }
 
-    // TODO(hw): get from experiment
-    public usePublicApi: boolean = false;
-
-    constructor(private logService: ILogService, private sessionService: ISessionService, private hostService: IHostService, private notificationService: INotificationService) { }
+    constructor(private logService: ILogService, private sessionService: ISessionService, private hostService: IHostService, private notificationService: INotificationService, private experiments: ExperimentalSettings) { }
 }
 
 export class ExtensionServiceServer extends Disposable {
@@ -86,16 +85,19 @@ export class ExtensionServiceServer extends Disposable {
     private localSSHServiceClient = createClient(LocalSSHServiceDefinition, createChannel(getLocalSSHIPCHandleAddr()));
     public publicApi: GitpodPublicApi | undefined;
     private readonly id: string = Math.random().toString(36).slice(2);
+    private lastTimeActiveTelemetry: boolean | undefined;
     constructor(
         private readonly logService: ILogService,
         private readonly sessionService: ISessionService,
         private readonly hostService: IHostService,
         private readonly notificationService: INotificationService,
+        private readonly telemetryService: ITelemetryService,
+        private experiments: ExperimentalSettings,
     ) {
         super();
         this.logService.info('going to start extension ipc service server with id', this.id);
         const server = createServer();
-        const serviceImpl = new ExtensionServiceImpl(this.logService, this.sessionService, this.hostService, this.notificationService);
+        const serviceImpl = new ExtensionServiceImpl(this.logService, this.sessionService, this.hostService, this.notificationService, this.experiments);
         server.add(ExtensionServiceDefinition, serviceImpl);
         server.listen(getExtensionIPCHandleAddr(this.id)).then(() => {
             this.logService.info('extension ipc service server started to listen with id: ' + this.id);
@@ -106,7 +108,7 @@ export class ExtensionServiceServer extends Disposable {
 
         setTimeout(() => this.pingLocalSSHService(), 1000);
 
-        // TODO(hw): ping local ssh service to make sure it's alive
+        // TODO(local-ssh): ping local ssh service to make sure it's alive
         // if not, restart it
     }
 
@@ -116,8 +118,20 @@ export class ExtensionServiceServer extends Disposable {
                 await this.localSSHServiceClient.active({ id: this.id });
                 this.logService.info('extension ipc svc activated id: ' + this.id);
             }, 200, 10);
+            if (this.lastTimeActiveTelemetry === true) {
+                return;
+            }
+            this.telemetryService.sendRawTelemetryEvent('vscode_desktop_extension_ipc_svc_active', { id: this.id, userId: this.sessionService.getUserId(), active: true });
+            this.lastTimeActiveTelemetry = true;
         } catch (e) {
-            this.logService.error(e, 'failed to active extension ipc svc');
+            e.message = 'failed to active extension ipc svc: ' + e.message;
+            this.telemetryService.sendRawTelemetryEvent('vscode_desktop_extension_ipc_svc_active', { id: this.id, userId: this.sessionService.getUserId(), active: false });
+            this.logService.error(e);
+            if (this.lastTimeActiveTelemetry === false) {
+                return;
+            }
+            this.telemetryService.sendTelemetryException(e, { userId: this.sessionService.getUserId() });
+            this.lastTimeActiveTelemetry = false;
         }
     }
 
@@ -130,7 +144,7 @@ export class ExtensionServiceServer extends Disposable {
             try {
                 await this.localSSHServiceClient.ping({});
             } catch (err) {
-                // TODO: backoff
+                // TODO(local-ssh): backoff
                 this.logService.error('failed to ping local ssh service, going to start a new one', err);
                 ensureDaemonStarted(this.logService);
                 this.backoffActive();

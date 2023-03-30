@@ -415,7 +415,6 @@ export class RemoteConnector extends Disposable {
 		}
 	}
 
-	// @ts-ignore
 	private async getWorkspaceSSHDestination({ workspaceId, gitpodHost, debugWorkspace }: SSHConnectionParams): Promise<{ destination: SSHDestination; password?: string }> {
 		const sshKeysSupported = this.sessionService.getScopes().includes(ScopeFeature.SSHPublicKeys);
 
@@ -677,7 +676,7 @@ export class RemoteConnector extends Disposable {
 
 		this.logService.info('Opening Gitpod workspace', uri.toString());
 
-		this.usePublicApi = await this.experiments.getRaw<boolean>('gitpod_experimental_publicApi', { gitpodHost: params.gitpodHost }) ?? false;
+		this.usePublicApi = await this.experiments.getUsePublicAPI(params.gitpodHost)
 		this.logService.info(`Going to use ${this.usePublicApi ? 'public' : 'server'} API`);
 
 		const forceUseLocalApp = Configuration.getUseLocalApp(await this.experiments.getUseLocalSSHServer(params.gitpodHost));

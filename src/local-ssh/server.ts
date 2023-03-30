@@ -9,7 +9,7 @@ import { Logger, WorkspaceAuthInfo, ExitCode, exitProcess } from './common';
 import { LocalSSHServiceImpl, startLocalSSHService } from './ipc/localssh';
 import { SupervisorSSHTunnel } from './sshTunnel';
 
-// TODO(hw): how to mute github robot?
+// TODO(local-ssh): how to mute github robot?
 const HOST_KEY = `-----BEGIN OPENSSH PRIVATE KEY-----
 b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
 QyNTUxOQAAACAnRE2jO9ALTtj46AqrCGKe6h6nq186QuufTMl0tTZIVAAAAJgU6suzFOrL
