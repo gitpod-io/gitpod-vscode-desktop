@@ -531,6 +531,7 @@ export class RemoteConnector extends Disposable {
 
 		let user = workspaceId;
 		// See https://github.com/gitpod-io/gitpod/pull/9786 for reasoning about `.ssh` suffix
+		// TODO(local-ssh): Ping if `*.<local-ssh-domain>` is point to localhost
 		let hostname = workspaceId + '.local.hwen.dev';
 		if (debugWorkspace) {
 			user = 'debug-' + workspaceId;
