@@ -73,12 +73,6 @@
 						"default": false,
 						"scope": "application"
 					},
-					"gitpod.remote.useLocalSSHServer": {
-						"type": "boolean",
-						"description": "Use the local SSH server to connect to a remote workspace.",
-						"default": false,
-						"scope": "application"
-					},
 					"gitpod.localSSHServerPort": {
 						"type": "number",
 						"description": "The port to use for the local SSH server.",
