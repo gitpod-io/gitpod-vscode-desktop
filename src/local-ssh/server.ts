@@ -9,8 +9,8 @@ import { Logger, WorkspaceAuthInfo, ExitCode, exitProcess } from './common';
 import { LocalSSHServiceImpl, startLocalSSHService } from './ipc/localssh';
 import { SupervisorSSHTunnel } from './sshTunnel';
 
-// TODO(hw): generate one?
-const TEST_HOST_KEY = `-----BEGIN OPENSSH PRIVATE KEY-----
+// TODO(hw): how to mute github robot?
+const HOST_KEY = `-----BEGIN OPENSSH PRIVATE KEY-----
 b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
 QyNTUxOQAAACAnRE2jO9ALTtj46AqrCGKe6h6nq186QuufTMl0tTZIVAAAAJgU6suzFOrL
 swAAAAtzc2gtZWQyNTUxOQAAACAnRE2jO9ALTtj46AqrCGKe6h6nq186QuufTMl0tTZIVA
@@ -29,7 +29,7 @@ export class LocalSSHGatewayServer {
 	public startServer() {
 		const server = new Server({
 			ident: 'gitpod-local',
-			hostKeys: [TEST_HOST_KEY],
+			hostKeys: [HOST_KEY],
 			debug: (debug) => {
 				this.logger.debug(debug);
 			}
