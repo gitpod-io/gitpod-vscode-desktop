@@ -12,6 +12,9 @@ import { GetWorkspaceAuthInfoResponse } from '../proto/typescript/ipc/v1/ipc';
 // use `sudo lsof -i:42025` to check if the port is already in use
 export const LOCAL_SSH_GATEWAY_SERVER_PORT = 42025;
 
+// TODO(local-ssh): default should be different between stable and insiders?
+export const DAEMON_LOG_FILE = '/tmp/gp-daemon.log';
+
 export enum ExitCode {
 	OK = 0,
 	ListenPortFailed = 1,
@@ -37,9 +40,9 @@ export class Logger implements ILogger {
 		level: 'debug',
 		defaultMeta: { pid: process.pid },
 		transports: [
-			new winston.transports.File({ format: DefaultLogFormatter, filename: '/tmp/gp-daemon.log', options: { flags: 'a' }, maxsize: 1024 * 1024 * 10 /* 10M */, maxFiles: 2 /* 2 file turns */ }),
-			// for debug
-			new winston.transports.File({ filename: '/tmp/gp-daemon.' + process.pid + '.log', options: { flags: 'a' }, maxsize: 1024 * 1024 * 10 /* 10M */, maxFiles: 2 /* 2 file turns */ }),
+			new winston.transports.File({ format: DefaultLogFormatter, filename: DAEMON_LOG_FILE, options: { flags: 'a' }, maxsize: 1024 * 1024 * 10 /* 10M */, maxFiles: 2 /* 2 file turns */ }),
+			// // for debug
+			// new winston.transports.File({ filename: '/tmp/gp-daemon.' + process.pid + '.log', options: { flags: 'a' }, maxsize: 1024 * 1024 * 10 /* 10M */, maxFiles: 2 /* 2 file turns */ }),
 		],
 		exitOnError: false,
 	});
