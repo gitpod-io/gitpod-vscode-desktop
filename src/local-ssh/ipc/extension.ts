@@ -113,7 +113,6 @@ export class ExtensionServiceServer extends Disposable {
         private experiments: ExperimentalSettings,
     ) {
         super();
-        this.logService.info('going to start extension ipc service server with id', this.id);
         this.server = this.getServer();
         this.tryActive();
         this.hostService.onDidChangeHost(() => {
@@ -134,6 +133,7 @@ export class ExtensionServiceServer extends Disposable {
             this.server.shutdown();
             return;
         }
+        this.logService.info('going to start extension ipc service server with id', this.id);
         this.server.listen(getExtensionIPCHandleAddr(this.id)).then(() => {
             this.logService.info('extension ipc service server started to listen with id: ' + this.id);
             this.pingLocalSSHService();

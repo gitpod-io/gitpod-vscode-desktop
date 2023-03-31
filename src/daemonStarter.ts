@@ -59,7 +59,7 @@ export function parseArgv(options: DaemonOptions): string[] {
 export async function tryStartDaemon(logService: ILogService, options?: DaemonOptions) {
     const opts: DaemonOptions = { ...DefaultDaemonOptions, ...options };
     const args: string[] = [join(__dirname, 'local-ssh/daemon.js'), ...parseArgv(opts)];
-    logService.info('going to start local-ssh daemon', opts, args);
+    logService.debug('going to start local-ssh daemon', opts, args);
     const daemon = spawn(process.execPath, args, {
         detached: true,
         stdio: 'ignore',

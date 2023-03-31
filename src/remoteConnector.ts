@@ -686,7 +686,12 @@ export class RemoteConnector extends Disposable {
 		this.usePublicApi = await this.experiments.getUsePublicAPI(params.gitpodHost);
 		this.logService.info(`Going to use ${this.usePublicApi ? 'public' : 'server'} API`);
 
-		const forceUseLocalApp = Configuration.getUseLocalApp(await this.experiments.getUseLocalSSHServer(params.gitpodHost));
+		const useLocalSSH = await this.experiments.getUseLocalSSHServer(params.gitpodHost);
+		if (useLocalSSH) {
+			this.logService.info('Going to use lssh');
+		}
+
+		const forceUseLocalApp = Configuration.getUseLocalApp(useLocalSSH);
 		const userOverride = String(isUserOverrideSetting('gitpod.remote.useLocalApp'));
 		let sshDestination: SSHDestination | undefined;
 		if (!forceUseLocalApp) {
@@ -695,8 +700,7 @@ export class RemoteConnector extends Disposable {
 			try {
 				this.telemetryService.sendUserFlowStatus('connecting', gatewayFlow);
 
-				const useLocalSSHServer = await this.experiments.getUseLocalSSHServer(params.gitpodHost);
-				const { destination, password } = useLocalSSHServer ? await this.getLocalSSHWorkspaceSSHDestination(params) : await this.getWorkspaceSSHDestination(params);
+				const { destination, password } = useLocalSSH ? await this.getLocalSSHWorkspaceSSHDestination(params) : await this.getWorkspaceSSHDestination(params);
 
 				sshDestination = destination;
 
