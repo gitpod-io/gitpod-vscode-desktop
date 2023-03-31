@@ -6,9 +6,8 @@ const path = require('path');
 const webpack = require('webpack');
 const packageJSON = require('./package.json')
 
-// TODO(local-ssh): how to force reload if version changed? notification?
 const daemonVersion = new webpack.DefinePlugin({
-	'process.env.DAEMON_VERSION': JSON.stringify(packageJSON.version),
+	'process.env.DAEMON_VERSION': JSON.stringify(packageJSON['daemonVersion'] ?? '0.0.1'),
 });
 
 /**@type {import('webpack').Configuration}*/

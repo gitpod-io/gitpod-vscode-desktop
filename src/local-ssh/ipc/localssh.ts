@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ActiveRequest, ExtensionServiceDefinition, InactiveRequest, LocalSSHServiceDefinition, LocalSSHServiceImplementation, PingRequest } from '../../proto/typescript/ipc/v1/ipc';
+import { ActiveRequest, ExtensionServiceDefinition, GetDaemonVersionRequest, InactiveRequest, LocalSSHServiceDefinition, LocalSSHServiceImplementation, PingRequest } from '../../proto/typescript/ipc/v1/ipc';
 import { CallContext, Client, createChannel, createClient, createServer } from 'nice-grpc';
 import { ExitCode, exitProcess, getExtensionIPCHandleAddr, getLocalSSHIPCHandleAddr, getLocalSSHIPCHandlePath, Logger } from '../common';
 import { existsSync, unlinkSync } from 'fs';
@@ -15,6 +15,12 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
 
     constructor(private logger: Logger) {
         this.pingExtensionServices();
+    }
+
+    async getDaemonVersion(_request: GetDaemonVersionRequest, _context: CallContext): Promise<{ version?: string | undefined; }> {
+        return {
+            version: process.env.DAEMON_VERSION,
+        };
     }
 
     async active(request: ActiveRequest, _context: CallContext): Promise<{}> {

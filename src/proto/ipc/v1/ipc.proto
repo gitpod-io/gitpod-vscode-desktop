@@ -10,6 +10,9 @@ service LocalSSHService {
     rpc Inactive(InactiveRequest) returns (InactiveResponse) {}
 
     rpc Ping (PingRequest) returns (PingResponse) {}
+
+    // GetDaemonVersion returns the version of the daemon
+    rpc GetDaemonVersion(GetDaemonVersionRequest) returns (GetDaemonVersionResponse) {}
 }
 
 service ExtensionService {
@@ -33,6 +36,12 @@ message InactiveResponse {}
 message PingRequest {}
 
 message PingResponse {}
+
+message GetDaemonVersionRequest {}
+
+message GetDaemonVersionResponse {
+    string version = 1;
+}
 
 message GetWorkspaceAuthInfoRequest {
     string workspace_id = 1;

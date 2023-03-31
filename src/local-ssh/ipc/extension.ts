@@ -21,6 +21,7 @@ import { INotificationService } from '../../services/notificationService';
 import { showWsNotRunningDialog } from '../../remote';
 import { ITelemetryService, UserFlowTelemetry } from '../../services/telemetryService';
 import { ExperimentalSettings } from '../../experiments';
+import { SemVer } from 'semver';
 
 const phaseMap: Record<WorkspaceInstanceStatus_Phase, WorkspaceInstancePhase | undefined> = {
     [WorkspaceInstanceStatus_Phase.CREATING]: 'pending',
@@ -168,6 +169,10 @@ export class ExtensionServiceServer extends Disposable {
             try {
                 await this.localSSHServiceClient.ping({});
                 this.pingLocalSSHRetryCount = 0;
+                this.notifyIfDaemonNeedsRestart().catch(e => {
+                    e.message = 'failed to notify if daemon needs restart: ' + e.message;
+                    this.logService.error(e);
+                });
             } catch (err) {
                 this.logService.error('failed to ping local ssh service, going to start a new one', err);
                 ensureDaemonStarted(this.logService, this.telemetryService);
@@ -176,5 +181,16 @@ export class ExtensionServiceServer extends Disposable {
             }
             await timeout(1000 * 1);
         }
+    }
+
+    private async notifyIfDaemonNeedsRestart() {
+        const resp = await this.localSSHServiceClient.getDaemonVersion({});
+        const runningVersion = new SemVer(resp.version);
+        const wantedVersion = new SemVer(process.env.DAEMON_VERSION ?? '0.0.1');
+        if (runningVersion.compare(wantedVersion) >= 0) {
+            return;
+        }
+        // TODO(local-ssh): allow to hide always for current version (wantedVersion)
+        await this.notificationService.showWarningMessage('Restart VSCode to use latest lssh daemon', { id: 'daemon_needs_restart', flow: { flow: 'daemon_needs_restart' } });
     }
 }
