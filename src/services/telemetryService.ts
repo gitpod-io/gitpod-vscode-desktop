@@ -9,7 +9,7 @@ import * as os from 'os';
 import * as vscode from 'vscode';
 import { Configuration } from '../configuration';
 
-const analyticsClientFactory = async (key: string): Promise<BaseTelemetryClient> => {
+const analyticsClientFactory = async (key: string, logger: vscode.LogOutputChannel): Promise<BaseTelemetryClient> => {
 	let segmentAnalyticsClient = new Analytics({ writeKey: key });
 
 	// Sets the analytics client into a standardized form
@@ -20,9 +20,13 @@ const analyticsClientFactory = async (key: string): Promise<BaseTelemetryClient>
 					anonymousId: vscode.env.machineId,
 					event: eventName,
 					properties: data?.properties
+				}, (err: any) => {
+					if (err) {
+						logger.error('Failed to log event to app analytics:', err);
+					}
 				});
 			} catch (e: any) {
-				console.error('Failed to log event to app analytics!', e);
+				logger.error('Failed to log event to app analytics:', e);
 			}
 		},
 		logException: (exception: Error, data?: AppenderData) => {
@@ -60,17 +64,17 @@ const analyticsClientFactory = async (key: string): Promise<BaseTelemetryClient>
 				},
 			}).then((resp) => {
 				if (!resp.ok) {
-					console.log(`Metrics endpoint responded with ${resp.status} ${resp.statusText}`);
+					logger.warn(`Metrics endpoint responded with ${resp.status} ${resp.statusText}`);
 				}
 			}).catch((e) => {
-				console.error('Failed to report error to metrics endpoint!', e);
+				logger.error('Failed to report error to metrics endpoint!', e);
 			});
 		},
 		flush: async () => {
 			try {
 				await segmentAnalyticsClient.closeAndFlush({ timeout: 3000 });
 			} catch (e: any) {
-				console.error('Failed to flush app analytics!', e);
+				logger.error('Failed to flush app analytics!', e);
 			}
 		}
 	};
@@ -102,8 +106,8 @@ export interface ITelemetryService {
 }
 
 export class TelemetryService extends BaseTelemetryReporter implements ITelemetryService {
-	constructor(extensionId: string, extensionVersion: string, key: string) {
-		const appender = new BaseTelemetryAppender(key, (key) => analyticsClientFactory(key));
+	constructor(extensionId: string, extensionVersion: string, key: string, logger: vscode.LogOutputChannel) {
+		const appender = new BaseTelemetryAppender(key, (key) => analyticsClientFactory(key, logger));
 		super(extensionId, extensionVersion, appender, {
 			release: os.release(),
 			platform: os.platform(),
