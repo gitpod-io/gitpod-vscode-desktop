@@ -3,15 +3,17 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ExitCode, exitProcess, LOCAL_SSH_GATEWAY_SERVER_PORT, Logger } from './common';
+import { DaemonOptions, getOptionsFromArgv } from '../daemonStarter';
+import { ExitCode, exitProcess, Logger } from './common';
 import { LocalSSHGatewayServer } from './server';
 
 export class LocalSSHDaemon {
 	private gatewayServer?: LocalSSHGatewayServer;
+	private readonly logger: Logger;
 	constructor(
-		private readonly logger: Logger,
-		private readonly sshServerPort: number,
+		private readonly options: DaemonOptions,
 	) {
+		this.logger = new Logger(options.logLevel, options.logFilePath);
 		this.startDaemon();
 		this.onExit();
 		this.onException();
@@ -22,7 +24,7 @@ export class LocalSSHDaemon {
 		this.logger.info('starting daemon with pid: ' + process.pid);
 
 		// start local-ssh gateway server
-		const gatewayServer = new LocalSSHGatewayServer(this.logger, this.sshServerPort);
+		const gatewayServer = new LocalSSHGatewayServer(this.logger, this.options.serverPort);
 		gatewayServer.startServer();
 		this.logger.info('local ssh gateway server started');
 
@@ -49,6 +51,6 @@ export class LocalSSHDaemon {
 	}
 }
 
-const port = process.argv[2] ? parseInt(process.argv[2]) : LOCAL_SSH_GATEWAY_SERVER_PORT;
+const options = getOptionsFromArgv();
 
-new LocalSSHDaemon(new Logger(), port);
+new LocalSSHDaemon(options);

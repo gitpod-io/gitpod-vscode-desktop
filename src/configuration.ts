@@ -24,8 +24,26 @@ function getUseLocalApp(useLocalSSHServer?: boolean) {
     return vscode.workspace.getConfiguration('gitpod').get<boolean>('remote.useLocalApp', false);
 }
 
+function getLocalSSHServerPort() {
+    // TODO(local-ssh): VSCodium?
+    let defaultPort = 42025; // use `sudo lsof -i:42025` to check if the port is already in use
+    if (vscode.env.appName.includes('Insiders')) {
+        defaultPort = 42026;
+    }
+    return vscode.workspace.getConfiguration('gitpod').get<number>('lsshPort', defaultPort);
+}
+
+function getDaemonLogPath(): string {
+    if (vscode.env.appName.includes('Insiders')) {
+        return '/tmp/gitpod-vscode-daemon-insiders.log';
+    }
+    return '/tmp/gitpod-vscode-daemon.log';
+}
+
 export const Configuration = {
     getGitpodHost,
     getShowReleaseNotes,
-    getUseLocalApp
+    getUseLocalApp,
+    getLocalSSHServerPort,
+    getDaemonLogPath,
 };

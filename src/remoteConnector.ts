@@ -38,7 +38,7 @@ import { ISessionService } from './services/sessionService';
 import { ILogService } from './services/logService';
 import { IHostService } from './services/hostService';
 import { Configuration } from './configuration';
-import { getServiceURL } from './common/utils';
+import { getLocalSSHUrl, getServiceURL } from './common/utils';
 import { GitpodDefaultLocalhost as GITPOD_DEFAULT_LOCALHOST_RECORD, isDNSPointToLocalhost } from './local-ssh/common';
 
 interface LocalAppConfig {
@@ -521,6 +521,7 @@ export class RemoteConnector extends Disposable {
 		const isNotRunning = this.usePublicApi
 			? !((workspaceInfo as Workspace)?.status?.instance) || (workspaceInfo as Workspace)?.status?.instance?.status?.phase === WorkspaceInstanceStatus_Phase.STOPPING || (workspaceInfo as Workspace)?.status?.instance?.status?.phase === WorkspaceInstanceStatus_Phase.STOPPED
 			: !((workspaceInfo as WorkspaceInfo).latestInstance) || (workspaceInfo as WorkspaceInfo).latestInstance?.status?.phase === 'stopping' || (workspaceInfo as WorkspaceInfo).latestInstance?.status?.phase === 'stopped';
+
 		if (isNotRunning) {
 			throw new NoRunningInstanceError(
 				workspaceId,
@@ -530,17 +531,19 @@ export class RemoteConnector extends Disposable {
 			);
 		}
 
-		let user = workspaceId;
-		// See https://github.com/gitpod-io/gitpod/pull/9786 for reasoning about `.ssh` suffix
-		// TODO(local-ssh): get link from somewhere else / config
-		const domain = 'local.hwen.dev';
-		const ok = await isDNSPointToLocalhost(domain);
-		const hostname = workspaceId + '.' + (ok ? domain : GITPOD_DEFAULT_LOCALHOST_RECORD);
-		if (debugWorkspace) {
-			user = 'debug-' + workspaceId;
+		const domain = getLocalSSHUrl(gitpodHost);
+		const ok = await isDNSPointToLocalhost('*.' + domain);
+		if (!ok) {
+			this.logService.warn('DNS record for lssh is not pointing to localhost. Falling back to default record');
+		} else {
+			this.logService.info('DNS record for lssh is pointing to localhost');
 		}
+		const hostname = workspaceId + '.' + (ok ? domain : GITPOD_DEFAULT_LOCALHOST_RECORD);
+		const user = debugWorkspace ? ('debug-' + workspaceId) : workspaceId;
+		const port = Configuration.getLocalSSHServerPort();
+		this.logService.info('connecting with local ssh destination', { port, domain });
 		return {
-			destination: new SSHDestination(hostname, user, 42025),
+			destination: new SSHDestination(hostname, user, port),
 			password: '',
 		};
 	}
@@ -680,7 +683,7 @@ export class RemoteConnector extends Disposable {
 
 		this.logService.info('Opening Gitpod workspace', uri.toString());
 
-		this.usePublicApi = await this.experiments.getUsePublicAPI(params.gitpodHost)
+		this.usePublicApi = await this.experiments.getUsePublicAPI(params.gitpodHost);
 		this.logService.info(`Going to use ${this.usePublicApi ? 'public' : 'server'} API`);
 
 		const forceUseLocalApp = Configuration.getUseLocalApp(await this.experiments.getUseLocalSSHServer(params.gitpodHost));
@@ -692,7 +695,7 @@ export class RemoteConnector extends Disposable {
 			try {
 				this.telemetryService.sendUserFlowStatus('connecting', gatewayFlow);
 
-				const useLocalSSHServer = await this.experiments.getUseLocalSSHServer(params.gitpodHost)
+				const useLocalSSHServer = await this.experiments.getUseLocalSSHServer(params.gitpodHost);
 				const { destination, password } = useLocalSSHServer ? await this.getLocalSSHWorkspaceSSHDestination(params) : await this.getWorkspaceSSHDestination(params);
 
 				sshDestination = destination;

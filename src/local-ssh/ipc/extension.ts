@@ -8,7 +8,6 @@ import { Disposable } from '../../common/dispose';
 import { retry, timeout } from '../../common/async';
 export { ExtensionServiceDefinition } from '../../proto/typescript/ipc/v1/ipc';
 import { ensureDaemonStarted } from '../../daemonStarter';
-import { GitpodPublicApi } from '../../publicApi';
 import { withServerApi } from '../../internalApi';
 import { Workspace, WorkspaceInstanceStatus_Phase } from '@gitpod/public-api/lib/gitpod/experimental/v1';
 import { WorkspaceInfo, WorkspaceInstancePhase } from '@gitpod/gitpod-protocol';
@@ -80,12 +79,15 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
 }
 
 export class ExtensionServiceServer extends Disposable {
-    private server: Server;
+    static MAX_LOCAL_SSH_PING_RETRY_COUNT = 10;
+    static MAX_EXTENSION_ACTIVE_RETRY_COUNT = 10;
 
-    private localSSHServiceClient = createClient(LocalSSHServiceDefinition, createChannel(getLocalSSHIPCHandleAddr()));
-    public publicApi: GitpodPublicApi | undefined;
-    private readonly id: string = Math.random().toString(36).slice(2);
+    private server: Server;
+    private pingLocalSSHRetryCount = 0;
     private lastTimeActiveTelemetry: boolean | undefined;
+    private readonly id: string = Math.random().toString(36).slice(2);
+    private localSSHServiceClient = createClient(LocalSSHServiceDefinition, createChannel(getLocalSSHIPCHandleAddr()));
+
     constructor(
         private readonly logService: ILogService,
         private readonly sessionService: ISessionService,
@@ -107,9 +109,6 @@ export class ExtensionServiceServer extends Disposable {
         this.backoffActive();
 
         setTimeout(() => this.pingLocalSSHService(), 1000);
-
-        // TODO(local-ssh): ping local ssh service to make sure it's alive
-        // if not, restart it
     }
 
     private async backoffActive() {
@@ -117,7 +116,7 @@ export class ExtensionServiceServer extends Disposable {
             await retry(async () => {
                 await this.localSSHServiceClient.active({ id: this.id });
                 this.logService.info('extension ipc svc activated id: ' + this.id);
-            }, 200, 10);
+            }, 200, ExtensionServiceServer.MAX_EXTENSION_ACTIVE_RETRY_COUNT);
             if (this.lastTimeActiveTelemetry === true) {
                 return;
             }
@@ -139,15 +138,24 @@ export class ExtensionServiceServer extends Disposable {
         this.server.shutdown();
     }
 
+    /**
+     * pingLocalSSHService to see if it's still alive
+     * if not, start a new one
+     */
     private async pingLocalSSHService() {
         while (true) {
+            if (this.pingLocalSSHRetryCount > ExtensionServiceServer.MAX_LOCAL_SSH_PING_RETRY_COUNT) {
+                this.logService.error('failed to ping local ssh service for 10 times, stopping ping process');
+                return;
+            }
             try {
                 await this.localSSHServiceClient.ping({});
+                this.pingLocalSSHRetryCount = 0;
             } catch (err) {
-                // TODO(local-ssh): backoff with retry limit
                 this.logService.error('failed to ping local ssh service, going to start a new one', err);
                 ensureDaemonStarted(this.logService);
                 this.backoffActive();
+                this.pingLocalSSHRetryCount++;
             }
             await timeout(1000 * 1);
         }

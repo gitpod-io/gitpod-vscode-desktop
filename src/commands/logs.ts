@@ -12,7 +12,7 @@ import { Command } from '../commandManager';
 import { ILogService } from '../services/logService';
 import { INotificationService } from '../services/notificationService';
 import { ITelemetryService, UserFlowTelemetry } from '../services/telemetryService';
-import { DAEMON_LOG_FILE } from '../local-ssh/common';
+import { Configuration } from '../configuration';
 
 interface IFile {
 	path: string;
@@ -84,8 +84,9 @@ export class ExportLogsCommand implements Command {
 			}
 
 			const daemonLogs: IFile[] = [];
-			const daemonPath = path.posix.join('./local-ssh', path.posix.relative(localLogsUri.path, DAEMON_LOG_FILE))
-			const daemonLogContent = await vscode.workspace.fs.readFile(vscode.Uri.file(DAEMON_LOG_FILE));
+
+			const daemonPath = path.posix.join('./local-ssh', path.posix.relative(localLogsUri.path, Configuration.getDaemonLogPath()));
+			const daemonLogContent = await vscode.workspace.fs.readFile(vscode.Uri.file(Configuration.getDaemonLogPath()));
 			if (daemonLogContent.byteLength > 0) {
 				daemonLogs.push({
 					path: daemonPath,

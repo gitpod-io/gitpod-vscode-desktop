@@ -10,13 +10,6 @@ import { join } from 'path';
 import { GetWorkspaceAuthInfoResponse } from '../proto/typescript/ipc/v1/ipc';
 import { ILogService } from '../services/logService';
 
-// TODO(local-ssh): default should be different between stable and insiders?
-// use `sudo lsof -i:42025` to check if the port is already in use
-export const LOCAL_SSH_GATEWAY_SERVER_PORT = 42025;
-
-// TODO(local-ssh): default should be different between stable and insiders?
-export const DAEMON_LOG_FILE = '/tmp/gp-daemon.log';
-
 export enum ExitCode {
 	OK = 0,
 	ListenPortFailed = 1,
@@ -29,14 +22,18 @@ export function exitProcess(code: ExitCode) {
 
 const DefaultLogFormatter = winston.format.combine(winston.format.timestamp(), winston.format.errors({ stack: true }), winston.format.simple())
 export class Logger implements ILogService {
-	private logger: winston.Logger = winston.createLogger({
-		level: 'debug',
-		defaultMeta: { pid: process.pid },
-		transports: [
-			new winston.transports.File({ format: DefaultLogFormatter, filename: DAEMON_LOG_FILE, options: { flags: 'a' }, maxsize: 1024 * 1024 * 10 /* 10M */, maxFiles: 2 /* 2 file turns */ }),
-		],
-		exitOnError: false,
-	});
+	private logger: winston.Logger;
+
+	constructor(logLevel: 'debug' | 'info', logFile: string) {
+		this.logger = winston.createLogger({
+			level: logLevel,
+			defaultMeta: { pid: process.pid },
+			transports: [
+				new winston.transports.File({ format: DefaultLogFormatter, filename: logFile, options: { flags: 'a' }, maxsize: 1024 * 1024 * 10 /* 10M */, maxFiles: 2 /* 2 file turns */ }),
+			],
+			exitOnError: false,
+		});
+	}
 
 	trace(message: string, ...args: any[]): void {
 		this.logger.debug(message, ...args);
@@ -91,7 +88,7 @@ export type WorkspaceAuthInfo = GetWorkspaceAuthInfoResponse;
 
 export function isDNSPointToLocalhost(domain: string): Promise<boolean> {
 	return new Promise(resolve => {
-		dns.lookup('*.' + domain, { all: true }, (err, addresses) => {
+		dns.lookup(domain, { all: true }, (err, addresses) => {
 			if (err) {
 				resolve(false);
 			} else {
@@ -103,3 +100,4 @@ export function isDNSPointToLocalhost(domain: string): Promise<boolean> {
 }
 
 export const GitpodDefaultLocalhost = 'local.hwen.dev';
+// export const GitpodDefaultLocalhost = 'lssh.gitpod.io';

@@ -73,10 +73,9 @@
 						"default": false,
 						"scope": "application"
 					},
-					"gitpod.localSSHServerPort": {
+					"gitpod.lsshPort": {
 						"type": "number",
 						"description": "The port to use for the local SSH server.",
-						"default": 42025,
 						"scope": "application"
 					}
 				}
