@@ -126,17 +126,20 @@ export async function activate(context: vscode.ExtensionContext) {
 		telemetryService?.sendTelemetryException(e);
 		throw e;
 	} finally {
-		const activateProperties = {
+		const rawActivateProperties = {
 			remoteName: vscode.env.remoteName || '',
-			remoteUri: String(!!(vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.[0].uri)),
+			remoteUri: vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.[0].uri,
 			workspaceId: remoteConnectionInfo?.connectionInfo.workspaceId || '',
 			instanceId: remoteConnectionInfo?.connectionInfo.instanceId || '',
 			gitpodHost: remoteConnectionInfo?.connectionInfo.gitpodHost || '',
 			debugWorkspace: remoteConnectionInfo ? String(!!remoteConnectionInfo.connectionInfo.debugWorkspace) : '',
 			success: String(success)
 		};
-		logger?.info('Activation properties:', JSON.stringify(activateProperties, undefined, 2));
-		telemetryService?.sendTelemetryEvent('vscode_desktop_activate', activateProperties);
+		logger?.info('Activation properties:', JSON.stringify(rawActivateProperties, undefined, 2));
+		telemetryService?.sendTelemetryEvent('vscode_desktop_activate', {
+			...rawActivateProperties,
+			remoteUri:	String(!!rawActivateProperties.remoteUri)
+		});
 	}
 }
 
