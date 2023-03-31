@@ -107,7 +107,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		commandManager.register(new SignInCommand(sessionService));
 		commandManager.register(new ExportLogsCommand(context.logUri, notificationService, telemetryService, logger));
 
-		await ensureDaemonStarted(logger);
+		await ensureDaemonStarted(logger, telemetryService, 3);
 
 		if (!context.globalState.get<boolean>(FIRST_INSTALL_KEY, false)) {
 			context.globalState.update(FIRST_INSTALL_KEY, true);
@@ -145,7 +145,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		logger?.info('Activation properties:', JSON.stringify(rawActivateProperties, undefined, 2));
 		telemetryService?.sendTelemetryEvent('vscode_desktop_activate', {
 			...rawActivateProperties,
-			remoteUri:	String(!!rawActivateProperties.remoteUri)
+			remoteUri: String(!!rawActivateProperties.remoteUri)
 		});
 	}
 }

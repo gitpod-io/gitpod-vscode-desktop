@@ -9,29 +9,31 @@ import { ExitCode } from './local-ssh/common';
 import { ILogService } from './services/logService';
 import { timeout } from './common/async';
 import { Configuration } from './configuration';
+import { ITelemetryService } from './services/telemetryService';
 
-export async function ensureDaemonStarted(logService: ILogService, retry = 10) {
+export async function ensureDaemonStarted(logService: ILogService, telemetryService: ITelemetryService, retry = 10) {
     if (retry < 0) {
         return;
     }
-    const localAppProcess = await tryStartDaemon(logService);
+    const process = await tryStartDaemon(logService);
     const ok = await new Promise<boolean>(resolve => {
-        localAppProcess.once('exit', async code => {
+        process.once('exit', async code => {
+            logService.error('lssh exit with code: ' + code);
             switch (code) {
                 case ExitCode.OK:
                 case ExitCode.ListenPortFailed:
-                    logService.error('exit with code: ' + code);
                     resolve(true);
                     return;
             }
-            logService.error('unexpectedly exit with code: ' + code + ' attempt retry: ' + retry);
+            logService.error('lssh unexpectedly exit with code: ' + code + ' attempt retry: ' + retry);
             resolve(false);
-            // TODO(local-ssh): send telemetry?
+            const humanReadableCode = code !== null ? ExitCode[code] : 'UNSPECIFIED';
+            telemetryService.sendTelemetryException(new Error(`unexpectedly exit with code ${humanReadableCode} ${code} attempt retry: ${retry}`), { humanReadableCode, code: code?.toString() ?? 'null' });
         });
     });
     if (!ok) {
         await timeout(1000);
-        await ensureDaemonStarted(logService, retry - 1);
+        await ensureDaemonStarted(logService, telemetryService, retry - 1);
     }
 }
 

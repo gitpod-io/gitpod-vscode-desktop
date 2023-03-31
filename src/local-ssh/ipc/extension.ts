@@ -98,17 +98,34 @@ export class ExtensionServiceServer extends Disposable {
     ) {
         super();
         this.logService.info('going to start extension ipc service server with id', this.id);
+        this.server = this.getServer();
+        this.tryActive();
+        this.hostService.onDidChangeHost(() => {
+            this.tryActive();
+        });
+    }
+
+    private getServer(): Server {
         const server = createServer();
         const serviceImpl = new ExtensionServiceImpl(this.logService, this.sessionService, this.hostService, this.notificationService, this.experiments);
         server.add(ExtensionServiceDefinition, serviceImpl);
-        server.listen(getExtensionIPCHandleAddr(this.id)).then(() => {
+        return server;
+    }
+
+    private async tryActive() {
+        const useLocalSSH = await this.experiments.getUseLocalSSHServer(this.hostService.gitpodHost);
+        if (!useLocalSSH) {
+            this.server.shutdown();
+            return;
+        }
+        this.server.listen(getExtensionIPCHandleAddr(this.id)).then(() => {
             this.logService.info('extension ipc service server started to listen with id: ' + this.id);
-        }).catch(this.logService.error);
-        this.server = server;
-
-        this.backoffActive();
-
-        setTimeout(() => this.pingLocalSSHService(), 1000);
+            this.pingLocalSSHService();
+            this.backoffActive();
+        }).catch(e => {
+            e.message = 'extension ipc service server failed to listen with id: ' + this.id + ', error: ' + e.message;
+            this.logService.error(e);
+        });
     }
 
     private async backoffActive() {
@@ -153,7 +170,7 @@ export class ExtensionServiceServer extends Disposable {
                 this.pingLocalSSHRetryCount = 0;
             } catch (err) {
                 this.logService.error('failed to ping local ssh service, going to start a new one', err);
-                ensureDaemonStarted(this.logService);
+                ensureDaemonStarted(this.logService, this.telemetryService);
                 this.backoffActive();
                 this.pingLocalSSHRetryCount++;
             }
