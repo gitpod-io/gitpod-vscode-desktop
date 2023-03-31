@@ -85,7 +85,7 @@ export class ExportLogsCommand implements Command {
 
 			const daemonLogs: IFile[] = [];
 
-			const daemonPath = path.posix.join('./local-ssh', path.posix.relative(localLogsUri.path, Configuration.getDaemonLogPath()));
+			const daemonPath = path.posix.join('./lssh', 'daemon.log');
 			const daemonLogContent = await vscode.workspace.fs.readFile(vscode.Uri.file(Configuration.getDaemonLogPath()));
 			if (daemonLogContent.byteLength > 0) {
 				daemonLogs.push({

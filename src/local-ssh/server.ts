@@ -5,9 +5,10 @@
 
 import { Client, ConnectConfig, Server } from 'ssh2';
 import { Server as GrpcServer } from 'nice-grpc';
-import { Logger, WorkspaceAuthInfo, ExitCode, exitProcess } from './common';
+import { WorkspaceAuthInfo, ExitCode, exitProcess } from './common';
 import { LocalSSHServiceImpl, startLocalSSHService } from './ipc/localssh';
 import { SupervisorSSHTunnel } from './sshTunnel';
+import { ILogService } from '../services/logService';
 
 // TODO(local-ssh): how to mute github robot(if we have)?
 const HOST_KEY = `-----BEGIN OPENSSH PRIVATE KEY-----
@@ -27,7 +28,7 @@ export class LocalSSHGatewayServer {
 	private localsshService!: LocalSSHServiceImpl;
 	private localsshServiceServer?: GrpcServer;
 	constructor(
-		private readonly logger: Logger,
+		private readonly logger: ILogService,
 		private readonly port: number,
 	) { }
 

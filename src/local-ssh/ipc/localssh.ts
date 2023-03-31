@@ -5,15 +5,16 @@
 
 import { ActiveRequest, ExtensionServiceDefinition, GetDaemonVersionRequest, InactiveRequest, LocalSSHServiceDefinition, LocalSSHServiceImplementation, PingRequest } from '../../proto/typescript/ipc/v1/ipc';
 import { CallContext, Client, createChannel, createClient, createServer } from 'nice-grpc';
-import { ExitCode, exitProcess, getExtensionIPCHandleAddr, getLocalSSHIPCHandleAddr, getLocalSSHIPCHandlePath, Logger } from '../common';
+import { ExitCode, exitProcess, getExtensionIPCHandleAddr, getLocalSSHIPCHandleAddr, getLocalSSHIPCHandlePath } from '../common';
 import { existsSync, unlinkSync } from 'fs';
 import { retry } from '../../common/async';
+import { ILogService } from '../../services/logService';
 
 export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
     public extensionServices: { id: string; client: Client<ExtensionServiceDefinition> }[] = [];
     private exitCancel?: NodeJS.Timeout;
 
-    constructor(private logger: Logger) {
+    constructor(private logger: ILogService) {
         this.pingExtensionServices();
     }
 
@@ -70,6 +71,7 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
                     return;
                 }
                 // exit immediately if no extension service client activated
+                this.logger.info('no extension service client activated, exiting...');
                 exitProcess(ExitCode.OK);
             } else if (this.exitCancel) {
                 clearTimeout(this.exitCancel);

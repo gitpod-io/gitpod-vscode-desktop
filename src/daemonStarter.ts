@@ -18,7 +18,8 @@ export async function ensureDaemonStarted(logService: ILogService, telemetryServ
     const process = await tryStartDaemon(logService);
     const ok = await new Promise<boolean>(resolve => {
         process.once('exit', async code => {
-            logService.error('lssh exit with code: ' + code);
+            const humanReadableCode = code !== null ? ExitCode[code] : 'UNSPECIFIED';
+            logService.error(`lssh exit with code ${humanReadableCode} ${code}`);
             switch (code) {
                 case ExitCode.OK:
                 case ExitCode.ListenPortFailed:
@@ -27,7 +28,6 @@ export async function ensureDaemonStarted(logService: ILogService, telemetryServ
             }
             logService.error('lssh unexpectedly exit with code: ' + code + ' attempt retry: ' + retry);
             resolve(false);
-            const humanReadableCode = code !== null ? ExitCode[code] : 'UNSPECIFIED';
             telemetryService.sendTelemetryException(new Error(`unexpectedly exit with code ${humanReadableCode} ${code} attempt retry: ${retry}`), { humanReadableCode, code: code?.toString() ?? 'null' });
         });
     });
@@ -47,38 +47,19 @@ export interface DaemonOptions {
 
 const DefaultDaemonOptions: DaemonOptions = {
     logLevel: 'info',
+    // use `sudo lsof -i:<port>` to check if the port is already in use
     serverPort: Configuration.getLocalSSHServerPort(),
     logFilePath: Configuration.getDaemonLogPath(),
 };
-
-export function getOptionsFromArgv(): DaemonOptions {
-    const options: DaemonOptions = { ...DefaultDaemonOptions };
-    const args = process.argv.slice(2);
-    if (args.length < 2) {
-        return options;
-    }
-    if (args[0] === 'debug' || args[0] === 'info') {
-        options.logLevel = args[0] as any;
-    }
-    const serverPort = parseInt(args[1]);
-    if (!isNaN(serverPort)) {
-        options.serverPort = serverPort;
-    }
-    const logFilePath = args[2];
-    if (logFilePath) {
-        options.logFilePath = logFilePath;
-    }
-    return options;
-}
 
 export function parseArgv(options: DaemonOptions): string[] {
     return [options.logLevel, options.serverPort.toString(), options.logFilePath];
 }
 
 export async function tryStartDaemon(logService: ILogService, options?: DaemonOptions) {
-    logService.info('going to start local-ssh daemon');
     const opts: DaemonOptions = { ...DefaultDaemonOptions, ...options };
     const args: string[] = [join(__dirname, 'local-ssh/daemon.js'), ...parseArgv(opts)];
+    logService.info('going to start local-ssh daemon', opts, args);
     const daemon = spawn(process.execPath, args, {
         detached: true,
         stdio: 'ignore',

@@ -3,16 +3,40 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { DaemonOptions, getOptionsFromArgv } from '../daemonStarter';
-import { ExitCode, exitProcess, Logger } from './common';
+import { DaemonOptions } from '../daemonStarter';
+import { ILogService } from '../services/logService';
+import { ExitCode, exitProcess } from './common';
 import { LocalSSHGatewayServer } from './server';
+import { Logger } from './logger';
+
+// getOptionsFromArgv can't be in common.ts because it will import vscode
+export function getOptionsFromArgv(): DaemonOptions | undefined {
+	const args = process.argv.slice(2);
+	const options: DaemonOptions = {
+		logLevel: args[0] as any,
+		serverPort: parseInt(args[1]),
+		logFilePath: args[2],
+	};
+	if (isNaN(options.serverPort) ||
+		!['debug', 'info'].includes(options.logLevel) ||
+		!options.logFilePath) {
+		return;
+	}
+	return options;
+}
 
 export class LocalSSHDaemon {
 	private gatewayServer?: LocalSSHGatewayServer;
-	private readonly logger: Logger;
+	private readonly logger!: ILogService;
+	private readonly options!: DaemonOptions;
 	constructor(
-		private readonly options: DaemonOptions,
 	) {
+		const options = getOptionsFromArgv();
+		if (!options) {
+			exitProcess(ExitCode.InvalidOptions);
+			return;
+		}
+		this.options = options;
 		this.logger = new Logger(options.logLevel, options.logFilePath);
 		this.startDaemon();
 		this.onExit();
@@ -51,6 +75,4 @@ export class LocalSSHDaemon {
 	}
 }
 
-const options = getOptionsFromArgv();
-
-new LocalSSHDaemon(options);
+new LocalSSHDaemon();
