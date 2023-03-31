@@ -8,6 +8,7 @@ import winston from 'winston';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { GetWorkspaceAuthInfoResponse } from '../proto/typescript/ipc/v1/ipc';
+import { ILogService } from '../services/logService';
 
 // TODO(local-ssh): default should be different between stable and insiders?
 // use `sudo lsof -i:42025` to check if the port is already in use
@@ -26,24 +27,13 @@ export function exitProcess(code: ExitCode) {
 	process.exit(code);
 }
 
-export interface ILogger {
-	trace(message: string, ...args: any[]): void;
-	debug(message: string, ...args: any[]): void;
-	info(message: string, ...args: any[]): void;
-	warn(message: string, ...args: any[]): void;
-	error(error: string | Error, ...args: any[]): void;
-}
-
-// TODO(local-ssh): !!!!!!!!!!!!!! winston is **, we should use a better logger
 const DefaultLogFormatter = winston.format.combine(winston.format.timestamp(), winston.format.errors({ stack: true }), winston.format.simple())
-export class Logger implements ILogger {
+export class Logger implements ILogService {
 	private logger: winston.Logger = winston.createLogger({
 		level: 'debug',
 		defaultMeta: { pid: process.pid },
 		transports: [
 			new winston.transports.File({ format: DefaultLogFormatter, filename: DAEMON_LOG_FILE, options: { flags: 'a' }, maxsize: 1024 * 1024 * 10 /* 10M */, maxFiles: 2 /* 2 file turns */ }),
-			// // for debug
-			// new winston.transports.File({ filename: '/tmp/gp-daemon.' + process.pid + '.log', options: { flags: 'a' }, maxsize: 1024 * 1024 * 10 /* 10M */, maxFiles: 2 /* 2 file turns */ }),
 		],
 		exitOnError: false,
 	});
@@ -62,6 +52,10 @@ export class Logger implements ILogger {
 	}
 	error(error: string | Error, ...args: any[]): void {
 		this.logger.error(error as any, ...args);
+	}
+
+	show(): void {
+		// no-op
 	}
 }
 

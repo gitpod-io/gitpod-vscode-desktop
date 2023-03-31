@@ -11,8 +11,9 @@ import { CreateSSHKeyPairRequest, CreateSSHKeyPairResponse } from '@gitpod/super
 import { NodeHttpTransport } from '@improbable-eng/grpc-web-node-http-transport';
 import { grpc } from '@improbable-eng/grpc-web';
 import { BrowserHeaders } from 'browser-headers';
-import { ILogger, WorkspaceAuthInfo } from './common';
+import { WorkspaceAuthInfo } from './common';
 import { ConnectConfig } from 'ssh2';
+import { ILogService } from '../services/logService';
 
 grpc.setDefaultTransport(NodeHttpTransport());
 
@@ -41,7 +42,7 @@ class SupervisorPortTunnelMessage extends ChannelOpenMessage {
 export class SupervisorSSHTunnel {
 
 	constructor(
-		private readonly logger: ILogger,
+		private readonly logger: ILogService,
 		readonly workspaceInfo: WorkspaceAuthInfo,
 	) { }
 
