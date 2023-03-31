@@ -37,6 +37,21 @@ const phaseMap: Record<WorkspaceInstanceStatus_Phase, WorkspaceInstancePhase | u
 };
 
 export class ExtensionServiceImpl implements ExtensionServiceImplementation {
+    private notificationGapSet = new Set<string>();
+
+    constructor(private logService: ILogService, private sessionService: ISessionService, private hostService: IHostService, private notificationService: INotificationService, private experiments: ExperimentalSettings) { }
+
+    private canShowNotification(id: string) {
+        if (this.notificationGapSet.has(id)) {
+            return false;
+        }
+        this.notificationGapSet.add(id);
+        setTimeout(() => {
+            this.notificationGapSet.delete(id);
+        }, 10000); // clean gap after 10s
+        return true;
+    }
+
     async ping(_request: PingRequest, _context: CallContext): Promise<{}> {
         return {};
     }
@@ -57,9 +72,11 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
 
         const phase = usePublicApi ? phaseMap[(workspace as Workspace).status?.instance?.status?.phase ?? WorkspaceInstanceStatus_Phase.UNSPECIFIED] : (workspace as WorkspaceInfo).latestInstance?.status.phase;
         if (phase !== 'running') {
-            const flow: UserFlowTelemetry = { workspaceId, gitpodHost, userId: this.sessionService.getUserId(), flow: 'extension_ipc' };
-            // TODO(local-ssh): show notification only once
-            showWsNotRunningDialog(workspaceId, gitpodHost, flow, this.notificationService, this.logService);
+            const show = this.canShowNotification(workspaceId);
+            if (show) {
+                const flow: UserFlowTelemetry = { workspaceId, gitpodHost, userId: this.sessionService.getUserId(), flow: 'extension_ipc' };
+                showWsNotRunningDialog(workspaceId, gitpodHost, flow, this.notificationService, this.logService);
+            }
             throw new ServerError(Status.UNAVAILABLE, 'workspace is not running, current phase: ' + phase);
         }
 
@@ -75,8 +92,6 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
             ownerToken,
         };
     }
-
-    constructor(private logService: ILogService, private sessionService: ISessionService, private hostService: IHostService, private notificationService: INotificationService, private experiments: ExperimentalSettings) { }
 }
 
 export class ExtensionServiceServer extends Disposable {
