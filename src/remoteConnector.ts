@@ -39,7 +39,7 @@ import { ILogService } from './services/logService';
 import { IHostService } from './services/hostService';
 import { Configuration } from './configuration';
 import { getLocalSSHUrl, getServiceURL } from './common/utils';
-import { GitpodDefaultLocalhost as GITPOD_DEFAULT_LOCALHOST_RECORD, isDNSPointToLocalhost } from './local-ssh/common';
+import { GitpodDefaultLocalhost as GITPOD_DEFAULT_LOCALHOST_RECORD, isDNSPointToLocalhost, isDomainConnectable } from './local-ssh/common';
 
 interface LocalAppConfig {
 	gitpodHost: string;
@@ -532,13 +532,20 @@ export class RemoteConnector extends Disposable {
 		}
 
 		const domain = getLocalSSHUrl(gitpodHost);
-		const ok = await isDNSPointToLocalhost('*.' + domain);
+		let hostname = workspaceId + '.' + domain;
+		const ok = await isDNSPointToLocalhost(this.logService, hostname);
 		if (!ok) {
 			this.logService.warn('DNS record for lssh is not pointing to localhost. Falling back to default record');
+			const defaultOK = await isDomainConnectable(this.logService, workspaceId + '.' + GITPOD_DEFAULT_LOCALHOST_RECORD);
+			if (defaultOK) {
+				hostname = workspaceId + '.' + GITPOD_DEFAULT_LOCALHOST_RECORD;
+			} else {
+				this.logService.warn('Default DNS record is not connectable. Falling back to localhost');
+				hostname = 'localhost';
+			}
 		} else {
-			this.logService.info('DNS record for lssh is pointing to localhost');
+			this.logService.debug('DNS record for lssh is pointing to localhost');
 		}
-		const hostname = workspaceId + '.' + (ok ? domain : GITPOD_DEFAULT_LOCALHOST_RECORD);
 		const user = debugWorkspace ? ('debug-' + workspaceId) : workspaceId;
 		const port = Configuration.getLocalSSHServerPort();
 		this.logService.info('connecting with local ssh destination', { port, domain });

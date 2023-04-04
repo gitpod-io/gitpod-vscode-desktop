@@ -156,14 +156,15 @@ export class ExtensionServiceServer extends Disposable {
             this.telemetryService.sendRawTelemetryEvent('vscode_desktop_extension_ipc_svc_active', { id: this.id, userId: this.sessionService.getUserId(), active: true });
             this.lastTimeActiveTelemetry = true;
         } catch (e) {
-            e.message = 'failed to active extension ipc svc: ' + e.message;
-            this.telemetryService.sendRawTelemetryEvent('vscode_desktop_extension_ipc_svc_active', { id: this.id, userId: this.sessionService.getUserId(), active: false });
-            this.logService.error(e);
-            if (this.lastTimeActiveTelemetry === false) {
-                return;
-            }
-            this.telemetryService.sendTelemetryException(e, { userId: this.sessionService.getUserId() });
-            this.lastTimeActiveTelemetry = false;
+            // TODO(local-ssh): may lead Error
+            // e.message = 'failed to active extension ipc svc: ' + e.message;
+            // this.telemetryService.sendRawTelemetryEvent('vscode_desktop_extension_ipc_svc_active', { id: this.id, userId: this.sessionService.getUserId(), active: false });
+            // this.logService.error(e);
+            // if (this.lastTimeActiveTelemetry === false) {
+            //     return;
+            // }
+            // this.telemetryService.sendTelemetryException(e, { userId: this.sessionService.getUserId() });
+            // this.lastTimeActiveTelemetry = false;
         }
     }
 
@@ -190,7 +191,7 @@ export class ExtensionServiceServer extends Disposable {
                 });
             } catch (err) {
                 this.logService.error('failed to ping local ssh service, going to start a new one', err);
-                ensureDaemonStarted(this.logService, this.telemetryService);
+                ensureDaemonStarted(this.logService, this.telemetryService).catch(() => { });
                 this.backoffActive();
                 this.pingLocalSSHRetryCount++;
             }

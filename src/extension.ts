@@ -107,7 +107,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		commandManager.register(new SignInCommand(sessionService));
 		commandManager.register(new ExportLogsCommand(context.logUri, notificationService, telemetryService, logger));
 
-		await ensureDaemonStarted(logger, telemetryService, 3);
+		ensureDaemonStarted(logger, telemetryService, 3).then(() => { });
 
 		if (!context.globalState.get<boolean>(FIRST_INSTALL_KEY, false)) {
 			context.globalState.update(FIRST_INSTALL_KEY, true);

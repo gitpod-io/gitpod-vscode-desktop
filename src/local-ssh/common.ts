@@ -7,6 +7,7 @@ import dns from 'dns';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { GetWorkspaceAuthInfoResponse } from '../proto/typescript/ipc/v1/ipc';
+import { ILogService } from '../services/logService';
 
 export enum ExitCode {
 	OK = 0,
@@ -49,18 +50,36 @@ export function getExtensionIPCHandleAddr(id: string): string {
 export type WorkspaceAuthInfo = GetWorkspaceAuthInfoResponse;
 
 
-export function isDNSPointToLocalhost(domain: string): Promise<boolean> {
+export function isDNSPointToLocalhost(logService: ILogService, domain: string): Promise<boolean> {
 	return new Promise(resolve => {
 		dns.lookup(domain, { all: true }, (err, addresses) => {
 			if (err) {
 				resolve(false);
 			} else {
-				console.log(addresses);
+				for (const addr of addresses) {
+					if ((addr.family === 4 && addr.address === '127.0.0.1') || (addr.family === 6 && addr.address === '::1')) {
+						resolve(true);
+						return;
+					}
+				}
+				logService.warn('current domain is not point to localhost', domain, addresses);
+				resolve(false);
+			}
+		});
+	});
+}
+
+export function isDomainConnectable(logService: ILogService, domain: string): Promise<boolean> {
+	return new Promise(resolve => {
+		dns.lookup(domain, (err, _address) => {
+			if (err) {
+				logService.warn('current domain is not connectable', domain, err);
+				resolve(false);
+			} else {
 				resolve(true);
 			}
 		});
 	});
 }
 
-export const GitpodDefaultLocalhost = 'local.hwen.dev';
-// export const GitpodDefaultLocalhost = 'lssh.gitpod.io';
+export const GitpodDefaultLocalhost = 'lssh.gitpod.io';
