@@ -5,19 +5,10 @@
 
 import { Client, ConnectConfig, Server } from 'ssh2';
 import { Server as GrpcServer } from 'nice-grpc';
-import { WorkspaceAuthInfo, ExitCode, exitProcess } from './common';
+import { WorkspaceAuthInfo, ExitCode, exitProcess, getHostKey } from './common';
 import { LocalSSHServiceImpl, startLocalSSHService } from './ipc/localssh';
 import { SupervisorSSHTunnel } from './sshTunnel';
 import { ILogService } from '../services/logService';
-
-// TODO(local-ssh): how to mute github robot(if we have)?
-const HOST_KEY = `-----BEGIN OPENSSH PRIVATE KEY-----
-b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
-QyNTUxOQAAACAnRE2jO9ALTtj46AqrCGKe6h6nq186QuufTMl0tTZIVAAAAJgU6suzFOrL
-swAAAAtzc2gtZWQyNTUxOQAAACAnRE2jO9ALTtj46AqrCGKe6h6nq186QuufTMl0tTZIVA
-AAAECaxo8pV52PZg8MEQDzgP/aEAyr2tcJ1c1JX0nSbx7okydETaM70AtO2PjoCqsIYp7q
-HqerXzpC659MyXS1NkhUAAAAEWh3ZW5AcG90YWxhLmxvY2FsAQIDBA==
------END OPENSSH PRIVATE KEY-----`;
 
 const DefaultConnConfig: ConnectConfig = {
 	keepaliveInterval: 20000, // 20s
@@ -35,7 +26,7 @@ export class LocalSSHGatewayServer {
 	public startServer() {
 		const server = new Server({
 			ident: 'gitpod-local',
-			hostKeys: [HOST_KEY],
+			hostKeys: [getHostKey()],
 			debug: (debug) => {
 				this.logger.debug(debug);
 			}

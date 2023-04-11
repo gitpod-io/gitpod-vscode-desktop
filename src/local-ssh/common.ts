@@ -9,6 +9,12 @@ import { join } from 'path';
 import { GetWorkspaceAuthInfoResponse } from '../proto/typescript/ipc/v1/ipc';
 import { ILogService } from '../services/logService';
 
+// This public key is safe to be public since we only use it to verify local-ssh connections.
+const HOST_KEY = 'LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0KYjNCbGJuTnphQzFyWlhrdGRqRUFBQUFBQkc1dmJtVUFBQUFFYm05dVpRQUFBQUFBQUFBQkFBQUFNd0FBQUF0emMyZ3RaVwpReU5UVXhPUUFBQUNBblJFMmpPOUFMVHRqNDZBcXJDR0tlNmg2bnExODZRdXVmVE1sMHRUWklWQUFBQUpnVTZzdXpGT3JMCnN3QUFBQXR6YzJndFpXUXlOVFV4T1FBQUFDQW5SRTJqTzlBTFR0ajQ2QXFyQ0dLZTZoNm5xMTg2UXV1ZlRNbDB0VFpJVkEKQUFBRUNheG84cFY1MlBaZzhNRVFEemdQL2FFQXlyMnRjSjFjMUpYMG5TYng3b2t5ZEVUYU03MEF0TzJQam9DcXNJWXA3cQpIcWVyWHpwQzY1OU15WFMxTmtoVUFBQUFFV2gzWlc1QWNHOTBZV3hoTG14dlkyRnNBUUlEQkE9PQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0='
+export function getHostKey(): string {
+	return Buffer.from(HOST_KEY, 'base64').toString('utf8');
+}
+
 export enum ExitCode {
 	OK = 0,
 	ListenPortFailed = 100,

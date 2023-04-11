@@ -153,18 +153,24 @@ export class ExtensionServiceServer extends Disposable {
             if (this.lastTimeActiveTelemetry === true) {
                 return;
             }
-            this.telemetryService.sendRawTelemetryEvent('vscode_desktop_extension_ipc_svc_active', { id: this.id, userId: this.sessionService.getUserId(), active: true });
-            this.lastTimeActiveTelemetry = true;
+            const userID = this.sessionService.getUserId();
+            if (userID) {
+                this.telemetryService.sendRawTelemetryEvent('vscode_desktop_extension_ipc_svc_active', { id: this.id, userId: this.sessionService.getUserId(), active: true });
+                this.lastTimeActiveTelemetry = true;
+            }
         } catch (e) {
-            // TODO(local-ssh): may lead Error
-            // e.message = 'failed to active extension ipc svc: ' + e.message;
-            // this.telemetryService.sendRawTelemetryEvent('vscode_desktop_extension_ipc_svc_active', { id: this.id, userId: this.sessionService.getUserId(), active: false });
-            // this.logService.error(e);
-            // if (this.lastTimeActiveTelemetry === false) {
-            //     return;
-            // }
-            // this.telemetryService.sendTelemetryException(e, { userId: this.sessionService.getUserId() });
-            // this.lastTimeActiveTelemetry = false;
+            const userID = this.sessionService.getUserId();
+            if (!userID) {
+                return;
+            }
+            e.message = 'failed to active extension ipc svc: ' + e.message;
+            this.telemetryService.sendRawTelemetryEvent('vscode_desktop_extension_ipc_svc_active', { id: this.id, userId: this.sessionService.getUserId(), active: false });
+            this.logService.error(e);
+            if (this.lastTimeActiveTelemetry === false) {
+                return;
+            }
+            this.telemetryService.sendTelemetryException(e, { userId: this.sessionService.getUserId() });
+            this.lastTimeActiveTelemetry = false;
         }
     }
 
@@ -207,6 +213,6 @@ export class ExtensionServiceServer extends Disposable {
             return;
         }
         // TODO(local-ssh): allow to hide always for current version (wantedVersion)
-        await this.notificationService.showWarningMessage('Restart VSCode to use latest lssh daemon', { id: 'daemon_needs_restart', flow: { flow: 'daemon_needs_restart' } });
+        await this.notificationService.showWarningMessage('Restart VSCode to use latest local ssh daemon', { id: 'daemon_needs_restart', flow: { flow: 'daemon_needs_restart' } });
     }
 }
