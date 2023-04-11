@@ -56,6 +56,11 @@ const analyticsClientFactory = async (key: string, logger: vscode.LogOutputChann
 				userId,
 				properties,
 			};
+			const isProduction = properties['common.isproduction'] === true;
+			if (!isProduction && serviceUrl.hostname === 'gitpod.io') {
+				logger.error('Error reported to metrics endpoint:', jsonData);
+				return;
+			}
 			fetch(errorMetricsEndpoint, {
 				method: 'POST',
 				body: JSON.stringify(jsonData),
@@ -106,13 +111,13 @@ export interface ITelemetryService {
 }
 
 export class TelemetryService extends BaseTelemetryReporter implements ITelemetryService {
-	constructor(extensionId: string, extensionVersion: string, key: string, logger: vscode.LogOutputChannel) {
+	constructor(extensionId: string, extensionVersion: string, key: string, logger: vscode.LogOutputChannel, isProduction: boolean) {
 		const appender = new BaseTelemetryAppender(key, (key) => analyticsClientFactory(key, logger));
 		super(extensionId, extensionVersion, appender, {
 			release: os.release(),
 			platform: os.platform(),
 			architecture: os.arch(),
-		});
+		}, isProduction);
 	}
 
 	sendUserFlowStatus(status: string, flow: UserFlowTelemetry): void {

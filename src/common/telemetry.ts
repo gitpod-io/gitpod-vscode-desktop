@@ -152,6 +152,7 @@ export class BaseTelemetryReporter extends Disposable {
 		private extensionVersion: string,
 		private telemetryAppender: ITelemetryAppender,
 		private osShim: { release: string; platform: string; architecture: string },
+		private isProduction: boolean,
 	) {
 		super();
 
@@ -223,6 +224,7 @@ export class BaseTelemetryReporter extends Disposable {
 		commonProperties['common.platformversion'] = (this.osShim.release || '').replace(/^(\d+)(\.\d+)?(\.\d+)?(.*)/, '$1$2$3');
 		commonProperties['common.extname'] = this.extensionId;
 		commonProperties['common.extversion'] = this.extensionVersion;
+		commonProperties['common.isproduction'] = this.isProduction;
 		if (vscode && vscode.env) {
 			commonProperties['common.vscodemachineid'] = vscode.env.machineId;
 			commonProperties['common.vscodesessionid'] = vscode.env.sessionId;

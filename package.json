@@ -137,6 +137,7 @@
 		}
 	},
 	"main": "./out/extension.js",
+	"buildEnv": "local",
 	"segmentKey": "YErmvd89wPsrCuGcVnF2XAl846W9WIGl",
 	"configcatKey": "WBLaCPtkjkqKHlHedziE9g/LEAOCNkbuUKiqUZAcVg7dw",
 	"scripts": {
