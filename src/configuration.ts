@@ -38,9 +38,9 @@ function getLocalSSHServerPort() {
 
 function getDaemonLogPath(): string {
     if (vscode.env.appName.includes('Insiders')) {
-        return join(tmpdir(), 'gitpod-vscode-daemon-insiders.log')
+        return join(tmpdir(), 'gitpod-vscode-daemon-insiders.log');
     }
-    return join(tmpdir(), 'gitpod-vscode-daemon.log')
+    return join(tmpdir(), 'gitpod-vscode-daemon.log');
 }
 
 export const Configuration = {
