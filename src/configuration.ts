@@ -3,6 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { tmpdir } from 'os';
+import { join } from 'path';
 import * as vscode from 'vscode';
 
 // Use these functions instead of `vscode.workspace.getConfiguration` API
@@ -36,9 +38,9 @@ function getLocalSSHServerPort() {
 
 function getDaemonLogPath(): string {
     if (vscode.env.appName.includes('Insiders')) {
-        return '/tmp/gitpod-vscode-daemon-insiders.log';
+        return join(tmpdir(), 'gitpod-vscode-daemon-insiders.log')
     }
-    return '/tmp/gitpod-vscode-daemon.log';
+    return join(tmpdir(), 'gitpod-vscode-daemon.log')
 }
 
 export const Configuration = {

@@ -12,7 +12,6 @@ import { NodeHttpTransport } from '@improbable-eng/grpc-web-node-http-transport'
 import { grpc } from '@improbable-eng/grpc-web';
 import { BrowserHeaders } from 'browser-headers';
 import { WorkspaceAuthInfo } from './common';
-import { ConnectConfig } from 'ssh2';
 import { ILogService } from '../services/logService';
 
 grpc.setDefaultTransport(NodeHttpTransport());
@@ -74,7 +73,7 @@ export class SupervisorSSHTunnel {
 		return `wss://${this.workspaceInfo.workspaceId}.${this.workspaceInfo.workspaceHost}`;
 	}
 
-	public async establishTunnel(): Promise<ConnectConfig> {
+	public async establishTunnel() {
 		const privateKey = await this.createPrivateKey();
 
 		const socket = new WebSocket(this.workspaceWSUrl + '/_supervisor/tunnel', undefined, {
@@ -108,6 +107,6 @@ export class SupervisorSSHTunnel {
 		const clientID = 'tunnel_' + Math.random().toString(36).slice(2);
 		const msg = new SupervisorPortTunnelMessage(clientID, 23001, 'tunnel');
 		const channel = await session.openChannel(msg);
-		return { sock: new SshStream(channel), privateKey, username: 'gitpod' };
+		return { sock: new SshStream(channel), privateKey: Buffer.from(privateKey), username: 'gitpod' };
 	}
 }

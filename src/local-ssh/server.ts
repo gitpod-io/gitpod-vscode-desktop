@@ -3,137 +3,131 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Client, ConnectConfig, Server } from 'ssh2';
 import { Server as GrpcServer } from 'nice-grpc';
 import { WorkspaceAuthInfo, ExitCode, exitProcess, getHostKey } from './common';
 import { LocalSSHServiceImpl, startLocalSSHService } from './ipc/localssh';
 import { SupervisorSSHTunnel } from './sshTunnel';
 import { ILogService } from '../services/logService';
-
-const DefaultConnConfig: ConnectConfig = {
-	keepaliveInterval: 20000, // 20s
-	keepaliveCountMax: 20, // 20 not respond requests can be ignored
-};
+import { SshServer, PortForwardingService, SshClient } from '@microsoft/dev-tunnels-ssh-tcp';
+import { NodeStream, SshClientCredentials, SshClientSession, SshSessionConfiguration } from '@microsoft/dev-tunnels-ssh';
+import { importKeyBytes } from '@microsoft/dev-tunnels-ssh-keys';
+import { parsePrivateKey } from 'sshpk';
 
 export class LocalSSHGatewayServer {
 	private localsshService!: LocalSSHServiceImpl;
 	private localsshServiceServer?: GrpcServer;
+	private server?: SshServer;
+
 	constructor(
 		private readonly logger: ILogService,
 		private readonly port: number,
-	) { }
+	) {
+	}
 
-	public startServer() {
-		const server = new Server({
-			ident: 'gitpod-local',
-			hostKeys: [getHostKey()],
-			debug: (debug) => {
-				this.logger.debug(debug);
-			}
-		}, (client) => {
-			this.logger.info('client connected');
-			let workspaceInfo: WorkspaceAuthInfo;
-			let conn: Client;
-			client
-				.on('authentication', async (ctx) => {
-					const workspaceID = ctx.username;
-					try {
-						this.logger.info('trying to get auth of ' + workspaceID);
-						workspaceInfo = await this.localsshService.getWorkspaceAuthInfo(workspaceID);
+	async authenticateClient(clientUsername: string) {
+		const workspaceInfo = await this.localsshService.getWorkspaceAuthInfo(clientUsername);
+		const session = await this.tryDirectSSH(workspaceInfo)
+		if (!session) {
+			return this.getTunnelSSHConfig(workspaceInfo)
+		}
+		return session
+	}
+
+	async startServer() {
+		try {
+			const keys = await importKeyBytes(getHostKey());
+			const config = new SshSessionConfiguration();
+			config.addService(PortForwardingService);
+
+			const server = new SshServer(config);
+			server.credentials.publicKeys.push(keys);
+
+			server.onSessionOpened((session) => {
+				let pipeSession: SshClientSession;
+				session.onAuthenticating((e) => {
+					e.authenticationPromise = new Promise(async resolve => {
 						try {
-							conn = await this.connectSSH({ ...this.getDirectSSHConfig(workspaceInfo), ...DefaultConnConfig });
+							pipeSession = await this.authenticateClient(e.username!);
+							session.pipe(pipeSession);
+							resolve({});
 						} catch (e) {
-							e.message = 'failed to connect to workspace via ssh: ' + e.message + ' trying to connect via tunnel';
-							this.logger.error(e);
-							conn = await this.connectSSH({ ...(await this.getTunnelSSHConfig(workspaceInfo)), ...DefaultConnConfig });
+							this.logger.error(e, 'failed to authenticate client');
+							resolve(null);
 						}
-						this.logger.info(JSON.stringify(workspaceInfo, null, 4));
-						ctx.accept();
-					} catch (e) {
-						this.logger.error('failed to get workspace auth info of id:' + workspaceID, e);
-						ctx.reject(e);
-					}
-				})
-				.on('ready', async () => {
-					client.on('session', async (accept) => {
-						const session = accept();
-						session.on('shell', (accept) => {
-							const stream = accept();
-							conn.shell(false, (err, s) => {
-								if (err) { throw err; }
-								s.on('close', (code: number, signal: string) => {
-									this.logger.debug('Stream :: close :: code: ' + code + ', signal: ' + signal);
-								});
-								stream.stdin.pipe(s.stdin);
-								s.pipe(stream);
-								s.stderr.pipe(stream.stderr);
-							});
-						});
 					});
-					client.on('tcpip', async (accept, _reject, info) => {
-						this.logger.info('tcpip', info);
-						const stream = accept();
-						conn.forwardOut(info.srcIP, info.srcPort, info.destIP, info.destPort, (err, s) => {
-							if (err) {
-								throw err;
-							}
-							s.on('close', (code: number, signal: string) => {
-								this.logger.debug('Stream :: close :: code: ' + code + ', signal: ' + signal);
-							});
-							stream.pipe(s).pipe(stream);
-						});
-					});
-				})
-				.on('close', () => {
-					this.logger.info('client disconnected');
 				});
-		});
-		server.on('error', (err: any) => {
-			this.logger.error(err, 'failed to start local ssh gateway server, going to exit');
-			exitProcess(ExitCode.ListenPortFailed);
-		});
-		server.listen(this.port, '127.0.0.1', () => {
+				// const requestCompletion = new PromiseCompletionSource<ChannelOpenMessage>();
+				// const channelCompletion = new PromiseCompletionSource<SshChannel>();
+				// session.onChannelOpening((e) => {
+				// 	requestCompletion.resolve(e.request);
+				// 	channelCompletion.resolve(e.channel);
+				// });
+
+				// const sessionRequestCompletion = new PromiseCompletionSource<SessionRequestMessage>();
+				// session.onRequest((e) => {
+				// 	if (e.request instanceof PortForwardRequestMessage) {
+				// 		e.isAuthorized = !!e.principal;
+				// 	}
+				// 	sessionRequestCompletion.resolve(e.request);
+				// 	// e.responsePromise = Promise.resolve(new TestSessionRequestSuccessMessage());
+				// });
+			});
+			await server.acceptSessions(this.port, '127.0.0.1');
+			this.server = server;
 			this.logger.info('local ssh gateway is listening on port ' + this.port);
-			// start local-ssh ipc service
-			this.localsshService = new LocalSSHServiceImpl(this.logger);
-			startLocalSSHService(this.localsshService).then(server => {
-				this.logger.info('local ssh ipc service started');
-				this.localsshServiceServer = server;
-			});
+			this.startLocalSSHService();
+		} catch (e) {
+			this.logger.error(e, 'failed to start local ssh gateway server, going to exit');
+			exitProcess(ExitCode.ListenPortFailed);
+		}
+	}
+
+	private startLocalSSHService() {
+		// start local-ssh ipc service
+		this.localsshService = new LocalSSHServiceImpl(this.logger);
+		startLocalSSHService(this.localsshService).then(server => {
+			this.logger.info('local ssh ipc service started');
+			this.localsshServiceServer = server;
 		});
 	}
 
-	private async connectSSH(connectConfig: ConnectConfig) {
-		const client = new Client();
-		const conn = client.connect(connectConfig);
-		const ready = new Promise((resolve, reject) => {
-			conn.on('ready', () => {
-				this.logger.info('connect to remote host');
-				resolve(true);
-			});
-			conn.on('error', (e) => {
-				reject(e);
-			});
-		});
-		await ready;
-		return conn;
-	}
-
-	private getDirectSSHConfig(workspaceInfo: WorkspaceAuthInfo): ConnectConfig {
-		return {
+	private async tryDirectSSH(workspaceInfo: WorkspaceAuthInfo): Promise<SshClientSession | undefined> {
+		const connConfig = {
 			host: `${workspaceInfo.workspaceId}.ssh.${workspaceInfo.workspaceHost}`,
 			port: 22,
 			username: workspaceInfo.workspaceId,
 			password: workspaceInfo.ownerToken,
-		};
+		}
+		const config = new SshSessionConfiguration();
+		const client = new SshClient(config);
+		const session = await client.openSession(connConfig.host, connConfig.port);
+		const credentials: SshClientCredentials = { username: connConfig.username, password: connConfig.password };
+		const authenticated = await session.authenticate(credentials);
+		if (!authenticated) {
+			this.logger.error('failed to authenticate/connect with direct ssh');
+			return;
+		}
+		return session;
 	}
 
-	private async getTunnelSSHConfig(workspaceInfo: WorkspaceAuthInfo): Promise<ConnectConfig> {
+	private async getTunnelSSHConfig(workspaceInfo: WorkspaceAuthInfo): Promise<SshClientSession> {
 		const ssh = new SupervisorSSHTunnel(this.logger, workspaceInfo);
-		return ssh.establishTunnel();
+		const connConfig = await ssh.establishTunnel();
+		const config = new SshSessionConfiguration();
+		const session = new SshClientSession(config);
+		session.onAuthenticating((e) => e.authenticationPromise = Promise.resolve({}));
+		// we need to convert openssh to pkcs8 since dev-tunnels-ssh not support openssh
+		const credentials: SshClientCredentials = { username: connConfig.username, publicKeys: [await importKeyBytes(parsePrivateKey(getHostKey(), 'openssh').toBuffer('pkcs8'))] };
+		await session.connect(new NodeStream(connConfig.sock!));
+		const ok = await session.authenticate(credentials);
+		if (!ok) {
+			throw new Error('failed to authenticate');
+		}
+		return session;
 	}
 
 	shutdown() {
+		this.server?.dispose();
 		this.localsshServiceServer?.shutdown();
 	}
 }

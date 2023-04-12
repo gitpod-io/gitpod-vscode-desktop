@@ -10,9 +10,9 @@ import { GetWorkspaceAuthInfoResponse } from '../proto/typescript/ipc/v1/ipc';
 import { ILogService } from '../services/logService';
 
 // This public key is safe to be public since we only use it to verify local-ssh connections.
-const HOST_KEY = 'LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0KYjNCbGJuTnphQzFyWlhrdGRqRUFBQUFBQkc1dmJtVUFBQUFFYm05dVpRQUFBQUFBQUFBQkFBQUFNd0FBQUF0emMyZ3RaVwpReU5UVXhPUUFBQUNBblJFMmpPOUFMVHRqNDZBcXJDR0tlNmg2bnExODZRdXVmVE1sMHRUWklWQUFBQUpnVTZzdXpGT3JMCnN3QUFBQXR6YzJndFpXUXlOVFV4T1FBQUFDQW5SRTJqTzlBTFR0ajQ2QXFyQ0dLZTZoNm5xMTg2UXV1ZlRNbDB0VFpJVkEKQUFBRUNheG84cFY1MlBaZzhNRVFEemdQL2FFQXlyMnRjSjFjMUpYMG5TYng3b2t5ZEVUYU03MEF0TzJQam9DcXNJWXA3cQpIcWVyWHpwQzY1OU15WFMxTmtoVUFBQUFFV2gzWlc1QWNHOTBZV3hoTG14dlkyRnNBUUlEQkE9PQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0='
-export function getHostKey(): string {
-	return Buffer.from(HOST_KEY, 'base64').toString('utf8');
+const HOST_KEY = 'LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ1QwcXg1eEJUVmc4TUVJbUUKZmN4RXRZN1dmQVVsM0JYQURBK2JYREsyaDZlaFJBTkNBQVJlQXo0RDVVZXpqZ0l1SXVOWXpVL3BCWDdlOXoxeApvZUN6UklqcGdCUHozS0dWRzZLYXV5TU5YUm95a21YSS9BNFpWaW9nd2Vjb0FUUjRUQ2FtWm1ScAotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg=='
+export function getHostKey(): Buffer {
+	return Buffer.from(HOST_KEY, 'base64');
 }
 
 export enum ExitCode {
@@ -23,7 +23,9 @@ export enum ExitCode {
 }
 
 export function exitProcess(code: ExitCode) {
-	process.exit(code);
+	setTimeout(() => {
+		process.exit(code);
+	}, 1000)
 }
 
 function getIPCHandlePath(id: string, isAddr: boolean = false): string {
