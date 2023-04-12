@@ -159,17 +159,14 @@ export class ExtensionServiceServer extends Disposable {
                 this.lastTimeActiveTelemetry = true;
             }
         } catch (e) {
-            const userID = this.sessionService.getUserId();
-            if (!userID) {
-                return;
-            }
+            const userId = this.sessionService.safeGetUserId()
             e.message = 'failed to active extension ipc svc: ' + e.message;
-            this.telemetryService.sendRawTelemetryEvent('vscode_desktop_extension_ipc_svc_active', { id: this.id, userId: this.sessionService.getUserId(), active: false });
+            this.telemetryService.sendRawTelemetryEvent('vscode_desktop_extension_ipc_svc_active', { id: this.id, userId, active: false });
             this.logService.error(e);
             if (this.lastTimeActiveTelemetry === false) {
                 return;
             }
-            this.telemetryService.sendTelemetryException(e, { userId: this.sessionService.getUserId() });
+            this.telemetryService.sendTelemetryException(e, { userId } as any);
             this.lastTimeActiveTelemetry = false;
         }
     }
