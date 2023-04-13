@@ -8,13 +8,14 @@ import { WorkspaceAuthInfo, ExitCode, exitProcess, getHostKey } from './common';
 import { LocalSSHServiceImpl, startLocalSSHService } from './ipc/localssh';
 import { SupervisorSSHTunnel } from './sshTunnel';
 import { ILogService } from '../services/logService';
-import { SshServer, PortForwardingService, SshClient } from '@microsoft/dev-tunnels-ssh-tcp';
+import { SshServer, SshClient } from '@microsoft/dev-tunnels-ssh-tcp';
 import { NodeStream, SshClientCredentials, SshClientSession, SshSessionConfiguration } from '@microsoft/dev-tunnels-ssh';
 import { importKeyBytes } from '@microsoft/dev-tunnels-ssh-keys';
 import { parsePrivateKey } from 'sshpk';
+import { PipeExtensions } from './patch/pipeExtension';
 
 
-// TODO(local-ssh): Remove me
+// TODO(local-ssh): Remove me after direct ssh works with @microsft/dev-tunnels-ssh
 const FORCE_TUNNEL = true;
 
 export class LocalSSHGatewayServer {
@@ -32,8 +33,12 @@ export class LocalSSHGatewayServer {
 			this.logger.error(e, 'failed to get workspace auth info');
 			throw e;
 		});
+		if (FORCE_TUNNEL) {
+			this.logger.info('force tunnel');
+			return this.getTunnelSSHConfig(workspaceInfo);
+		}
 		const session = await this.tryDirectSSH(workspaceInfo);
-		if (!session || FORCE_TUNNEL) {
+		if (!session) {
 			this.logger.error('failed to connect with direct ssh, going to try tunnel');
 			return this.getTunnelSSHConfig(workspaceInfo);
 		}
@@ -44,7 +49,6 @@ export class LocalSSHGatewayServer {
 		try {
 			const keys = await importKeyBytes(getHostKey());
 			const config = new SshSessionConfiguration();
-			config.addService(PortForwardingService);
 
 			const server = new SshServer(config);
 			server.credentials.publicKeys.push(keys);
@@ -56,16 +60,15 @@ export class LocalSSHGatewayServer {
 						this.authenticateClient(e.username!).then(async s => {
 							this.logger.info('connected with ' + e.username);
 							pipeSession = s;
-							// we need to active first, otherwise pipe will not work
-							const channel = await pipeSession.openChannel();
-							channel.close();
-							session.pipe(pipeSession);
 							resolve(new Object());
 						}).catch(e => {
 							this.logger.error(e, 'failed to authenticate client');
 							reject(null);
 						});
 					});
+				});
+				session.onClientAuthenticated(() => {
+					PipeExtensions.pipeSession(session, pipeSession);
 				});
 			});
 			await server.acceptSessions(this.port, '127.0.0.1');
