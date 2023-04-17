@@ -717,7 +717,7 @@ export class RemoteConnector extends Disposable {
 					await this.showSSHPasswordModal(password, gatewayFlow);
 				}
 
-				this.telemetryService.sendUserFlowStatus('connected', gatewayFlow);
+				this.telemetryService.sendUserFlowStatus('got_destination', gatewayFlow);
 			} catch (e) {
 				this.telemetryService.sendUserFlowStatus('failed', { ...gatewayFlow, reason: e.toString() });
 				if (e instanceof NoSSHGatewayError) {
