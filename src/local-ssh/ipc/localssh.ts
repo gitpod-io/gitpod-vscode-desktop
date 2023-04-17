@@ -5,7 +5,7 @@
 
 import { ActiveRequest, ExtensionServiceDefinition, GetDaemonVersionRequest, InactiveRequest, LocalSSHServiceDefinition, LocalSSHServiceImplementation, PingRequest, SendLocalSSHUserFlowStatusRequest } from '../../proto/typescript/ipc/v1/ipc';
 import { CallContext, Client, createChannel, createClient, createServer } from 'nice-grpc';
-import { ExitCode, exitProcess, getExtensionIPCHandleAddr, getLocalSSHIPCHandleAddr, getLocalSSHIPCHandlePath } from '../common';
+import { ExitCode, exitProcess, getDaemonVersion, getExtensionIPCHandleAddr, getLocalSSHIPCHandleAddr, getLocalSSHIPCHandlePath } from '../common';
 import { existsSync, unlinkSync } from 'fs';
 import { retry } from '../../common/async';
 import { ILogService } from '../../services/logService';
@@ -20,7 +20,7 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
 
     async getDaemonVersion(_request: GetDaemonVersionRequest, _context: CallContext): Promise<{ version?: string | undefined }> {
         return {
-            version: process.env.DAEMON_VERSION,
+            version: getDaemonVersion(),
         };
     }
 

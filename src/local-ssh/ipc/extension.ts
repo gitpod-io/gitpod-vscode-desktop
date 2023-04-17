@@ -16,7 +16,7 @@ import { ISessionService } from '../../services/sessionService';
 import { CallContext, ServerError, Status } from 'nice-grpc-common';
 import { IHostService } from '../../services/hostService';
 import { Server, createClient, createServer, createChannel } from 'nice-grpc';
-import { getExtensionIPCHandleAddr, getLocalSSHIPCHandleAddr } from '../common';
+import { getDaemonVersion, getExtensionIPCHandleAddr, getLocalSSHIPCHandleAddr } from '../common';
 import { INotificationService } from '../../services/notificationService';
 import { showWsNotRunningDialog } from '../../remote';
 import { ITelemetryService, UserFlowTelemetry } from '../../services/telemetryService';
@@ -221,7 +221,7 @@ export class ExtensionServiceServer extends Disposable {
     private async notifyIfDaemonNeedsRestart() {
         const resp = await this.localSSHServiceClient.getDaemonVersion({});
         const runningVersion = new SemVer(resp.version);
-        const wantedVersion = new SemVer(process.env.DAEMON_VERSION ?? '0.0.1');
+        const wantedVersion = new SemVer(getDaemonVersion());
         if (runningVersion.compare(wantedVersion) >= 0) {
             return;
         }
