@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ExtensionServiceDefinition, ExtensionServiceImplementation, GetWorkspaceAuthInfoRequest, LocalSSHServiceDefinition, PingRequest } from '../../proto/typescript/ipc/v1/ipc';
+import { ExtensionServiceDefinition, ExtensionServiceImplementation, GetWorkspaceAuthInfoRequest, LocalSSHServiceDefinition, PingRequest, SendLocalSSHUserFlowStatusRequest, SendLocalSSHUserFlowStatusRequest_Code, SendLocalSSHUserFlowStatusRequest_ConnType, SendLocalSSHUserFlowStatusRequest_Status } from '../../proto/typescript/ipc/v1/ipc';
 import { Disposable } from '../../common/dispose';
 import { retry, timeout } from '../../common/async';
 export { ExtensionServiceDefinition } from '../../proto/typescript/ipc/v1/ipc';
@@ -39,7 +39,7 @@ const phaseMap: Record<WorkspaceInstanceStatus_Phase, WorkspaceInstancePhase | u
 export class ExtensionServiceImpl implements ExtensionServiceImplementation {
     private notificationGapSet = new Set<string>();
 
-    constructor(private logService: ILogService, private sessionService: ISessionService, private hostService: IHostService, private notificationService: INotificationService, private experiments: ExperimentalSettings) { }
+    constructor(private logService: ILogService, private sessionService: ISessionService, private hostService: IHostService, private notificationService: INotificationService, private experiments: ExperimentalSettings, private telemetryService: ITelemetryService) { }
 
     private canShowNotification(id: string) {
         if (this.notificationGapSet.has(id)) {
@@ -92,6 +92,27 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
             ownerToken,
         };
     }
+
+    async sendLocalSSHUserFlowStatus(request: SendLocalSSHUserFlowStatusRequest, _context: CallContext): Promise<{}> {
+        const flow: UserFlowTelemetry = {
+            flow: 'ssh',
+            kind: 'local-ssh',
+            connType: request.connType === SendLocalSSHUserFlowStatusRequest_ConnType.CONN_TYPE_SSH ? 'ssh' : 'tunnel',
+            workspaceId: request.workspaceId,
+            instanceId: request.instanceId,
+            daemonVersion: request.daemonVersion,
+            userId: this.sessionService.safeGetUserId(),
+            gitpodHost: this.hostService.gitpodHost,
+            extensionVersion: request.extensionVersion,
+        };
+        if (request.status !== SendLocalSSHUserFlowStatusRequest_Status.STATUS_SUCCESS && request.failureCode !== SendLocalSSHUserFlowStatusRequest_Code.CODE_UNSPECIFIED) {
+            flow.reason = request.failureReason;
+            flow.reasonCode = SendLocalSSHUserFlowStatusRequest_Code[request.failureCode];
+        }
+        const status = request.status === SendLocalSSHUserFlowStatusRequest_Status.STATUS_SUCCESS ? 'local-ssh-success' : 'local-ssh-failure';
+        this.telemetryService.sendUserFlowStatus(status, flow);
+        return {};
+    }
 }
 
 export class ExtensionServiceServer extends Disposable {
@@ -122,7 +143,7 @@ export class ExtensionServiceServer extends Disposable {
 
     private getServer(): Server {
         const server = createServer();
-        const serviceImpl = new ExtensionServiceImpl(this.logService, this.sessionService, this.hostService, this.notificationService, this.experiments);
+        const serviceImpl = new ExtensionServiceImpl(this.logService, this.sessionService, this.hostService, this.notificationService, this.experiments, this.telemetryService);
         server.add(ExtensionServiceDefinition, serviceImpl);
         return server;
     }
@@ -139,8 +160,7 @@ export class ExtensionServiceServer extends Disposable {
             this.pingLocalSSHService();
             this.backoffActive();
         }).catch(e => {
-            e.message = 'extension ipc service server failed to listen with id: ' + this.id + ', error: ' + e.message;
-            this.logService.error(e);
+            this.logService.error(e, `extension ipc service server failed to listen with id: ${this.id}`);
         });
     }
 
@@ -157,10 +177,9 @@ export class ExtensionServiceServer extends Disposable {
             this.telemetryService.sendRawTelemetryEvent('vscode_desktop_extension_ipc_svc_active', { id: this.id, userId, active: true });
             this.lastTimeActiveTelemetry = true;
         } catch (e) {
-            const userId = this.sessionService.safeGetUserId()
-            e.message = 'failed to active extension ipc svc: ' + e.message;
+            const userId = this.sessionService.safeGetUserId();
             this.telemetryService.sendRawTelemetryEvent('vscode_desktop_extension_ipc_svc_active', { id: this.id, userId, active: false });
-            this.logService.error(e);
+            this.logService.error(e, 'failed to active extension ipc svc');
             if (this.lastTimeActiveTelemetry === false) {
                 return;
             }
@@ -187,8 +206,7 @@ export class ExtensionServiceServer extends Disposable {
                 await this.localSSHServiceClient.ping({});
                 this.pingLocalSSHRetryCount = 0;
                 this.notifyIfDaemonNeedsRestart().catch(e => {
-                    e.message = 'failed to notify if daemon needs restart: ' + e.message;
-                    this.logService.error(e);
+                    this.logService.error(e, 'failed to notify if daemon needs restart');
                 });
             } catch (err) {
                 this.logService.error('failed to ping local ssh service, going to start a new one', err);

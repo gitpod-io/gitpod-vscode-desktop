@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ActiveRequest, ExtensionServiceDefinition, GetDaemonVersionRequest, InactiveRequest, LocalSSHServiceDefinition, LocalSSHServiceImplementation, PingRequest } from '../../proto/typescript/ipc/v1/ipc';
+import { ActiveRequest, ExtensionServiceDefinition, GetDaemonVersionRequest, InactiveRequest, LocalSSHServiceDefinition, LocalSSHServiceImplementation, PingRequest, SendLocalSSHUserFlowStatusRequest } from '../../proto/typescript/ipc/v1/ipc';
 import { CallContext, Client, createChannel, createClient, createServer } from 'nice-grpc';
 import { ExitCode, exitProcess, getExtensionIPCHandleAddr, getLocalSSHIPCHandleAddr, getLocalSSHIPCHandlePath } from '../common';
 import { existsSync, unlinkSync } from 'fs';
@@ -18,7 +18,7 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
         this.pingExtensionServices();
     }
 
-    async getDaemonVersion(_request: GetDaemonVersionRequest, _context: CallContext): Promise<{ version?: string | undefined; }> {
+    async getDaemonVersion(_request: GetDaemonVersionRequest, _context: CallContext): Promise<{ version?: string | undefined }> {
         return {
             version: process.env.DAEMON_VERSION,
         };
@@ -74,7 +74,7 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
                 this.logger.info('no extension service client activated, exiting...');
                 this.exitCancel = setTimeout(() => {
                     exitProcess(ExitCode.OK);
-                }, 10000)
+                }, 10000);
             } else if (this.exitCancel) {
                 clearTimeout(this.exitCancel);
             }
@@ -88,14 +88,23 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
                     const authInfo = await ext.client.getWorkspaceAuthInfo({ workspaceId });
                     return authInfo;
                 } catch (e) {
-                    e.message = 'failed to get workspace auth info, id: ' + ext.id + ', err: ' + e.message;
-                    this.logger.error(e);
+                    this.logger.error(e, 'failed to get workspace auth info, id: ' + ext.id);
                     throw e;
                 }
             }
             throw new Error('no extension service client activated');
         }, 200, 3);
+    }
 
+    public async sendTelemetry(request: SendLocalSSHUserFlowStatusRequest) {
+        for (const ext of this.extensionServices) {
+            try {
+                await ext.client.sendLocalSSHUserFlowStatus(request);
+                break;
+            } catch (e) {
+                this.logger.error(e, 'failed to send telemetry');
+            }
+        }
     }
 }
 

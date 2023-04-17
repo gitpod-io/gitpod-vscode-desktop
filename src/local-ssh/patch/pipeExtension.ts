@@ -3,15 +3,15 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { CancellationToken, ChannelMessage, ChannelOpenConfirmationMessage, ChannelOpenFailureMessage, ChannelRequestMessage, PromiseCompletionSource, SshChannel, SshChannelClosedEventArgs, SshChannelError, SshChannelOpenFailureReason, SshChannelOpeningEventArgs, SshMessage, SshRequestEventArgs, SshSession, SshSessionClosedEventArgs, SshStream } from "@microsoft/dev-tunnels-ssh";
-import { ChannelFailureMessage, ChannelSuccessMessage } from "@microsoft/dev-tunnels-ssh/messages/connectionMessages";
+import { CancellationToken, ChannelMessage, ChannelOpenConfirmationMessage, ChannelOpenFailureMessage, ChannelRequestMessage, PromiseCompletionSource, SshChannel, SshChannelClosedEventArgs, SshChannelError, SshChannelOpenFailureReason, SshChannelOpeningEventArgs, SshMessage, SshRequestEventArgs, SshSession, SshSessionClosedEventArgs, SshStream } from '@microsoft/dev-tunnels-ssh';
+import { ChannelFailureMessage, ChannelSuccessMessage } from '@microsoft/dev-tunnels-ssh/messages/connectionMessages';
 
 // Patch of https://github.com/microsoft/dev-tunnels-ssh/blob/main/src/ts/ssh/pipeExtensions.ts
 
 export class PipeExtensions {
     public static async pipeSession(session: SshSession, toSession: SshSession): Promise<void> {
-        if (!session) throw new TypeError('Session is required.');
-        if (!toSession) throw new TypeError('Target session is required');
+        if (!session) { throw new TypeError('Session is required.'); }
+        if (!toSession) { throw new TypeError('Target session is required'); }
 
         const endCompletion = new PromiseCompletionSource<Promise<void>>();
 
@@ -45,8 +45,8 @@ export class PipeExtensions {
     }
 
     public static async pipeChannel(channel: SshChannel, toChannel: SshChannel): Promise<void> {
-        if (!channel) throw new TypeError('Channel is required.');
-        if (!toChannel) throw new TypeError('Target channel is required');
+        if (!channel) { throw new TypeError('Channel is required.'); }
+        if (!toChannel) { throw new TypeError('Target channel is required'); }
 
         const endCompletion = new PromiseCompletionSource<Promise<void>>();
         let closed = false;
@@ -58,10 +58,10 @@ export class PipeExtensions {
             e.responsePromise = PipeExtensions.forwardChannelRequest(e, channel, e.cancellation);
         });
 
-        const stream1 = new SshStream(channel)
-        const stream2 = new SshStream(toChannel)
-        stream1.pipe(stream2)
-        stream2.pipe(stream1)
+        const stream1 = new SshStream(channel);
+        const stream2 = new SshStream(toChannel);
+        stream1.pipe(stream2);
+        stream2.pipe(stream1);
 
         // channel.onDataReceived((data) => {
         //     void PipeExtensions.forwardData(channel, toChannel, data).catch(console.error);
@@ -110,7 +110,7 @@ export class PipeExtensions {
             void PipeExtensions.pipeChannel(e.channel, toChannel).catch();
             return new ChannelOpenConfirmationMessage();
         } catch (err) {
-            if (!(err instanceof Error)) throw err;
+            if (!(err instanceof Error)) { throw err; }
 
             const failureMessage = new ChannelOpenFailureMessage();
             if (err instanceof SshChannelError) {
@@ -119,7 +119,8 @@ export class PipeExtensions {
                 failureMessage.reasonCode = SshChannelOpenFailureReason.connectFailed;
             }
 
-            failureMessage.description = err.message;
+            failureMessage.description = err?.toString();
+            // failureMessage.description = err.message;
             return failureMessage;
         }
     }
@@ -138,7 +139,7 @@ export class PipeExtensions {
         session: SshSession,
         e: SshSessionClosedEventArgs,
     ): Promise<void> {
-        return session.close(e.reason, e.message, e.error ?? undefined);
+        return session.close(e.reason, e?.toString(), e?.error ?? undefined);
     }
 
     // private static async forwardData(

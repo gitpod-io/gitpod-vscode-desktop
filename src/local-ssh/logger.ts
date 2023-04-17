@@ -5,8 +5,6 @@
 
 import winston from 'winston';
 import { ILogService } from '../services/logService';
-import { join } from 'path';
-import { tmpdir } from 'os';
 
 export enum ExitCode {
     OK = 0,
@@ -15,7 +13,7 @@ export enum ExitCode {
     InvalidOptions = 102,
 }
 
-const DefaultLogFormatter = winston.format.combine(winston.format.timestamp(), winston.format.errors({ stack: true }), winston.format.simple())
+const DefaultLogFormatter = winston.format.combine(winston.format.timestamp(), winston.format.errors({ stack: true }), winston.format.simple());
 export class Logger implements ILogService {
     private logger: winston.Logger;
 
@@ -25,7 +23,6 @@ export class Logger implements ILogService {
             defaultMeta: { pid: process.pid },
             transports: [
                 new winston.transports.File({ format: DefaultLogFormatter, filename: logFile, options: { flags: 'a' }, maxsize: 1024 * 1024 * 10 /* 10M */, maxFiles: 2 /* 2 file turns */ }),
-                new winston.transports.File({ format: DefaultLogFormatter, filename: join(tmpdir(), 'mh-test-' + process.pid + '.log'), options: { flags: 'a' }, maxsize: 1024 * 1024 * 10 /* 10M */, maxFiles: 2 /* 2 file turns */ }),
             ],
             exitOnError: false,
         });

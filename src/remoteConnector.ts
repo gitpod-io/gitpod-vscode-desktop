@@ -703,11 +703,8 @@ export class RemoteConnector extends Disposable {
 		let sshDestination: SSHDestination | undefined;
 		if (!forceUseLocalApp) {
 			const openSSHVersion = await getOpenSSHVersion();
-			const gatewayFlow: UserFlowTelemetry = { kind: 'gateway', openSSHVersion, userOverride, ...sshFlow };
+			const gatewayFlow: UserFlowTelemetry = { kind: useLocalSSH ? 'local-ssh' : 'gateway', openSSHVersion, userOverride, ...sshFlow };
 			try {
-				if (useLocalSSH) {
-					gatewayFlow.kind = 'local-ssh';
-				}
 				this.telemetryService.sendUserFlowStatus('connecting', gatewayFlow);
 
 				const { destination, password } = useLocalSSH ? await this.getLocalSSHWorkspaceSSHDestination(params) : await this.getWorkspaceSSHDestination(params);

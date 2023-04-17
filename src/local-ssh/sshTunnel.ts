@@ -11,8 +11,10 @@ import { CreateSSHKeyPairRequest, CreateSSHKeyPairResponse } from '@gitpod/super
 import { NodeHttpTransport } from '@improbable-eng/grpc-web-node-http-transport';
 import { grpc } from '@improbable-eng/grpc-web';
 import { BrowserHeaders } from 'browser-headers';
-import { WorkspaceAuthInfo } from './common';
+import { WorkspaceAuthInfo, getDaemonVersion, getRunningExtensionVersion } from './common';
 import { ILogService } from '../services/logService';
+import { LocalSSHServiceImpl } from './ipc/localssh';
+import { SendLocalSSHUserFlowStatusRequest_Code, SendLocalSSHUserFlowStatusRequest_ConnType, SendLocalSSHUserFlowStatusRequest_Status } from '../proto/typescript/ipc/v1/ipc';
 
 grpc.setDefaultTransport(NodeHttpTransport());
 
@@ -43,6 +45,7 @@ export class SupervisorSSHTunnel {
 	constructor(
 		private readonly logger: ILogService,
 		readonly workspaceInfo: WorkspaceAuthInfo,
+		private readonly localsshService: LocalSSHServiceImpl,
 	) { }
 
 	private createPrivateKey(): Promise<string> {
@@ -74,7 +77,19 @@ export class SupervisorSSHTunnel {
 	}
 
 	public async establishTunnel() {
-		const privateKey = await this.createPrivateKey();
+		const privateKey = await this.createPrivateKey().catch(e => {
+			this.localsshService.sendTelemetry({
+				status: SendLocalSSHUserFlowStatusRequest_Status.STATUS_FAILURE,
+				workspaceId: this.workspaceInfo.workspaceId,
+				instanceId: this.workspaceInfo.instanceId,
+				failureCode: SendLocalSSHUserFlowStatusRequest_Code.CODE_TUNNEL_NO_PRIVATEKEY,
+				failureReason: e?.toString(),
+				daemonVersion: getDaemonVersion(),
+				extensionVersion: getRunningExtensionVersion(),
+				connType: SendLocalSSHUserFlowStatusRequest_ConnType.CONN_TYPE_TUNNEL,
+			});
+			throw e;
+		});
 
 		const socket = new WebSocket(this.workspaceWSUrl + '/_supervisor/tunnel', undefined, {
 			headers: {
@@ -88,8 +103,17 @@ export class SupervisorSSHTunnel {
 				resolve(new WebSocketStream(socket as any));
 			};
 			socket.onerror = (e) => {
-				e.message = 'failed to connect to server: ' + e.message;
-				this.logger.error(e as any);
+				this.logger.error(e as any, 'failed to connect to server');
+				this.localsshService.sendTelemetry({
+					status: SendLocalSSHUserFlowStatusRequest_Status.STATUS_FAILURE,
+					workspaceId: this.workspaceInfo.workspaceId,
+					instanceId: this.workspaceInfo.instanceId,
+					failureCode: SendLocalSSHUserFlowStatusRequest_Code.CODE_TUNNEL_CANNOT_CREATE_WEBSOCKET,
+					failureReason: e?.toString(),
+					daemonVersion: getDaemonVersion(),
+					extensionVersion: getRunningExtensionVersion(),
+					connType: SendLocalSSHUserFlowStatusRequest_ConnType.CONN_TYPE_TUNNEL,
+				});
 				reject(e);
 			};
 		});
@@ -106,7 +130,19 @@ export class SupervisorSSHTunnel {
 		}
 		const clientID = 'tunnel_' + Math.random().toString(36).slice(2);
 		const msg = new SupervisorPortTunnelMessage(clientID, 23001, 'tunnel');
-		const channel = await session.openChannel(msg);
+		const channel = await session.openChannel(msg).catch(e => {
+			this.localsshService.sendTelemetry({
+				status: SendLocalSSHUserFlowStatusRequest_Status.STATUS_FAILURE,
+				workspaceId: this.workspaceInfo.workspaceId,
+				instanceId: this.workspaceInfo.instanceId,
+				failureCode: SendLocalSSHUserFlowStatusRequest_Code.CODE_TUNNEL_FAILED_FORWARD_SSH_PORT,
+				failureReason: e?.toString(),
+				daemonVersion: getDaemonVersion(),
+				extensionVersion: getRunningExtensionVersion(),
+				connType: SendLocalSSHUserFlowStatusRequest_ConnType.CONN_TYPE_TUNNEL,
+			});
+			throw e;
+		});
 		return { sock: new SshStream(channel), privateKey: Buffer.from(privateKey), username: 'gitpod' };
 	}
 }

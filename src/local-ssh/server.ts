@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Server as GrpcServer } from 'nice-grpc';
-import { WorkspaceAuthInfo, ExitCode, exitProcess, getHostKey } from './common';
+import { WorkspaceAuthInfo, ExitCode, exitProcess, getHostKey, getDaemonVersion, getRunningExtensionVersion } from './common';
 import { LocalSSHServiceImpl, startLocalSSHService } from './ipc/localssh';
 import { SupervisorSSHTunnel } from './sshTunnel';
 import { ILogService } from '../services/logService';
@@ -13,6 +13,7 @@ import { NodeStream, SshClientCredentials, SshClientSession, SshSessionConfigura
 import { importKeyBytes } from '@microsoft/dev-tunnels-ssh-keys';
 import { parsePrivateKey } from 'sshpk';
 import { PipeExtensions } from './patch/pipeExtension';
+import { SendLocalSSHUserFlowStatusRequest_Code, SendLocalSSHUserFlowStatusRequest_ConnType, SendLocalSSHUserFlowStatusRequest_Status } from '../proto/typescript/ipc/v1/ipc';
 
 
 // TODO(local-ssh): Remove me after direct ssh works with @microsft/dev-tunnels-ssh
@@ -31,6 +32,16 @@ export class LocalSSHGatewayServer {
 	async authenticateClient(clientUsername: string) {
 		const workspaceInfo = await this.localsshService.getWorkspaceAuthInfo(clientUsername).catch(e => {
 			this.logger.error(e, 'failed to get workspace auth info');
+			this.localsshService.sendTelemetry({
+				status: SendLocalSSHUserFlowStatusRequest_Status.STATUS_FAILURE,
+				workspaceId: clientUsername,
+				instanceId: '',
+				failureCode: SendLocalSSHUserFlowStatusRequest_Code.CODE_NO_WORKSPACE_AUTO_INFO,
+				failureReason: e?.toString(),
+				daemonVersion: getDaemonVersion(),
+				extensionVersion: getRunningExtensionVersion(),
+				connType: SendLocalSSHUserFlowStatusRequest_ConnType.CONN_TYPE_UNSPECIFIED,
+			});
 			throw e;
 		});
 		if (FORCE_TUNNEL) {
@@ -91,39 +102,67 @@ export class LocalSSHGatewayServer {
 	}
 
 	private async tryDirectSSH(workspaceInfo: WorkspaceAuthInfo): Promise<SshClientSession | undefined> {
-		const connConfig = {
-			host: `${workspaceInfo.workspaceId}.ssh.${workspaceInfo.workspaceHost}`,
-			port: 22,
-			username: workspaceInfo.workspaceId,
-			password: workspaceInfo.ownerToken,
-		};
-		const config = new SshSessionConfiguration();
-		const client = new SshClient(config);
-		const session = await client.openSession(connConfig.host, connConfig.port);
-		session.onAuthenticating((e) => e.authenticationPromise = Promise.resolve({}));
-		const credentials: SshClientCredentials = { username: connConfig.username, password: connConfig.password };
-		const authenticated = await session.authenticate(credentials);
-		if (!authenticated) {
-			this.logger.error('failed to authenticate direct ssh');
-			return;
+		try {
+			const connConfig = {
+				host: `${workspaceInfo.workspaceId}.ssh.${workspaceInfo.workspaceHost}`,
+				port: 22,
+				username: workspaceInfo.workspaceId,
+				password: workspaceInfo.ownerToken,
+			};
+			const config = new SshSessionConfiguration();
+			const client = new SshClient(config);
+			const session = await client.openSession(connConfig.host, connConfig.port);
+			session.onAuthenticating((e) => e.authenticationPromise = Promise.resolve({}));
+			const credentials: SshClientCredentials = { username: connConfig.username, password: connConfig.password };
+			const authenticated = await session.authenticate(credentials);
+			if (!authenticated) {
+				throw new Error('failed to authenticate');
+			}
+			return session;
+		} catch (e) {
+			this.logger.error(e, 'failed to connect with direct ssh');
+			this.localsshService.sendTelemetry({
+				status: SendLocalSSHUserFlowStatusRequest_Status.STATUS_FAILURE,
+				workspaceId: workspaceInfo.workspaceId,
+				instanceId: workspaceInfo.instanceId,
+				failureCode: SendLocalSSHUserFlowStatusRequest_Code.CODE_SSH_CANNOT_CONNECT,
+				failureReason: e?.toString(),
+				daemonVersion: getDaemonVersion(),
+				extensionVersion: getRunningExtensionVersion(),
+				connType: SendLocalSSHUserFlowStatusRequest_ConnType.CONN_TYPE_SSH,
+			});
 		}
-		return session;
+		return;
 	}
 
 	private async getTunnelSSHConfig(workspaceInfo: WorkspaceAuthInfo): Promise<SshClientSession> {
-		const ssh = new SupervisorSSHTunnel(this.logger, workspaceInfo);
+		const ssh = new SupervisorSSHTunnel(this.logger, workspaceInfo, this.localsshService);
 		const connConfig = await ssh.establishTunnel();
 		const config = new SshSessionConfiguration();
 		const session = new SshClientSession(config);
 		session.onAuthenticating((e) => e.authenticationPromise = Promise.resolve({}));
-		await session.connect(new NodeStream(connConfig.sock!));
-		// we need to convert openssh to pkcs8 since dev-tunnels-ssh not support openssh
-		const credentials: SshClientCredentials = { username: connConfig.username, publicKeys: [await importKeyBytes(parsePrivateKey(connConfig.privateKey, 'openssh').toBuffer('pkcs8'))] };
-		const ok = await session.authenticate(credentials);
-		if (!ok) {
-			throw new Error('failed to authenticate tunnel ssh');
+		try {
+			await session.connect(new NodeStream(connConfig.sock!));
+			// we need to convert openssh to pkcs8 since dev-tunnels-ssh not support openssh
+			const credentials: SshClientCredentials = { username: connConfig.username, publicKeys: [await importKeyBytes(parsePrivateKey(connConfig.privateKey, 'openssh').toBuffer('pkcs8'))] };
+			const ok = await session.authenticate(credentials);
+			if (!ok) {
+				throw new Error('failed to authenticate tunnel ssh');
+			}
+			return session;
+		} catch (e) {
+			this.localsshService.sendTelemetry({
+				status: SendLocalSSHUserFlowStatusRequest_Status.STATUS_FAILURE,
+				workspaceId: workspaceInfo.workspaceId,
+				instanceId: workspaceInfo.instanceId,
+				failureCode: SendLocalSSHUserFlowStatusRequest_Code.CODE_TUNNEL_NO_ESTABLISHED_CONNECTION,
+				failureReason: e?.toString(),
+				daemonVersion: getDaemonVersion(),
+				extensionVersion: getRunningExtensionVersion(),
+				connType: SendLocalSSHUserFlowStatusRequest_ConnType.CONN_TYPE_TUNNEL,
+			});
+			throw e;
 		}
-		return session;
 	}
 
 	shutdown() {
