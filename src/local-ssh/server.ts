@@ -58,7 +58,7 @@ export class LocalSSHGatewayServer {
 				session.onAuthenticating((e) => {
 					e.authenticationPromise = new Promise((resolve, reject) => {
 						this.authenticateClient(e.username!).then(async s => {
-							this.logger.info('connected with ' + e.username);
+							this.logger.info('authenticate with ' + e.username);
 							pipeSession = s;
 							resolve(new Object());
 						}).catch(e => {
