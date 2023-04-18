@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ExtensionServiceDefinition, ExtensionServiceImplementation, GetWorkspaceAuthInfoRequest, LocalSSHServiceDefinition, PingRequest, SendLocalSSHUserFlowStatusRequest, SendLocalSSHUserFlowStatusRequest_Code, SendLocalSSHUserFlowStatusRequest_ConnType, SendLocalSSHUserFlowStatusRequest_Status } from '../../proto/typescript/ipc/v1/ipc';
+import { ExtensionServiceDefinition, ExtensionServiceImplementation, GetWorkspaceAuthInfoRequest, LocalSSHServiceDefinition, PingRequest, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest, SendLocalSSHUserFlowStatusRequest_Code, SendLocalSSHUserFlowStatusRequest_ConnType, SendLocalSSHUserFlowStatusRequest_Status } from '../../proto/typescript/ipc/v1/ipc';
 import { Disposable } from '../../common/dispose';
 import { retry, timeout } from '../../common/async';
 export { ExtensionServiceDefinition } from '../../proto/typescript/ipc/v1/ipc';
@@ -111,6 +111,24 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
         }
         const status = request.status === SendLocalSSHUserFlowStatusRequest_Status.STATUS_SUCCESS ? 'local-ssh-success' : 'local-ssh-failure';
         this.telemetryService.sendUserFlowStatus(status, flow);
+        return {};
+    }
+
+    async sendErrorReport(request: SendErrorReportRequest, _context: CallContext): Promise<{}> {
+        const err = new Error(request.errorMessage);
+        err.name = 'local-ssh:' + request.errorName;
+        err.stack = request.errorStack;
+        const properties: Record<string, any> = {
+            workspaceId: request.workspaceId,
+            instanceId: request.instanceId,
+            daemonVersion: request.daemonVersion,
+            extensionVersion: request.extensionVersion,
+        };
+        const userId = this.sessionService.safeGetUserId();
+        if (userId) {
+            properties[userId] = userId;
+        }
+        this.telemetryService.sendTelemetryException(err, properties);
         return {};
     }
 }

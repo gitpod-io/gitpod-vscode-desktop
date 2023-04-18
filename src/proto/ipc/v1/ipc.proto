@@ -19,7 +19,20 @@ service ExtensionService {
     rpc Ping (PingRequest) returns (PingResponse) {}
     rpc GetWorkspaceAuthInfo (GetWorkspaceAuthInfoRequest) returns (GetWorkspaceAuthInfoResponse) {}
     rpc SendLocalSSHUserFlowStatus (SendLocalSSHUserFlowStatusRequest) returns (SendLocalSSHUserFlowStatusResponse) {}
+    rpc SendErrorReport (SendErrorReportRequest) returns (SendErrorReportResponse) {}
 }
+
+message SendErrorReportRequest {
+    string workspace_id = 1;
+    string instance_id = 2;
+    string error_name = 3;
+    string error_message = 4;
+    string error_stack = 5;
+    string daemon_version = 6;
+    string extension_version = 7;
+}
+
+message SendErrorReportResponse {}
 
 message SendLocalSSHUserFlowStatusRequest {
 

@@ -4,6 +4,19 @@ import * as _m0 from "protobufjs/minimal";
 
 export const protobufPackage = "ipc.v1";
 
+export interface SendErrorReportRequest {
+  workspaceId: string;
+  instanceId: string;
+  errorName: string;
+  errorMessage: string;
+  errorStack: string;
+  daemonVersion: string;
+  extensionVersion: string;
+}
+
+export interface SendErrorReportResponse {
+}
+
 export interface SendLocalSSHUserFlowStatusRequest {
   status: SendLocalSSHUserFlowStatusRequest_Status;
   workspaceId: string;
@@ -211,6 +224,164 @@ export interface GetWorkspaceAuthInfoResponse {
   workspaceHost: string;
   ownerToken: string;
 }
+
+function createBaseSendErrorReportRequest(): SendErrorReportRequest {
+  return {
+    workspaceId: "",
+    instanceId: "",
+    errorName: "",
+    errorMessage: "",
+    errorStack: "",
+    daemonVersion: "",
+    extensionVersion: "",
+  };
+}
+
+export const SendErrorReportRequest = {
+  encode(message: SendErrorReportRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.workspaceId !== "") {
+      writer.uint32(10).string(message.workspaceId);
+    }
+    if (message.instanceId !== "") {
+      writer.uint32(18).string(message.instanceId);
+    }
+    if (message.errorName !== "") {
+      writer.uint32(26).string(message.errorName);
+    }
+    if (message.errorMessage !== "") {
+      writer.uint32(34).string(message.errorMessage);
+    }
+    if (message.errorStack !== "") {
+      writer.uint32(42).string(message.errorStack);
+    }
+    if (message.daemonVersion !== "") {
+      writer.uint32(50).string(message.daemonVersion);
+    }
+    if (message.extensionVersion !== "") {
+      writer.uint32(58).string(message.extensionVersion);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): SendErrorReportRequest {
+    const reader = input instanceof _m0.Reader ? input : new _m0.Reader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseSendErrorReportRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.workspaceId = reader.string();
+          break;
+        case 2:
+          message.instanceId = reader.string();
+          break;
+        case 3:
+          message.errorName = reader.string();
+          break;
+        case 4:
+          message.errorMessage = reader.string();
+          break;
+        case 5:
+          message.errorStack = reader.string();
+          break;
+        case 6:
+          message.daemonVersion = reader.string();
+          break;
+        case 7:
+          message.extensionVersion = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+
+  fromJSON(object: any): SendErrorReportRequest {
+    return {
+      workspaceId: isSet(object.workspaceId) ? String(object.workspaceId) : "",
+      instanceId: isSet(object.instanceId) ? String(object.instanceId) : "",
+      errorName: isSet(object.errorName) ? String(object.errorName) : "",
+      errorMessage: isSet(object.errorMessage) ? String(object.errorMessage) : "",
+      errorStack: isSet(object.errorStack) ? String(object.errorStack) : "",
+      daemonVersion: isSet(object.daemonVersion) ? String(object.daemonVersion) : "",
+      extensionVersion: isSet(object.extensionVersion) ? String(object.extensionVersion) : "",
+    };
+  },
+
+  toJSON(message: SendErrorReportRequest): unknown {
+    const obj: any = {};
+    message.workspaceId !== undefined && (obj.workspaceId = message.workspaceId);
+    message.instanceId !== undefined && (obj.instanceId = message.instanceId);
+    message.errorName !== undefined && (obj.errorName = message.errorName);
+    message.errorMessage !== undefined && (obj.errorMessage = message.errorMessage);
+    message.errorStack !== undefined && (obj.errorStack = message.errorStack);
+    message.daemonVersion !== undefined && (obj.daemonVersion = message.daemonVersion);
+    message.extensionVersion !== undefined && (obj.extensionVersion = message.extensionVersion);
+    return obj;
+  },
+
+  create(base?: DeepPartial<SendErrorReportRequest>): SendErrorReportRequest {
+    return SendErrorReportRequest.fromPartial(base ?? {});
+  },
+
+  fromPartial(object: DeepPartial<SendErrorReportRequest>): SendErrorReportRequest {
+    const message = createBaseSendErrorReportRequest();
+    message.workspaceId = object.workspaceId ?? "";
+    message.instanceId = object.instanceId ?? "";
+    message.errorName = object.errorName ?? "";
+    message.errorMessage = object.errorMessage ?? "";
+    message.errorStack = object.errorStack ?? "";
+    message.daemonVersion = object.daemonVersion ?? "";
+    message.extensionVersion = object.extensionVersion ?? "";
+    return message;
+  },
+};
+
+function createBaseSendErrorReportResponse(): SendErrorReportResponse {
+  return {};
+}
+
+export const SendErrorReportResponse = {
+  encode(_: SendErrorReportResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): SendErrorReportResponse {
+    const reader = input instanceof _m0.Reader ? input : new _m0.Reader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseSendErrorReportResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+
+  fromJSON(_: any): SendErrorReportResponse {
+    return {};
+  },
+
+  toJSON(_: SendErrorReportResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<SendErrorReportResponse>): SendErrorReportResponse {
+    return SendErrorReportResponse.fromPartial(base ?? {});
+  },
+
+  fromPartial(_: DeepPartial<SendErrorReportResponse>): SendErrorReportResponse {
+    const message = createBaseSendErrorReportResponse();
+    return message;
+  },
+};
 
 function createBaseSendLocalSSHUserFlowStatusRequest(): SendLocalSSHUserFlowStatusRequest {
   return {
@@ -979,6 +1150,14 @@ export const ExtensionServiceDefinition = {
       responseStream: false,
       options: {},
     },
+    sendErrorReport: {
+      name: "SendErrorReport",
+      requestType: SendErrorReportRequest,
+      requestStream: false,
+      responseType: SendErrorReportResponse,
+      responseStream: false,
+      options: {},
+    },
   },
 } as const;
 
@@ -992,6 +1171,10 @@ export interface ExtensionServiceImplementation<CallContextExt = {}> {
     request: SendLocalSSHUserFlowStatusRequest,
     context: CallContext & CallContextExt,
   ): Promise<DeepPartial<SendLocalSSHUserFlowStatusResponse>>;
+  sendErrorReport(
+    request: SendErrorReportRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<SendErrorReportResponse>>;
 }
 
 export interface ExtensionServiceClient<CallOptionsExt = {}> {
@@ -1004,6 +1187,10 @@ export interface ExtensionServiceClient<CallOptionsExt = {}> {
     request: DeepPartial<SendLocalSSHUserFlowStatusRequest>,
     options?: CallOptions & CallOptionsExt,
   ): Promise<SendLocalSSHUserFlowStatusResponse>;
+  sendErrorReport(
+    request: DeepPartial<SendErrorReportRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<SendErrorReportResponse>;
 }
 
 type Builtin = Date | Function | Uint8Array | string | number | boolean | undefined;

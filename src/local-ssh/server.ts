@@ -74,6 +74,7 @@ export class LocalSSHGatewayServer {
 							resolve(new Object());
 						}).catch(e => {
 							this.logger.error(e, 'failed to authenticate client');
+							this.localsshService.sendErrorReport(e.username, undefined, e, 'failed to authenticate client');
 							reject(null);
 						});
 					});
@@ -121,6 +122,7 @@ export class LocalSSHGatewayServer {
 			return session;
 		} catch (e) {
 			this.logger.error(e, 'failed to connect with direct ssh');
+			this.localsshService.sendErrorReport(workspaceInfo.workspaceId, workspaceInfo.instanceId, e, 'failed to connect with direct ssh');
 			this.localsshService.sendTelemetry({
 				status: SendLocalSSHUserFlowStatusRequest_Status.STATUS_FAILURE,
 				workspaceId: workspaceInfo.workspaceId,

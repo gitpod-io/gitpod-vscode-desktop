@@ -3,9 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ActiveRequest, ExtensionServiceDefinition, GetDaemonVersionRequest, InactiveRequest, LocalSSHServiceDefinition, LocalSSHServiceImplementation, PingRequest, SendLocalSSHUserFlowStatusRequest } from '../../proto/typescript/ipc/v1/ipc';
+import { ActiveRequest, ExtensionServiceDefinition, GetDaemonVersionRequest, InactiveRequest, LocalSSHServiceDefinition, LocalSSHServiceImplementation, PingRequest, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest } from '../../proto/typescript/ipc/v1/ipc';
 import { CallContext, Client, createChannel, createClient, createServer } from 'nice-grpc';
-import { ExitCode, exitProcess, getDaemonVersion, getExtensionIPCHandleAddr, getLocalSSHIPCHandleAddr, getLocalSSHIPCHandlePath } from '../common';
+import { ExitCode, exitProcess, getDaemonVersion, getExtensionIPCHandleAddr, getLocalSSHIPCHandleAddr, getLocalSSHIPCHandlePath, getRunningExtensionVersion } from '../common';
 import { existsSync, unlinkSync } from 'fs';
 import { retry } from '../../common/async';
 import { ILogService } from '../../services/logService';
@@ -103,6 +103,37 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
                 break;
             } catch (e) {
                 this.logger.error(e, 'failed to send telemetry');
+            }
+        }
+    }
+
+    public async sendErrorReport(workspaceId: string | undefined, instanceId: string | undefined, err: Error | any, message: string) {
+        if (!err || this.extensionServices.length === 0) {
+            return;
+        }
+        const request: SendErrorReportRequest = {
+            workspaceId: workspaceId ?? '',
+            instanceId: instanceId ?? '',
+            errorName: '',
+            errorMessage: '',
+            errorStack: '',
+            daemonVersion: getDaemonVersion(),
+            extensionVersion: getRunningExtensionVersion(),
+        };
+        if (err instanceof Error) {
+            request.errorName = err.name;
+            request.errorMessage = message + ': ' + err.message;
+            request.errorStack = err.stack ?? '';
+        } else {
+            request.errorName = err.toString();
+            request.errorMessage = message + ': ' + err.toString();
+        }
+        for (const ext of this.extensionServices) {
+            try {
+                await ext.client.sendErrorReport(request);
+                break;
+            } catch (e) {
+                this.logger.error(e, 'failed to send error report');
             }
         }
     }
