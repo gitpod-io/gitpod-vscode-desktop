@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 export function timeout(millis: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, millis));
+	return new Promise((resolve) => setTimeout(resolve, millis));
 }
 
 export interface ITask<T> {
@@ -24,5 +24,25 @@ export async function retry<T>(task: ITask<Promise<T>>, delay: number, retries: 
 		}
 	}
 
+	throw lastError;
+}
+
+export async function retryWithStop<T>(task: (stop: () => void) => Promise<T>, delay: number, retries: number): Promise<T> {
+	let lastError: Error | undefined;
+	let stopped = false;
+	const stop = () => {
+		stopped = true;
+	};
+	for (let i = 0; i < retries; i++) {
+		try {
+			return await task(stop);
+		} catch (error) {
+			lastError = error;
+			if (stopped) {
+				break;
+			}
+			await timeout(delay);
+		}
+	}
 	throw lastError;
 }

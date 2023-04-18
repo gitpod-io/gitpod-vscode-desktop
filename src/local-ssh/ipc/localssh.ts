@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ActiveRequest, ExtensionServiceDefinition, GetDaemonVersionRequest, InactiveRequest, LocalSSHServiceDefinition, LocalSSHServiceImplementation, PingRequest, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest } from '../../proto/typescript/ipc/v1/ipc';
-import { CallContext, Client, createChannel, createClient, createServer } from 'nice-grpc';
+import { CallContext, Client, ServerError, Status, createChannel, createClient, createServer } from 'nice-grpc';
 import { ExitCode, exitProcess, getDaemonVersion, getExtensionIPCHandleAddr, getLocalSSHIPCHandleAddr, getLocalSSHIPCHandlePath, getRunningExtensionVersion } from '../common';
 import { existsSync, unlinkSync } from 'fs';
-import { retry } from '../../common/async';
+import { retryWithStop } from '../../common/async';
 import { ILogService } from '../../services/logService';
 
 export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
@@ -82,12 +82,17 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
     }
 
     public async getWorkspaceAuthInfo(workspaceId: string) {
-        return retry(async () => {
+        return retryWithStop(async (stop) => {
             for (const ext of this.extensionServices) {
                 try {
                     const authInfo = await ext.client.getWorkspaceAuthInfo({ workspaceId });
                     return authInfo;
                 } catch (e) {
+                    if (e instanceof ServerError) {
+                        if (e.code === Status.UNAVAILABLE && e.details.startsWith('workspace is not running')) {
+                            stop();
+                        }
+                    }
                     this.logger.error(e, 'failed to get workspace auth info, id: ' + ext.id);
                     throw e;
                 }
