@@ -3,10 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import vscode from 'vscode';
 import { join } from 'path';
 import { spawn } from 'child_process';
-import { DaemonOptions, ExitCode, getSockTail } from './local-ssh/common';
+import { DaemonOptions, ExitCode } from './local-ssh/common';
 import { ILogService } from './services/logService';
 import { timeout } from './common/async';
 import { Configuration } from './configuration';
@@ -16,9 +15,7 @@ export async function ensureDaemonStarted(logService: ILogService, telemetryServ
     if (retry < 0) {
         return;
     }
-    const process = await tryStartDaemon(logService, {
-        sockFileTail: getSockTail(vscode.env.appName),
-    });
+    const process = await tryStartDaemon(logService);
     const ok = await new Promise<boolean>(resolve => {
         process.once('exit', async code => {
             const humanReadableCode = code !== null ? ExitCode[code] : 'UNSPECIFIED';
@@ -42,14 +39,15 @@ export async function ensureDaemonStarted(logService: ILogService, telemetryServ
 
 const DefaultDaemonOptions: DaemonOptions = {
     logLevel: 'info',
-    sockFileTail: '',
     // use `sudo lsof -i:<port>` to check if the port is already in use
+    ipcPort: Configuration.getLocalSshIpcPort(),
     serverPort: Configuration.getLocalSSHServerPort(),
+
     logFilePath: Configuration.getDaemonLogPath(),
 };
 
 export function parseArgv(options: DaemonOptions): string[] {
-    return [options.logLevel, options.serverPort.toString(), options.logFilePath, options.sockFileTail];
+    return [options.logFilePath, options.logLevel, options.serverPort.toString(), options.ipcPort.toString()];
 }
 
 export async function tryStartDaemon(logService: ILogService, options?: Partial<DaemonOptions>) {

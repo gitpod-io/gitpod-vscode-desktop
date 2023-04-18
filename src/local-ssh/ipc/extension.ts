@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import vscode from 'vscode';
 import { ExtensionServiceDefinition, ExtensionServiceImplementation, GetWorkspaceAuthInfoRequest, LocalSSHServiceDefinition, PingRequest, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest, SendLocalSSHUserFlowStatusRequest_Code, SendLocalSSHUserFlowStatusRequest_ConnType, SendLocalSSHUserFlowStatusRequest_Status } from '../../proto/typescript/ipc/v1/ipc';
 import { Disposable } from '../../common/dispose';
 import { retry, timeout } from '../../common/async';
@@ -17,12 +16,13 @@ import { ISessionService } from '../../services/sessionService';
 import { CallContext, ServerError, Status } from 'nice-grpc-common';
 import { IHostService } from '../../services/hostService';
 import { Server, createClient, createServer, createChannel } from 'nice-grpc';
-import { getDaemonVersion, getExtensionIPCHandleAddr, getLocalSSHIPCHandleAddr, getSockTail } from '../common';
+import { getDaemonVersion } from '../common';
 import { INotificationService } from '../../services/notificationService';
 import { showWsNotRunningDialog } from '../../remote';
 import { ITelemetryService, UserFlowTelemetry } from '../../services/telemetryService';
 import { ExperimentalSettings } from '../../experiments';
 import { SemVer } from 'semver';
+import { Configuration } from '../../configuration';
 
 const phaseMap: Record<WorkspaceInstanceStatus_Phase, WorkspaceInstancePhase | undefined> = {
     [WorkspaceInstanceStatus_Phase.CREATING]: 'pending',
@@ -147,8 +147,9 @@ export class ExtensionServiceServer extends Disposable {
     private pingLocalSSHRetryCount = 0;
     private lastTimeActiveTelemetry: boolean | undefined;
     private readonly id: string = Math.random().toString(36).slice(2);
+    private ipcPort?: number;
 
-    private localSSHServiceClient = createClient(LocalSSHServiceDefinition, createChannel(getLocalSSHIPCHandleAddr(getSockTail(vscode.env.appName))));
+    private localSSHServiceClient = createClient(LocalSSHServiceDefinition, createChannel('127.0.0.1:' + Configuration.getLocalSshIpcPort()));
 
     constructor(
         private readonly logService: ILogService,
@@ -180,7 +181,8 @@ export class ExtensionServiceServer extends Disposable {
             return;
         }
         this.logService.info('going to start extension ipc service server with id', this.id);
-        this.server.listen(getExtensionIPCHandleAddr(this.id)).then(() => {
+        this.server.listen('127.0.0.1:0').then((port) => {
+            this.ipcPort = port;
             this.logService.info('extension ipc service server started to listen with id: ' + this.id);
             this.pingLocalSSHService();
             this.backoffActive();
@@ -192,7 +194,7 @@ export class ExtensionServiceServer extends Disposable {
     private async backoffActive() {
         try {
             await retry(async () => {
-                await this.localSSHServiceClient.active({ id: this.id });
+                await this.localSSHServiceClient.active({ id: this.id, ipcPort: this.ipcPort! });
                 this.logService.info('extension ipc svc activated id: ' + this.id);
             }, 200, ExtensionServiceServer.MAX_EXTENSION_ACTIVE_RETRY_COUNT);
             if (this.lastTimeActiveTelemetry === true) {

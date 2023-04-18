@@ -12,10 +12,10 @@ import { Logger } from './logger';
 export function getOptionsFromArgv(): DaemonOptions | undefined {
 	const args = process.argv.slice(2);
 	const options: DaemonOptions = {
-		logLevel: args[0] as any,
-		serverPort: parseInt(args[1]),
-		logFilePath: args[2],
-		sockFileTail: args[3],
+		logFilePath: args[0],
+		logLevel: args[1] as any,
+		serverPort: parseInt(args[2]),
+		ipcPort: parseInt(args[3]),
 	};
 	if (isNaN(options.serverPort) ||
 		!['debug', 'info'].includes(options.logLevel) ||
@@ -48,7 +48,7 @@ export class LocalSSHDaemon {
 		this.logger.info('starting daemon with pid: ' + process.pid);
 
 		// start local-ssh gateway server
-		const gatewayServer = new LocalSSHGatewayServer(this.logger, this.options.serverPort, this.options.sockFileTail);
+		const gatewayServer = new LocalSSHGatewayServer(this.logger, this.options.serverPort, this.options.ipcPort);
 		gatewayServer.startServer();
 		this.logger.info('local ssh gateway server started');
 

@@ -5,8 +5,7 @@
 
 import { ActiveRequest, ExtensionServiceDefinition, GetDaemonVersionRequest, InactiveRequest, LocalSSHServiceDefinition, LocalSSHServiceImplementation, PingRequest, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest } from '../../proto/typescript/ipc/v1/ipc';
 import { CallContext, Client, ServerError, Status, createChannel, createClient, createServer } from 'nice-grpc';
-import { ExitCode, exitProcess, getDaemonVersion, getExtensionIPCHandleAddr, getLocalSSHIPCHandleAddr, getLocalSSHIPCHandlePath, getRunningExtensionVersion } from '../common';
-import { existsSync, unlinkSync } from 'fs';
+import { ExitCode, exitProcess, getDaemonVersion, getRunningExtensionVersion } from '../common';
 import { retryWithStop } from '../../common/async';
 import { ILogService } from '../../services/logService';
 
@@ -25,7 +24,7 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
     }
 
     async active(request: ActiveRequest, _context: CallContext): Promise<{}> {
-        this.activeExtension(request.id);
+        this.activeExtension(request.id, request.ipcPort);
         return {};
     }
 
@@ -38,13 +37,13 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
         return {};
     }
 
-    private activeExtension(id: string) {
+    private activeExtension(id: string, ipcPort: number) {
         if (this.extensionServices.find(e => e.id === id)) {
             return;
         }
 
-        this.extensionServices.unshift({ id, client: createClient(ExtensionServiceDefinition, createChannel(getExtensionIPCHandleAddr(id))) });
-        this.logger.info(`extension svc activated, id: ${id}, current clients: ${this.extensionServices.length}`);
+        this.extensionServices.unshift({ id, client: createClient(ExtensionServiceDefinition, createChannel('127.0.0.1:' + ipcPort)) });
+        this.logger.info(`extension svc activated, id: ${id}, port: ${ipcPort}, current clients: ${this.extensionServices.length}`);
     }
 
     private async inactiveClientID(id: string, reason: 'schedulePing' | 'request') {
@@ -143,14 +142,10 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
     }
 }
 
-export async function startLocalSSHService(logger: ILogService, tail: string, serviceImpl: LocalSSHServiceImpl) {
-    const sockFile = getLocalSSHIPCHandlePath(tail);
-    logger.info('going to start local ssh service with sockFile: ' + sockFile);
-    if (existsSync(sockFile)) {
-        unlinkSync(sockFile);
-    }
+export async function startLocalSSHService(logger: ILogService, port: number, serviceImpl: LocalSSHServiceImpl) {
+    logger.info('going to start local ssh service with port: ' + port);
     const server = createServer();
     server.add(LocalSSHServiceDefinition, serviceImpl);
-    await server.listen(getLocalSSHIPCHandleAddr(tail));
+    await server.listen('127.0.0.1:' + port);
     return server;
 }

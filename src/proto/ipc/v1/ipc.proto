@@ -79,6 +79,8 @@ message SendLocalSSHUserFlowStatusResponse {}
 message ActiveRequest {
     // id is the extenson id
     string id = 1;
+    // ipc_port is the port of the extension service ipc server
+    uint32 ipc_port = 2;
 }
 
 message ActiveResponse {}

@@ -189,6 +189,8 @@ export interface SendLocalSSHUserFlowStatusResponse {
 export interface ActiveRequest {
   /** id is the extenson id */
   id: string;
+  /** ipc_port is the port of the extension service ipc server */
+  ipcPort: number;
 }
 
 export interface ActiveResponse {
@@ -554,13 +556,16 @@ export const SendLocalSSHUserFlowStatusResponse = {
 };
 
 function createBaseActiveRequest(): ActiveRequest {
-  return { id: "" };
+  return { id: "", ipcPort: 0 };
 }
 
 export const ActiveRequest = {
   encode(message: ActiveRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
     if (message.id !== "") {
       writer.uint32(10).string(message.id);
+    }
+    if (message.ipcPort !== 0) {
+      writer.uint32(16).uint32(message.ipcPort);
     }
     return writer;
   },
@@ -575,6 +580,9 @@ export const ActiveRequest = {
         case 1:
           message.id = reader.string();
           break;
+        case 2:
+          message.ipcPort = reader.uint32();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -584,12 +592,16 @@ export const ActiveRequest = {
   },
 
   fromJSON(object: any): ActiveRequest {
-    return { id: isSet(object.id) ? String(object.id) : "" };
+    return {
+      id: isSet(object.id) ? String(object.id) : "",
+      ipcPort: isSet(object.ipcPort) ? Number(object.ipcPort) : 0,
+    };
   },
 
   toJSON(message: ActiveRequest): unknown {
     const obj: any = {};
     message.id !== undefined && (obj.id = message.id);
+    message.ipcPort !== undefined && (obj.ipcPort = Math.round(message.ipcPort));
     return obj;
   },
 
@@ -600,6 +612,7 @@ export const ActiveRequest = {
   fromPartial(object: DeepPartial<ActiveRequest>): ActiveRequest {
     const message = createBaseActiveRequest();
     message.id = object.id ?? "";
+    message.ipcPort = object.ipcPort ?? 0;
     return message;
   },
 };
