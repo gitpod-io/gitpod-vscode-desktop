@@ -21,8 +21,7 @@ jobs:
           set -e
           setSegmentKey="setpath([\"segmentKey\"]; \"${{ secrets.ANALITYCS_KEY }}\")"
           setConfigcatKey="setpath([\"configcatKey\"]; \"${{ secrets.CONFIGCAT_KEY }}\")"
-          setBuildEnv="setpath([\"buildEnv\"]; \"production\")"
-          jqCommands="${setSegmentKey} | ${setConfigcatKey} | ${setBuildEnv}"
+          jqCommands="${setSegmentKey} | ${setConfigcatKey}"
           cat package.json | jq "${jqCommands}" > package.json.tmp
           mv package.json.tmp package.json
 

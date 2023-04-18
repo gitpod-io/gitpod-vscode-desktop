@@ -137,7 +137,6 @@
 		}
 	},
 	"main": "./out/extension.js",
-	"buildEnv": "local",
 	"segmentKey": "YErmvd89wPsrCuGcVnF2XAl846W9WIGl",
 	"configcatKey": "WBLaCPtkjkqKHlHedziE9g/LEAOCNkbuUKiqUZAcVg7dw",
 	"scripts": {
@@ -148,8 +147,7 @@
 		"package": "vsce package --yarn",
 		"lint": "eslint . --ext .ts",
 		"test": "mocha -u tdd",
-		"proto-gen": "bash ./src/proto/generate.sh",
-		"local-test": "node ./scripts/local-test.js"
+		"proto-gen": "bash ./src/proto/generate.sh"
 	},
 	"devDependencies": {
 		"@types/google-protobuf": "^3.7.4",

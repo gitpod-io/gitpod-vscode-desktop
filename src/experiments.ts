@@ -26,9 +26,8 @@ export class ExperimentalSettings {
         private readonly context: vscode.ExtensionContext,
         private readonly logger: ILogService
     ) {
-        const isProduction = this.context.extension.packageJSON.buildEnv === 'production';
         this.configcatClient = configcat.createClientWithLazyLoad(key, {
-            baseUrl: new URL('/configcat', isProduction ? 'https://gitpod.io' : 'https://gitpod-staging.com').href,
+            baseUrl: new URL('/configcat', this.context.extensionMode === vscode.ExtensionMode.Production ? 'https://gitpod.io' : 'https://gitpod-staging.com').href,
             logger: {
                 debug(): void { },
                 log(): void { },

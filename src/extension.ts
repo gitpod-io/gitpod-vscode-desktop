@@ -61,7 +61,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		logger.info(`${extensionId}/${packageJSON.version} (${os.release()} ${os.platform()} ${os.arch()}) vscode/${vscode.version} (${vscode.env.appName})`);
 
-		telemetryService = new TelemetryService(extensionId, packageJSON.version, packageJSON.segmentKey, logger!, packageJSON.buildEnv === 'production');
+		telemetryService = new TelemetryService(extensionId, packageJSON.version, packageJSON.segmentKey, logger!, context.extensionMode === vscode.ExtensionMode.Production);
 
 		const notificationService = new NotificationService(telemetryService);
 
