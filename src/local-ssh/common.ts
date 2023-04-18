@@ -28,6 +28,20 @@ export function exitProcess(code: ExitCode) {
 	}, 1000);
 }
 
+export interface DaemonOptions {
+	logLevel: 'debug' | 'info';
+	serverPort: number;
+	sockFileTail: string;
+
+	// TODO(local-ssh): Log file path use `globalStorageUri`? https://code.visualstudio.com/api/extension-capabilities/common-capabilities#:~:text=ExtensionContext.globalStorageUri%3A%20A%20global%20storage%20URI%20pointing%20to%20a%20local%20directory%20where%20your%20extension%20has%20read/write%20access.%20This%20is%20a%20good%20option%20if%20you%20need%20to%20store%20large%20files%20that%20are%20accessible%20from%20all%20workspaces
+	logFilePath: string;
+}
+
+export function getSockTail(appName: string): string {
+	// TODO(local-ssh): VSCodium?
+	return appName.includes('Insiders') ? 'insiders' : '';
+}
+
 function getIPCHandlePath(id: string, isAddr: boolean = false): string {
 	if (process.platform === 'win32') {
 		return `\\\\.\\pipe\\gitpod-vscode--${id}-sock`;
@@ -39,16 +53,16 @@ function getIPCHandlePath(id: string, isAddr: boolean = false): string {
 	return p;
 }
 
-export function getLocalSSHIPCHandlePath(): string {
-	return getIPCHandlePath('localssh');
+export function getLocalSSHIPCHandlePath(tail: string): string {
+	return getIPCHandlePath('localssh' + tail);
 }
 
 export function getExtensionIPCHandlePath(id: string): string {
 	return getIPCHandlePath('ext-' + id);
 }
 
-export function getLocalSSHIPCHandleAddr(): string {
-	return getIPCHandlePath('localssh', true);
+export function getLocalSSHIPCHandleAddr(tail: string): string {
+	return getIPCHandlePath('localssh' + tail, true);
 }
 
 export function getExtensionIPCHandleAddr(id: string): string {

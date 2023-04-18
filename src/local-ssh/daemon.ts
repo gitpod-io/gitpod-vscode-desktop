@@ -3,9 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { DaemonOptions } from '../daemonStarter';
 import { ILogService } from '../services/logService';
-import { ExitCode, exitProcess } from './common';
+import { DaemonOptions, ExitCode, exitProcess } from './common';
 import { LocalSSHGatewayServer } from './server';
 import { Logger } from './logger';
 
@@ -16,6 +15,7 @@ export function getOptionsFromArgv(): DaemonOptions | undefined {
 		logLevel: args[0] as any,
 		serverPort: parseInt(args[1]),
 		logFilePath: args[2],
+		sockFileTail: args[3],
 	};
 	if (isNaN(options.serverPort) ||
 		!['debug', 'info'].includes(options.logLevel) ||
@@ -48,7 +48,7 @@ export class LocalSSHDaemon {
 		this.logger.info('starting daemon with pid: ' + process.pid);
 
 		// start local-ssh gateway server
-		const gatewayServer = new LocalSSHGatewayServer(this.logger, this.options.serverPort);
+		const gatewayServer = new LocalSSHGatewayServer(this.logger, this.options.serverPort, this.options.sockFileTail);
 		gatewayServer.startServer();
 		this.logger.info('local ssh gateway server started');
 

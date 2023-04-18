@@ -27,6 +27,7 @@ export class LocalSSHGatewayServer {
 	constructor(
 		private readonly logger: ILogService,
 		private readonly port: number,
+		private readonly sockTail: string,
 	) { }
 
 	async authenticateClient(clientUsername: string) {
@@ -96,7 +97,7 @@ export class LocalSSHGatewayServer {
 	private startLocalSSHService() {
 		// start local-ssh ipc service
 		this.localsshService = new LocalSSHServiceImpl(this.logger);
-		startLocalSSHService(this.localsshService).then(server => {
+		startLocalSSHService(this.logger, this.sockTail, this.localsshService).then(server => {
 			this.logger.info('local ssh ipc service started');
 			this.localsshServiceServer = server;
 		});

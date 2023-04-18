@@ -44,7 +44,6 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
         }
 
         this.extensionServices.unshift({ id, client: createClient(ExtensionServiceDefinition, createChannel(getExtensionIPCHandleAddr(id))) });
-        this.logger.info(`channel: ${getExtensionIPCHandleAddr(id)}`);
         this.logger.info(`extension svc activated, id: ${id}, current clients: ${this.extensionServices.length}`);
     }
 
@@ -144,13 +143,14 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
     }
 }
 
-export async function startLocalSSHService(serviceImpl: LocalSSHServiceImpl) {
-    const sockFile = getLocalSSHIPCHandlePath();
+export async function startLocalSSHService(logger: ILogService, tail: string, serviceImpl: LocalSSHServiceImpl) {
+    const sockFile = getLocalSSHIPCHandlePath(tail);
+    logger.info('going to start local ssh service with sockFile: ' + sockFile);
     if (existsSync(sockFile)) {
         unlinkSync(sockFile);
     }
     const server = createServer();
     server.add(LocalSSHServiceDefinition, serviceImpl);
-    await server.listen(getLocalSSHIPCHandleAddr());
+    await server.listen(getLocalSSHIPCHandleAddr(tail));
     return server;
 }

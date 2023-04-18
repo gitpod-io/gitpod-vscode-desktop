@@ -3,9 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import vscode from 'vscode';
 import { join } from 'path';
 import { spawn } from 'child_process';
-import { ExitCode } from './local-ssh/common';
+import { DaemonOptions, ExitCode, getSockTail } from './local-ssh/common';
 import { ILogService } from './services/logService';
 import { timeout } from './common/async';
 import { Configuration } from './configuration';
@@ -15,7 +16,9 @@ export async function ensureDaemonStarted(logService: ILogService, telemetryServ
     if (retry < 0) {
         return;
     }
-    const process = await tryStartDaemon(logService);
+    const process = await tryStartDaemon(logService, {
+        sockFileTail: getSockTail(vscode.env.appName),
+    });
     const ok = await new Promise<boolean>(resolve => {
         process.once('exit', async code => {
             const humanReadableCode = code !== null ? ExitCode[code] : 'UNSPECIFIED';
@@ -37,26 +40,19 @@ export async function ensureDaemonStarted(logService: ILogService, telemetryServ
     }
 }
 
-export interface DaemonOptions {
-    logLevel: 'debug' | 'info';
-    serverPort: number;
-
-    // TODO(local-ssh): Log file path use `globalStorageUri`? https://code.visualstudio.com/api/extension-capabilities/common-capabilities#:~:text=ExtensionContext.globalStorageUri%3A%20A%20global%20storage%20URI%20pointing%20to%20a%20local%20directory%20where%20your%20extension%20has%20read/write%20access.%20This%20is%20a%20good%20option%20if%20you%20need%20to%20store%20large%20files%20that%20are%20accessible%20from%20all%20workspaces
-    logFilePath: string;
-}
-
 const DefaultDaemonOptions: DaemonOptions = {
     logLevel: 'info',
+    sockFileTail: '',
     // use `sudo lsof -i:<port>` to check if the port is already in use
     serverPort: Configuration.getLocalSSHServerPort(),
     logFilePath: Configuration.getDaemonLogPath(),
 };
 
 export function parseArgv(options: DaemonOptions): string[] {
-    return [options.logLevel, options.serverPort.toString(), options.logFilePath];
+    return [options.logLevel, options.serverPort.toString(), options.logFilePath, options.sockFileTail];
 }
 
-export async function tryStartDaemon(logService: ILogService, options?: DaemonOptions) {
+export async function tryStartDaemon(logService: ILogService, options?: Partial<DaemonOptions>) {
     const opts: DaemonOptions = { ...DefaultDaemonOptions, ...options };
     const args: string[] = [join(__dirname, 'local-ssh/daemon.js'), ...parseArgv(opts)];
     logService.debug('going to start local-ssh daemon', opts, args);

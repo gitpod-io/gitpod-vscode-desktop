@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import vscode from 'vscode';
 import { ExtensionServiceDefinition, ExtensionServiceImplementation, GetWorkspaceAuthInfoRequest, LocalSSHServiceDefinition, PingRequest, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest, SendLocalSSHUserFlowStatusRequest_Code, SendLocalSSHUserFlowStatusRequest_ConnType, SendLocalSSHUserFlowStatusRequest_Status } from '../../proto/typescript/ipc/v1/ipc';
 import { Disposable } from '../../common/dispose';
 import { retry, timeout } from '../../common/async';
@@ -16,7 +17,7 @@ import { ISessionService } from '../../services/sessionService';
 import { CallContext, ServerError, Status } from 'nice-grpc-common';
 import { IHostService } from '../../services/hostService';
 import { Server, createClient, createServer, createChannel } from 'nice-grpc';
-import { getDaemonVersion, getExtensionIPCHandleAddr, getLocalSSHIPCHandleAddr } from '../common';
+import { getDaemonVersion, getExtensionIPCHandleAddr, getLocalSSHIPCHandleAddr, getSockTail } from '../common';
 import { INotificationService } from '../../services/notificationService';
 import { showWsNotRunningDialog } from '../../remote';
 import { ITelemetryService, UserFlowTelemetry } from '../../services/telemetryService';
@@ -57,40 +58,45 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
     }
 
     async getWorkspaceAuthInfo(request: GetWorkspaceAuthInfoRequest, _context: CallContext): Promise<{ workspaceId?: string | undefined; workspaceHost?: string | undefined; ownerToken?: string | undefined }> {
-        const accessToken = this.sessionService.getGitpodToken();
-        if (!accessToken) {
-            throw new ServerError(Status.INTERNAL, 'no access token found');
-        }
-        const workspaceId = request.workspaceId;
-
-        const gitpodHost = this.hostService.gitpodHost;
-        const usePublicApi = await this.experiments.getUsePublicAPI(gitpodHost);
-        const [workspace, ownerToken] = await withServerApi(accessToken, gitpodHost, svc => Promise.all([
-            usePublicApi ? this.sessionService.getAPI().getWorkspace(workspaceId) : svc.server.getWorkspace(workspaceId),
-            usePublicApi ? this.sessionService.getAPI().getOwnerToken(workspaceId) : svc.server.getOwnerToken(workspaceId),
-        ]), this.logService);
-
-        const phase = usePublicApi ? phaseMap[(workspace as Workspace).status?.instance?.status?.phase ?? WorkspaceInstanceStatus_Phase.UNSPECIFIED] : (workspace as WorkspaceInfo).latestInstance?.status.phase;
-        if (phase !== 'running') {
-            const show = this.canShowNotification(workspaceId);
-            if (show) {
-                const flow: UserFlowTelemetry = { workspaceId, gitpodHost, userId: this.sessionService.getUserId(), flow: 'extension_ipc' };
-                showWsNotRunningDialog(workspaceId, gitpodHost, flow, this.notificationService, this.logService);
+        try {
+            const accessToken = this.sessionService.getGitpodToken();
+            if (!accessToken) {
+                throw new ServerError(Status.INTERNAL, 'no access token found');
             }
-            throw new ServerError(Status.UNAVAILABLE, 'workspace is not running, current phase: ' + phase);
-        }
+            const workspaceId = request.workspaceId;
 
-        const ideUrl = usePublicApi ? (workspace as Workspace).status?.instance?.status?.url : (workspace as WorkspaceInfo).latestInstance?.ideUrl;
-        if (!ideUrl) {
-            throw new ServerError(Status.DATA_LOSS, 'no ide url found');
+            const gitpodHost = this.hostService.gitpodHost;
+            const usePublicApi = await this.experiments.getUsePublicAPI(gitpodHost);
+            const [workspace, ownerToken] = await withServerApi(accessToken, gitpodHost, svc => Promise.all([
+                usePublicApi ? this.sessionService.getAPI().getWorkspace(workspaceId) : svc.server.getWorkspace(workspaceId),
+                usePublicApi ? this.sessionService.getAPI().getOwnerToken(workspaceId) : svc.server.getOwnerToken(workspaceId),
+            ]), this.logService);
+
+            const phase = usePublicApi ? phaseMap[(workspace as Workspace).status?.instance?.status?.phase ?? WorkspaceInstanceStatus_Phase.UNSPECIFIED] : (workspace as WorkspaceInfo).latestInstance?.status.phase;
+            if (phase !== 'running') {
+                const show = this.canShowNotification(workspaceId);
+                if (show) {
+                    const flow: UserFlowTelemetry = { workspaceId, gitpodHost, userId: this.sessionService.getUserId(), flow: 'extension_ipc' };
+                    showWsNotRunningDialog(workspaceId, gitpodHost, flow, this.notificationService, this.logService);
+                }
+                throw new ServerError(Status.UNAVAILABLE, 'workspace is not running, current phase: ' + phase);
+            }
+
+            const ideUrl = usePublicApi ? (workspace as Workspace).status?.instance?.status?.url : (workspace as WorkspaceInfo).latestInstance?.ideUrl;
+            if (!ideUrl) {
+                throw new ServerError(Status.DATA_LOSS, 'no ide url found');
+            }
+            const url = new URL(ideUrl);
+            const workspaceHost = url.host.substring(url.host.indexOf('.') + 1);
+            return {
+                workspaceId,
+                workspaceHost,
+                ownerToken,
+            };
+        } catch (e) {
+            this.logService.error(e, 'failed to get workspace auth info');
+            throw e;
         }
-        const url = new URL(ideUrl);
-        const workspaceHost = url.host.substring(url.host.indexOf('.') + 1);
-        return {
-            workspaceId,
-            workspaceHost,
-            ownerToken,
-        };
     }
 
     async sendLocalSSHUserFlowStatus(request: SendLocalSSHUserFlowStatusRequest, _context: CallContext): Promise<{}> {
@@ -141,7 +147,8 @@ export class ExtensionServiceServer extends Disposable {
     private pingLocalSSHRetryCount = 0;
     private lastTimeActiveTelemetry: boolean | undefined;
     private readonly id: string = Math.random().toString(36).slice(2);
-    private localSSHServiceClient = createClient(LocalSSHServiceDefinition, createChannel(getLocalSSHIPCHandleAddr()));
+
+    private localSSHServiceClient = createClient(LocalSSHServiceDefinition, createChannel(getLocalSSHIPCHandleAddr(getSockTail(vscode.env.appName))));
 
     constructor(
         private readonly logService: ILogService,
