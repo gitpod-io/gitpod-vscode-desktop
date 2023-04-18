@@ -766,7 +766,7 @@ export class RemoteConnector extends Disposable {
 				sshDestination = localAppDestData.destination;
 				localAppSSHConfigPath = localAppDestData.localAppSSHConfigPath;
 
-				this.telemetryService.sendUserFlowStatus('connected', localAppFlow);
+				this.telemetryService.sendUserFlowStatus('got_destination', localAppFlow);
 			} catch (e) {
 				this.telemetryService.sendUserFlowStatus('failed', { reason: e.toString(), ...localAppFlow });
 				this.logService.error(`Failed to connect ${params.workspaceId} Gitpod workspace:`, e);
