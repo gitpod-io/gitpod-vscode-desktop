@@ -39,7 +39,7 @@ import { ILogService } from './services/logService';
 import { IHostService } from './services/hostService';
 import { Configuration } from './configuration';
 import { getLocalSSHUrl, getServiceURL } from './common/utils';
-import { GitpodDefaultLocalhost as GITPOD_DEFAULT_LOCALHOST_RECORD, isDNSPointToLocalhost, isDomainConnectable } from './local-ssh/common';
+import { GitpodDefaultLocalhost as GITPOD_DEFAULT_LOCALHOST_RECORD, HOST_PUBLIC_KEY_TYPE, getHostKeyFingerprint, isDNSPointToLocalhost, isDomainConnectable } from './local-ssh/common';
 
 interface LocalAppConfig {
 	gitpodHost: string;
@@ -542,6 +542,9 @@ export class RemoteConnector extends Disposable {
 			} else {
 				this.logService.warn('Default DNS record is not connectable. Falling back to localhost');
 				hostname = 'localhost';
+			}
+			if (await checkNewHostInHostkeys(hostname)) {
+				await addHostToHostFile(hostname, getHostKeyFingerprint(), HOST_PUBLIC_KEY_TYPE);
 			}
 		} else {
 			this.logService.debug('DNS record for lssh is pointing to localhost');
