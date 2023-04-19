@@ -144,15 +144,6 @@
   dependencies:
     "@improbable-eng/grpc-web" "^0.14.0"
 
-"@gitpod/supervisor-api@^0.1.5-hw-supervisor-nicegrpc.4":
-  version "0.1.5-hw-supervisor-nicegrpc.4"
-  resolved "https://registry.yarnpkg.com/@gitpod/supervisor-api/-/supervisor-api-0.1.5-hw-supervisor-nicegrpc.4.tgz#bb9cb596e06126df00a36d1dbf46130d41c47b9a"
-  integrity sha512-/ds9E42BGR2iLXsul3KvyOnhe8zLxYCkYmP4j5K4E2nVnhuYv/hkD5PpLev5WYMSAjoWG2TiOIfs4xogAnO5fQ==
-  dependencies:
-    long "4.0.0"
-    nice-grpc "^2.0.0"
-    ts-proto "^1.125.0"
-
 "@grpc/grpc-js@^1.3.7", "@grpc/grpc-js@^1.7.3":
   version "1.8.11"
   resolved "https://registry.yarnpkg.com/@grpc/grpc-js/-/grpc-js-1.8.11.tgz#f113f7bc197e8d6f3d3f0c6b02925c7a5da1aec4"
@@ -931,7 +922,7 @@ array-union@^2.1.0:
   resolved "https://registry.yarnpkg.com/array-union/-/array-union-2.1.0.tgz#b798420adbeb1de828d84acd8a2e23d3efe85e8d"
   integrity sha512-HGyxoOTYUyCM6stUe6EJgnd4EoewAI7zMdfqO+kGjnlZmBDz/cR5pf8r/cR4Wq60sL/p0IkcjUEEPwS3GFrIyw==
 
-asn1@^0.2.4, asn1@~0.2.0, asn1@~0.2.3:
+asn1@^0.2.4, asn1@~0.2.3:
   version "0.2.6"
   resolved "https://registry.yarnpkg.com/asn1/-/asn1-0.2.6.tgz#0d3a7bb6e64e02a90c0303b31f292868ea09a08d"
   integrity sha512-ix/FxPn0MDjeyJ7i/yoHGFt/EX6LyNbxSEhPPXODPL+KB0VPk86UYfL0lMdy+KCnv+fmvIzySwaK5COwqVbWTQ==
@@ -2613,15 +2604,15 @@ logform@^2.3.2, logform@^2.4.0:
     safe-stable-stringify "^2.3.1"
     triple-beam "^1.3.0"
 
-long@4.0.0, long@^4.0.0:
-  version "4.0.0"
-  resolved "https://registry.yarnpkg.com/long/-/long-4.0.0.tgz#9a7b71cfb7d361a194ea555241c92f7468d5bf28"
-  integrity sha512-XsP+KhQif4bjX1kbuSiySJFNAehNxgLb6hPRGJ9QsUr8ajHkuXGdrHmFUTUUXhDwVX2R5bY4JNZEwbUiMhV+MA==
-
 long@^2.4.0:
   version "2.4.0"
   resolved "https://registry.yarnpkg.com/long/-/long-2.4.0.tgz#9fa180bb1d9500cdc29c4156766a1995e1f4524f"
   integrity sha512-ijUtjmO/n2A5PaosNG9ZGDsQ3vxJg7ZW8vsY8Kp0f2yIZWhSJvjmegV7t+9RPQKxKrvj8yKGehhS+po14hPLGQ==
+
+long@^4.0.0:
+  version "4.0.0"
+  resolved "https://registry.yarnpkg.com/long/-/long-4.0.0.tgz#9a7b71cfb7d361a194ea555241c92f7468d5bf28"
+  integrity sha512-XsP+KhQif4bjX1kbuSiySJFNAehNxgLb6hPRGJ9QsUr8ajHkuXGdrHmFUTUUXhDwVX2R5bY4JNZEwbUiMhV+MA==
 
 long@^5.0.0, long@^5.2.1:
   version "5.2.1"
@@ -2886,15 +2877,6 @@ nice-grpc-common@^2.0.1:
   dependencies:
     ts-error "^1.0.6"
 
-nice-grpc@^2.0.0:
-  version "2.1.0"
-  resolved "https://registry.yarnpkg.com/nice-grpc/-/nice-grpc-2.1.0.tgz#ee2546db9aed6fde55972768c1adcc0925f9f06f"
-  integrity sha512-O2ShDuvZhFC8yo1jtP3EpmnnlCxtDSoaFrBCSDGTDka6sO4SbmHTJdZDqsi61+l4dyXUPUNilKo5e1z7cMCzAw==
-  dependencies:
-    "@grpc/grpc-js" "^1.7.3"
-    abort-controller-x "^0.4.0"
-    nice-grpc-common "^2.0.1"
-
 nice-grpc@^2.1.3:
   version "2.1.3"
   resolved "https://registry.yarnpkg.com/nice-grpc/-/nice-grpc-2.1.3.tgz#13b72d0aaa24db403d7667d5213d6bd97cf9a27f"
@@ -2945,13 +2927,6 @@ node-releases@^2.0.3:
   version "2.0.5"
   resolved "https://registry.yarnpkg.com/node-releases/-/node-releases-2.0.5.tgz#280ed5bc3eba0d96ce44897d8aee478bfb3d9666"
   integrity sha512-U9h1NLROZTq9uE1SNffn6WuPDg8icmi3ns4rEl/oTfIle4iLjTliCzgTsbaIFMq/Xn078/lfY/BL0GWZ+psK4Q==
-
-node-rsa@^1.1.1:
-  version "1.1.1"
-  resolved "https://registry.yarnpkg.com/node-rsa/-/node-rsa-1.1.1.tgz#efd9ad382097782f506153398496f79e4464434d"
-  integrity sha512-Jd4cvbJMryN21r5HgxQOpMEqv+ooke/korixNNK3mGqfGJmy0M77WDDzo/05969+OkMy3XW1UuZsSmW9KQm7Fw==
-  dependencies:
-    asn1 "^0.2.4"
 
 nopt@^5.0.0:
   version "5.0.0"
@@ -3684,16 +3659,7 @@ ssh-config@^4.1.6:
   resolved "https://registry.yarnpkg.com/ssh-config/-/ssh-config-4.1.6.tgz#008eee24f5e5029dc64d50de4a5a7a12342db8b1"
   integrity sha512-YdPYn/2afoBonSFoMSvC1FraA/LKKrvy8UvbvAFGJ8gdlKuANvufLLkf8ynF2uq7Tl5+DQBIFyN37//09nAgNQ==
 
-ssh2-streams@^0.4.10:
-  version "0.4.10"
-  resolved "https://registry.yarnpkg.com/ssh2-streams/-/ssh2-streams-0.4.10.tgz#48ef7e8a0e39d8f2921c30521d56dacb31d23a34"
-  integrity sha512-8pnlMjvnIZJvmTzUIIA5nT4jr2ZWNNVHwyXfMGdRJbug9TpI3kd99ffglgfSWqujVv/0gxwMsDn9j9RVst8yhQ==
-  dependencies:
-    asn1 "~0.2.0"
-    bcrypt-pbkdf "^1.0.2"
-    streamsearch "~0.1.2"
-
-ssh2@^1.11.0:
+ssh2@^1.10.0:
   version "1.11.0"
   resolved "https://registry.yarnpkg.com/ssh2/-/ssh2-1.11.0.tgz#ce60186216971e12f6deb553dcf82322498fe2e4"
   integrity sha512-nfg0wZWGSsfUe/IBJkXVll3PEZ//YH2guww+mP88gTpuSU4FtZN7zu9JoeTGOyCNx2dTDtT9fOpWwlzyj4uOOw==
@@ -3728,11 +3694,6 @@ statuses@2.0.1:
   version "2.0.1"
   resolved "https://registry.yarnpkg.com/statuses/-/statuses-2.0.1.tgz#55cb000ccf1d48728bd23c685a063998cf1a1b63"
   integrity sha512-RwNA9Z/7PrK06rYLIzFMlaF+l73iwpzsqRIFgbMLbTcLD6cOao82TaWefPXQvB2fOC4AjuYSEndS7N/mTCbkdQ==
-
-streamsearch@~0.1.2:
-  version "0.1.2"
-  resolved "https://registry.yarnpkg.com/streamsearch/-/streamsearch-0.1.2.tgz#808b9d0e56fc273d809ba57338e929919a1a9f1a"
-  integrity sha512-jos8u++JKm0ARcSUTAZXOVC0mSox7Bhn6sBgty73P1f3JGf7yG2clTbBNHUdde/kdvP2FESam+vM6l8jBrNxHA==
 
 string-template@~0.2.1:
   version "0.2.1"
@@ -3954,7 +3915,7 @@ ts-proto-descriptors@1.7.1:
     long "^4.0.0"
     protobufjs "^6.8.8"
 
-ts-proto@^1.125.0, ts-proto@^1.140.0:
+ts-proto@^1.140.0:
   version "1.140.0"
   resolved "https://registry.yarnpkg.com/ts-proto/-/ts-proto-1.140.0.tgz#cb1528cd5945a4de0ef50637beabf6a70d039f4a"
   integrity sha512-0FhFT+S8u7ES3O6b+yEQJ3eSOtW1Sp9F5b4TAfsIs+ojQozghz8Zr5dTHXcuibwoUIZibzt45OxvXLhmJyFMMQ==
