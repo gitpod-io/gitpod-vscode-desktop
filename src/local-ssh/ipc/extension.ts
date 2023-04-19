@@ -253,6 +253,7 @@ export class ExtensionServiceServer extends Disposable {
             return;
         }
         // TODO(local-ssh): allow to hide always for current version (wantedVersion)
-        await this.notificationService.showWarningMessage('Restart VSCode to use latest local ssh daemon', { id: 'daemon_needs_restart', flow: { flow: 'daemon_needs_restart' } });
+        this.logService.info('restart vscode to get latest features of local ssh');
+        // await this.notificationService.showWarningMessage('Restart VSCode to use latest local ssh daemon', { id: 'daemon_needs_restart', flow: { flow: 'daemon_needs_restart' } });
     }
 }
