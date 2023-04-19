@@ -78,6 +78,11 @@
 						"type": "number",
 						"description": "The port to use for the local SSH server.",
 						"scope": "application"
+					},
+					"gitpod.lsshIpcPort": {
+						"type": "number",
+						"description": "The port to use for the local SSH ipc server.",
+						"scope": "application"
 					}
 				}
 			},
@@ -155,8 +160,7 @@
 		"@types/mocha": "^9.1.1",
 		"@types/node": "16.x",
 		"@types/semver": "^7.3.10",
-		"@types/ssh2": "^1.11.7",
-		"@types/ssh2-streams": "^0.1.9",
+		"@types/ssh2": "^0.5.52",
 		"@types/sshpk": "^1.17.1",
 		"@types/tmp": "^0.2.1",
 		"@types/uuid": "8.0.0",

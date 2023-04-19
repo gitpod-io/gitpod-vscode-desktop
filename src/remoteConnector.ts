@@ -494,7 +494,7 @@ export class RemoteConnector extends Disposable {
 						return { name: k.name, fingerprint: '' };
 					}
 
-					const parsedKey = parsedResult as unknown as ParsedKey;
+					const parsedKey = parsedResult as ParsedKey;
 					return { name: k.name, fingerprint: crypto.createHash('sha256').update(parsedKey.getPublicSSH()).digest('base64') };
 				})
 				: (registeredSSHKeys as UserSSHPublicKeyValue[]).map(k => ({ name: k.name, fingerprint: k.fingerprint }));
@@ -717,7 +717,7 @@ export class RemoteConnector extends Disposable {
 					await this.showSSHPasswordModal(password, gatewayFlow);
 				}
 
-				this.telemetryService.sendUserFlowStatus('got_destination', gatewayFlow);
+				this.telemetryService.sendUserFlowStatus('connected', gatewayFlow);
 			} catch (e) {
 				this.telemetryService.sendUserFlowStatus('failed', { ...gatewayFlow, reason: e.toString() });
 				if (e instanceof NoSSHGatewayError) {
@@ -766,7 +766,7 @@ export class RemoteConnector extends Disposable {
 				sshDestination = localAppDestData.destination;
 				localAppSSHConfigPath = localAppDestData.localAppSSHConfigPath;
 
-				this.telemetryService.sendUserFlowStatus('got_destination', localAppFlow);
+				this.telemetryService.sendUserFlowStatus('connected', localAppFlow);
 			} catch (e) {
 				this.telemetryService.sendUserFlowStatus('failed', { reason: e.toString(), ...localAppFlow });
 				this.logService.error(`Failed to connect ${params.workspaceId} Gitpod workspace:`, e);

@@ -3,7 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ParsedKey, ClientChannel, ConnectConfig, OpenSSHAgent, utils, AnyAuthMethod } from 'ssh2';
+import { AuthHandlerResult, ClientChannel, ConnectConfig, OpenSSHAgent, utils } from 'ssh2';
+import { ParsedKey } from 'ssh2-streams';
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { untildify, exists as fileExists } from './common/files';
@@ -65,7 +66,7 @@ export async function testSSHConnection(config: ConnectConfig, sshHostKeys: { ty
                 strictVendor: false,
                 agentForward: proxyAgentForward,
                 agent: proxyAgent,
-                authHandler: (arg0, arg1, arg2) => (proxyAuthHandler(arg0, arg1, arg2 as any), undefined)
+                authHandler: (arg0, arg1, arg2) => (proxyAuthHandler(arg0, arg1, arg2), undefined)
             });
             proxyConnections.push(proxyConnection);
 
@@ -91,7 +92,7 @@ export async function testSSHConnection(config: ConnectConfig, sshHostKeys: { ty
                 password: config.password!,
             };
         },
-        hostVerifier(hostKey: any) {
+        hostVerifier(hostKey) {
             // We didn't specify `hostHash` so `hashedKey` is a Buffer object
             verifiedHostKey = (hostKey as any as Buffer);
             const encodedKey = verifiedHostKey.toString('base64');
@@ -118,7 +119,7 @@ function getSSHAuthHandler(sshUser: string, sshHostName: string, identityKeys: S
     let passwordRetryCount = PASSWORD_RETRY_COUNT;
     let keyboardRetryCount = PASSWORD_RETRY_COUNT;
     identityKeys = identityKeys.slice();
-    return async (methodsLeft: string[] | null, _partialSuccess: boolean | null, callback: (nextAuth: (AnyAuthMethod | false)) => void) => {
+    return async (methodsLeft: string[] | null, _partialSuccess: boolean | null, callback: (nextAuth: AuthHandlerResult) => void) => {
         if (methodsLeft === null) {
             logger.info(`Trying no-auth authentication`);
 
@@ -139,7 +140,7 @@ function getSSHAuthHandler(sshUser: string, sshHostName: string, identityKeys: S
                     agent: new class extends OpenSSHAgent {
                         // Only return the current key
                         override getIdentities(callback: (err: Error | undefined, publicKeys?: ParsedKey[]) => void): void {
-                            callback(undefined, [identityKey.parsedKey as any]);
+                            callback(undefined, [identityKey.parsedKey]);
                         }
                     }(sshAgentSock!)
                 });
@@ -148,7 +149,7 @@ function getSSHAuthHandler(sshUser: string, sshHostName: string, identityKeys: S
                 return callback({
                     type: 'publickey',
                     username: sshUser,
-                    key: identityKey.parsedKey as any
+                    key: identityKey.parsedKey
                 });
             }
             if (!await fileExists(identityKey.filename)) {

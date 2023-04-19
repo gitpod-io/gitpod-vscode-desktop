@@ -77,5 +77,5 @@ export function getRunningExtensionVersion() {
 }
 
 export function getDaemonVersion() {
-	return process.env.DAEMON_VERSION ?? 'unknown';
+	return process.env.DAEMON_VERSION ?? '0.0.1';
 }

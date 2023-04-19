@@ -22,7 +22,7 @@ export class Logger implements ILogService {
             level: logLevel,
             defaultMeta: { pid: process.pid },
             transports: [
-                new winston.transports.File({ format: DefaultLogFormatter, filename: logFile, options: { flags: 'a' }, maxsize: 1024 * 1024 * 10 /* 10M */, maxFiles: 2 /* 2 file turns */ }),
+                new winston.transports.File({ format: DefaultLogFormatter, filename: logFile, options: { flags: 'a' }, maxsize: 1024 * 1024 * 10 /* 10M */, maxFiles: 1 }),
             ],
             exitOnError: false,
         });
