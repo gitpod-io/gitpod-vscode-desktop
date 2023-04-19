@@ -81,21 +81,20 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
 
     public async getWorkspaceAuthInfo(workspaceId: string) {
         return retryWithStop(async (stop) => {
-            for (const ext of this.extensionServices) {
+            const getAuthInfo = async (id: string, client: Client<ExtensionServiceDefinition>) => {
                 try {
-                    const authInfo = await ext.client.getWorkspaceAuthInfo({ workspaceId });
-                    return authInfo;
+                    return await client.getWorkspaceAuthInfo({ workspaceId });
                 } catch (e) {
                     if (e instanceof ServerError) {
                         if (e.code === Status.UNAVAILABLE && e.details.startsWith('workspace is not running')) {
                             stop();
                         }
                     }
-                    this.logger.error(e, 'failed to get workspace auth info, id: ' + ext.id);
+                    this.logger.error(e, 'failed to get workspace auth info, id: ' + id);
                     throw e;
                 }
-            }
-            throw new Error('no extension service client activated');
+            };
+            return await Promise.any(this.extensionServices.map(ext => getAuthInfo(ext.id, ext.client)));
         }, 200, 3);
     }
 

@@ -59,6 +59,7 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
 
     async getWorkspaceAuthInfo(request: GetWorkspaceAuthInfoRequest, _context: CallContext): Promise<{ workspaceId?: string | undefined; workspaceHost?: string | undefined; ownerToken?: string | undefined }> {
         try {
+            await this.sessionService.didFirstLoad;
             const accessToken = this.sessionService.getGitpodToken();
             if (!accessToken) {
                 throw new ServerError(Status.INTERNAL, 'no access token found');
@@ -175,11 +176,6 @@ export class ExtensionServiceServer extends Disposable {
     }
 
     private async tryActive() {
-        const useLocalSSH = await this.experiments.getUseLocalSSHServer(this.hostService.gitpodHost);
-        if (!useLocalSSH) {
-            this.server.shutdown();
-            return;
-        }
         this.logService.info('going to start extension ipc service server with id', this.id);
         this.server.listen('127.0.0.1:0').then((port) => {
             this.ipcPort = port;
