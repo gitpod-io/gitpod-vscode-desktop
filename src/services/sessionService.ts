@@ -23,6 +23,7 @@ export interface ISessionService {
     isSignedIn(): boolean;
     signIn(gitpodHost?: string): Promise<void>;
     getUserId(): string;
+    safeGetUserId(): string | undefined;
     getGitpodToken(): string;
     getScopes(): readonly string[];
     getAPI(): IGitpodAPI;
@@ -142,6 +143,10 @@ export class SessionService extends Disposable implements ISessionService {
             throw new NoSignedInError();
         }
         return this.session!.account.id;
+    }
+
+    safeGetUserId() {
+        return this.session?.account.id;
     }
 
     getGitpodToken() {

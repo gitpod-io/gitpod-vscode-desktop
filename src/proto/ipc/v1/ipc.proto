@@ -1,0 +1,113 @@
+syntax = "proto3";
+
+package ipc.v1;
+
+service LocalSSHService {
+    // Active is called when extension is activated
+    rpc Active(ActiveRequest) returns (ActiveResponse) {}
+
+    // Inactive is called when extension is deactivated
+    rpc Inactive(InactiveRequest) returns (InactiveResponse) {}
+
+    rpc Ping (PingRequest) returns (PingResponse) {}
+
+    // GetDaemonVersion returns the version of the daemon
+    rpc GetDaemonVersion(GetDaemonVersionRequest) returns (GetDaemonVersionResponse) {}
+}
+
+service ExtensionService {
+    rpc Ping (PingRequest) returns (PingResponse) {}
+    rpc GetWorkspaceAuthInfo (GetWorkspaceAuthInfoRequest) returns (GetWorkspaceAuthInfoResponse) {}
+    rpc SendLocalSSHUserFlowStatus (SendLocalSSHUserFlowStatusRequest) returns (SendLocalSSHUserFlowStatusResponse) {}
+    rpc SendErrorReport (SendErrorReportRequest) returns (SendErrorReportResponse) {}
+}
+
+message SendErrorReportRequest {
+    string workspace_id = 1;
+    string instance_id = 2;
+    string error_name = 3;
+    string error_message = 4;
+    string error_stack = 5;
+    string daemon_version = 6;
+    string extension_version = 7;
+}
+
+message SendErrorReportResponse {}
+
+message SendLocalSSHUserFlowStatusRequest {
+
+    enum ConnType {
+        CONN_TYPE_UNSPECIFIED = 0;
+        CONN_TYPE_SSH = 1;
+        CONN_TYPE_TUNNEL = 2;
+    }
+
+    enum Status {
+        STATUS_UNSPECIFIED = 0;
+        STATUS_SUCCESS = 1;
+        STATUS_FAILURE = 2;
+    }
+
+    enum Code {
+        CODE_UNSPECIFIED = 0;
+        // CODE_NO_WORKSPACE_AUTO_INFO is used if failed to get workspace auto info
+        CODE_NO_WORKSPACE_AUTO_INFO = 1;
+        // CODE_TUNNEL_CANNOT_CREATE_WEBSOCKET is used if failed to create websocket to supervisor
+        CODE_TUNNEL_CANNOT_CREATE_WEBSOCKET = 2;
+        // CODE_TUNNEL_FAILED_FORWARD_SSH_PORT is used if failed to forward ssh port in supervisor
+        CODE_TUNNEL_FAILED_FORWARD_SSH_PORT = 3;
+        // CODE_TUNNEL_NO_PRIVATEKEY when failed to create private key in supervisor
+        CODE_TUNNEL_NO_PRIVATEKEY = 4;
+        // CODE_TUNNEL_NO_ESTABLISHED_CONNECTION is used if the tunnel is not established
+        CODE_TUNNEL_NO_ESTABLISHED_CONNECTION = 5;
+        // CODE_SSH_CANNOT_CONNECT is used if failed to direct connect to ssh gateway
+        CODE_SSH_CANNOT_CONNECT = 6;
+    }
+
+    Status status = 1;
+    string workspace_id = 2;
+    string instance_id = 3;
+    Code failure_code = 5;
+    string failure_reason = 6;
+    string daemon_version = 7;
+    string extension_version = 8;
+    ConnType conn_type = 9;
+}
+
+message SendLocalSSHUserFlowStatusResponse {}
+
+message ActiveRequest {
+    // id is the extenson id
+    string id = 1;
+    // ipc_port is the port of the extension service ipc server
+    uint32 ipc_port = 2;
+}
+
+message ActiveResponse {}
+
+message InactiveRequest {
+    string id = 1;
+}
+
+message InactiveResponse {}
+
+message PingRequest {}
+
+message PingResponse {}
+
+message GetDaemonVersionRequest {}
+
+message GetDaemonVersionResponse {
+    string version = 1;
+}
+
+message GetWorkspaceAuthInfoRequest {
+    string workspace_id = 1;
+}
+
+message GetWorkspaceAuthInfoResponse {
+    string workspace_id = 1;
+    string instance_id = 2;
+    string workspace_host = 3;
+    string owner_token = 4;
+}

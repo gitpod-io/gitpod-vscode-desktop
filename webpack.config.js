@@ -4,14 +4,23 @@
 
 const path = require('path');
 const webpack = require('webpack');
+const packageJSON = require('./package.json')
+
+const daemonVersion = new webpack.DefinePlugin({
+	'process.env.DAEMON_VERSION': JSON.stringify(packageJSON.daemonVersion ?? '0.0.1'),
+	'process.env.DAEMON_EXTENSION_VERSION': JSON.stringify(packageJSON.version),
+});
 
 /**@type {import('webpack').Configuration}*/
 const config = {
 	target: 'node',
-	entry: './src/extension.ts',
+	entry: {
+		extension: './src/extension.ts',
+		'local-ssh/daemon': './src/local-ssh/daemon.ts',
+	},
 	output: {
 		path: path.resolve(__dirname, 'out'),
-		filename: 'extension.js',
+		filename: '[name].js',
 		libraryTarget: "commonjs2",
 		devtoolModuleFilenameTemplate: "../[resource-path]",
 	},
@@ -39,7 +48,8 @@ const config = {
 		}),
 		new webpack.IgnorePlugin({
 			resourceRegExp: /cpu-features/,
-		})
+		}),
+		daemonVersion,
 	]
 }
 

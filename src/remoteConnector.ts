@@ -38,6 +38,8 @@ import { ISessionService } from './services/sessionService';
 import { ILogService } from './services/logService';
 import { IHostService } from './services/hostService';
 import { Configuration } from './configuration';
+import { getLocalSSHUrl, getServiceURL } from './common/utils';
+import { GitpodDefaultLocalhost as GITPOD_DEFAULT_LOCALHOST_RECORD, HOST_PUBLIC_KEY_TYPE, getHostKeyFingerprint, isDNSPointToLocalhost, isDomainConnectable } from './local-ssh/common';
 
 interface LocalAppConfig {
 	gitpodHost: string;
@@ -106,7 +108,7 @@ export class RemoteConnector extends Disposable {
 		private readonly experiments: ExperimentalSettings,
 		private readonly logService: ILogService,
 		private readonly telemetryService: ITelemetryService,
-		private readonly notificationService: INotificationService
+		private readonly notificationService: INotificationService,
 	) {
 		super();
 
@@ -513,6 +515,49 @@ export class RemoteConnector extends Disposable {
 		};
 	}
 
+	private async getLocalSSHWorkspaceSSHDestination({ workspaceId, gitpodHost, debugWorkspace }: SSHConnectionParams): Promise<{ destination: SSHDestination; password?: string }> {
+		const workspaceInfo = await withServerApi(this.sessionService.getGitpodToken(), getServiceURL(gitpodHost), async service => this.usePublicApi ? this.sessionService.getAPI().getWorkspace(workspaceId) : service.server.getWorkspace(workspaceId), this.logService);
+
+		const isNotRunning = this.usePublicApi
+			? !((workspaceInfo as Workspace)?.status?.instance) || (workspaceInfo as Workspace)?.status?.instance?.status?.phase === WorkspaceInstanceStatus_Phase.STOPPING || (workspaceInfo as Workspace)?.status?.instance?.status?.phase === WorkspaceInstanceStatus_Phase.STOPPED
+			: !((workspaceInfo as WorkspaceInfo).latestInstance) || (workspaceInfo as WorkspaceInfo).latestInstance?.status?.phase === 'stopping' || (workspaceInfo as WorkspaceInfo).latestInstance?.status?.phase === 'stopped';
+
+		if (isNotRunning) {
+			throw new NoRunningInstanceError(
+				workspaceId,
+				this.usePublicApi
+					? (workspaceInfo as Workspace)?.status?.instance?.status?.phase ? WorkspaceInstanceStatus_Phase[(workspaceInfo as Workspace)?.status?.instance?.status?.phase!] : undefined
+					: (workspaceInfo as WorkspaceInfo).latestInstance?.status?.phase
+			);
+		}
+
+		const domain = getLocalSSHUrl(gitpodHost);
+		let hostname = workspaceId + '.' + domain;
+		const ok = await isDNSPointToLocalhost(this.logService, hostname);
+		if (!ok) {
+			this.logService.warn('DNS record for lssh is not pointing to localhost. Falling back to default record');
+			const defaultOK = await isDomainConnectable(this.logService, workspaceId + '.' + GITPOD_DEFAULT_LOCALHOST_RECORD);
+			if (defaultOK) {
+				hostname = workspaceId + '.' + GITPOD_DEFAULT_LOCALHOST_RECORD;
+			} else {
+				this.logService.warn('Default DNS record is not connectable. Falling back to localhost');
+				hostname = 'localhost';
+			}
+			if (await checkNewHostInHostkeys(hostname)) {
+				await addHostToHostFile(hostname, getHostKeyFingerprint(), HOST_PUBLIC_KEY_TYPE);
+			}
+		} else {
+			this.logService.debug('DNS record for lssh is pointing to localhost');
+		}
+		const user = debugWorkspace ? ('debug-' + workspaceId) : workspaceId;
+		const port = Configuration.getLocalSSHServerPort();
+		this.logService.info('connecting with local ssh destination', { port, domain });
+		return {
+			destination: new SSHDestination(hostname, user, port),
+			password: '',
+		};
+	}
+
 	private async getWorkspaceLocalAppSSHDestination(params: SSHConnectionParams): Promise<{ destination: SSHDestination; localAppSSHConfigPath: string }> {
 		return vscode.window.withProgress({
 			location: vscode.ProgressLocation.Notification,
@@ -648,19 +693,25 @@ export class RemoteConnector extends Disposable {
 
 		this.logService.info('Opening Gitpod workspace', uri.toString());
 
-		this.usePublicApi = await this.experiments.getRaw<boolean>('gitpod_experimental_publicApi', { gitpodHost: params.gitpodHost }) ?? false;
+		this.usePublicApi = await this.experiments.getUsePublicAPI(params.gitpodHost);
 		this.logService.info(`Going to use ${this.usePublicApi ? 'public' : 'server'} API`);
 
-		const forceUseLocalApp = Configuration.getUseLocalApp();
+		const useLocalSSH = await this.experiments.getUseLocalSSHServer(params.gitpodHost);
+		if (useLocalSSH) {
+			this.logService.info('Going to use lssh');
+		}
+
+		const forceUseLocalApp = Configuration.getUseLocalApp(useLocalSSH);
 		const userOverride = String(isUserOverrideSetting('gitpod.remote.useLocalApp'));
 		let sshDestination: SSHDestination | undefined;
 		if (!forceUseLocalApp) {
 			const openSSHVersion = await getOpenSSHVersion();
-			const gatewayFlow: UserFlowTelemetry = { kind: 'gateway', openSSHVersion, userOverride, ...sshFlow };
+			const gatewayFlow: UserFlowTelemetry = { kind: useLocalSSH ? 'local-ssh' : 'gateway', openSSHVersion, userOverride, ...sshFlow };
 			try {
 				this.telemetryService.sendUserFlowStatus('connecting', gatewayFlow);
 
-				const { destination, password } = await this.getWorkspaceSSHDestination(params);
+				const { destination, password } = useLocalSSH ? await this.getLocalSSHWorkspaceSSHDestination(params) : await this.getWorkspaceSSHDestination(params);
+
 				sshDestination = destination;
 
 				Object.assign(gatewayFlow, { auth: password ? 'password' : 'key' });
@@ -765,7 +816,7 @@ export class RemoteConnector extends Disposable {
 
 	public async autoTunnelCommand(gitpodHost: string, instanceId: string, enabled: boolean) {
 		if (this.sessionService.isSignedIn()) {
-			const forceUseLocalApp = Configuration.getUseLocalApp();
+			const forceUseLocalApp = Configuration.getUseLocalApp(await this.experiments.getUseLocalSSHServer(gitpodHost));
 			if (!forceUseLocalApp) {
 				const authority = vscode.Uri.parse(gitpodHost).authority;
 				const configKey = `config/${authority}`;
@@ -790,8 +841,4 @@ export class RemoteConnector extends Disposable {
 			this.logService.error('Failed to disable auto tunneling:', e);
 		}
 	}
-}
-
-function getServiceURL(gitpodHost: string): string {
-	return new URL(gitpodHost).toString().replace(/\/$/, '');
 }

@@ -21,9 +21,9 @@ export interface WorkspaceRestartInfo {
 }
 
 export class NoRunningInstanceError extends Error {
-	constructor(readonly workspaceId: string, readonly phase?: string) {
-		super(`Failed to connect to ${workspaceId} Gitpod workspace, workspace not running: ${phase}`);
-	}
+    constructor(readonly workspaceId: string, readonly phase?: string) {
+        super(`Failed to connect to ${workspaceId} Gitpod workspace, workspace not running: ${phase}`);
+    }
 }
 
 export class NoSSHGatewayError extends Error {

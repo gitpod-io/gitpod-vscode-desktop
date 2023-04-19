@@ -21,6 +21,8 @@ import { SessionService } from './services/sessionService';
 import { CommandManager } from './commandManager';
 import { SignInCommand } from './commands/account';
 import { ExportLogsCommand } from './commands/logs';
+import { ensureDaemonStarted } from './daemonStarter';
+import { ExtensionServiceServer } from './local-ssh/ipc/extension';
 
 // connect-web uses fetch api, so we need to polyfill it
 if (!global.fetch) {
@@ -59,7 +61,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		logger.info(`${extensionId}/${packageJSON.version} (${os.release()} ${os.platform()} ${os.arch()}) vscode/${vscode.version} (${vscode.env.appName})`);
 
-		telemetryService = new TelemetryService(extensionId, packageJSON.version, packageJSON.segmentKey, logger!);
+		telemetryService = new TelemetryService(extensionId, packageJSON.version, packageJSON.segmentKey, logger!, context.extensionMode === vscode.ExtensionMode.Production);
 
 		const notificationService = new NotificationService(telemetryService);
 
@@ -85,6 +87,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		const remoteConnector = new RemoteConnector(context, sessionService, hostService, experiments, logger, telemetryService, notificationService);
 		context.subscriptions.push(remoteConnector);
 
+		const extensionIPCService = new ExtensionServiceServer(logger, sessionService, hostService, notificationService, telemetryService, experiments);
+		context.subscriptions.push(extensionIPCService);
+
 		context.subscriptions.push(vscode.window.registerUriHandler({
 			handleUri(uri: vscode.Uri) {
 				// logger.trace('Handling Uri...', uri.toString());
@@ -101,6 +106,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		// Register global commands
 		commandManager.register(new SignInCommand(sessionService));
 		commandManager.register(new ExportLogsCommand(context.logUri, notificationService, telemetryService, logger));
+
+		ensureDaemonStarted(logger, telemetryService, 3).then(() => { }).catch(e => { logger?.error(e) });
 
 		if (!context.globalState.get<boolean>(FIRST_INSTALL_KEY, false)) {
 			context.globalState.update(FIRST_INSTALL_KEY, true);
@@ -138,7 +145,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		logger?.info('Activation properties:', JSON.stringify(rawActivateProperties, undefined, 2));
 		telemetryService?.sendTelemetryEvent('vscode_desktop_activate', {
 			...rawActivateProperties,
-			remoteUri:	String(!!rawActivateProperties.remoteUri)
+			remoteUri: String(!!rawActivateProperties.remoteUri)
 		});
 	}
 }

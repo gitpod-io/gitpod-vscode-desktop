@@ -263,7 +263,7 @@ export class BaseTelemetryReporter extends Disposable {
 			cleanupPatterns.push(new RegExp(this.extension.extensionPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'));
 		}
 
-		let updatedStack = stack;
+		let updatedStack = stack?.toString() ?? '';
 
 		if (anonymizeFilePaths) {
 			const cleanUpIndexes: [number, number][] = [];

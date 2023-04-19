@@ -253,30 +253,30 @@ export default class SSHConnection extends EventEmitter {
                 //         this.emit(SSHConstants.CHANNEL.TUNNEL, SSHConstants.STATUS.DISCONNECT, { SSHTunnelConfig: SSHTunnelConfig, err: err });
                 //     });
                 // } else {
-                    server = net.createServer()
-                        .on('connection', (socket) => {
-                            this.connect().then(() => {
-                                if (SSHTunnelConfig.remotePort) {
-                                    this.sshConnection!.forwardOut('127.0.0.1', 0, SSHTunnelConfig.remoteAddr!, SSHTunnelConfig.remotePort!, (err, stream) => {
-                                        if (err) {
-                                            this.emit(SSHConstants.CHANNEL.TUNNEL, SSHConstants.STATUS.DISCONNECT, { SSHTunnelConfig: SSHTunnelConfig, err: err });
-                                            return;
-                                        }
-                                        stream.pipe(socket);
-                                        socket.pipe(stream);
-                                    });
-                                } else {
-                                    this.sshConnection!.openssh_forwardOutStreamLocal(SSHTunnelConfig.remoteSocketPath!, (err, stream) => {
-                                        if (err) {
-                                            this.emit(SSHConstants.CHANNEL.TUNNEL, SSHConstants.STATUS.DISCONNECT, { SSHTunnelConfig: SSHTunnelConfig, err: err });
-                                            return;
-                                        }
-                                        stream.pipe(socket);
-                                        socket.pipe(stream);
-                                    });
-                                }
-                            });
+                server = net.createServer()
+                    .on('connection', (socket) => {
+                        this.connect().then(() => {
+                            if (SSHTunnelConfig.remotePort) {
+                                this.sshConnection!.forwardOut('127.0.0.1', 0, SSHTunnelConfig.remoteAddr!, SSHTunnelConfig.remotePort!, (err, stream) => {
+                                    if (err) {
+                                        this.emit(SSHConstants.CHANNEL.TUNNEL, SSHConstants.STATUS.DISCONNECT, { SSHTunnelConfig: SSHTunnelConfig, err: err });
+                                        return;
+                                    }
+                                    stream.pipe(socket);
+                                    socket.pipe(stream);
+                                });
+                            } else {
+                                this.sshConnection!.openssh_forwardOutStreamLocal(SSHTunnelConfig.remoteSocketPath!, (err, stream) => {
+                                    if (err) {
+                                        this.emit(SSHConstants.CHANNEL.TUNNEL, SSHConstants.STATUS.DISCONNECT, { SSHTunnelConfig: SSHTunnelConfig, err: err });
+                                        return;
+                                    }
+                                    stream.pipe(socket);
+                                    socket.pipe(stream);
+                                });
+                            }
                         });
+                    });
                 // }
 
                 SSHTunnelConfig.localPort = SSHTunnelConfig.localPort || 0;

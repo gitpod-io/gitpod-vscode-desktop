@@ -1,0 +1,10 @@
+version: v1
+plugins:
+  - name: ts
+    out: typescript
+    strategy: all
+    opt:
+      - outputServices=nice-grpc
+      - outputServices=generic-definitions
+      - useExactTypes=false
+    path: ../../node_modules/.bin/protoc-gen-ts_proto
