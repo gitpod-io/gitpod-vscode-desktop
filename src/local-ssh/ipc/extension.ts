@@ -206,7 +206,7 @@ export class ExtensionServiceServer extends Disposable {
         } catch (e) {
             const userId = this.sessionService.safeGetUserId();
             this.telemetryService.sendRawTelemetryEvent('vscode_desktop_extension_ipc_svc_active', { id: this.id, userId, active: false });
-            this.logService.error(e, 'failed to active extension ipc svc');
+            this.logService.warn(e, 'failed to active extension ipc svc');
             if (this.lastTimeActiveTelemetry === false) {
                 return;
             }
