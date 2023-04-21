@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
 import { INotificationService } from './services/notificationService';
-import { ITelemetryService, UserFlowTelemetry } from './services/telemetryService';
+import { ITelemetryService } from './services/telemetryService';
 import { ILogService } from './services/logService';
 import { CommandManager } from './commandManager';
 import { Configuration } from './configuration';
@@ -105,7 +105,7 @@ export class SettingsSync extends Disposable {
 	];
 
 	private session: vscode.AuthenticationSession | undefined;
-	private readonly flow: Readonly<UserFlowTelemetry> = { flow: 'settings_sync' };
+	private readonly flow = { flow: 'settings_sync' };
 
 	constructor(
 		commandManager: CommandManager,

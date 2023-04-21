@@ -30,6 +30,8 @@ message SendErrorReportRequest {
     string error_stack = 5;
     string daemon_version = 6;
     string extension_version = 7;
+    string gitpod_host = 8;
+    string user_id = 9;
 }
 
 message SendErrorReportResponse {}
@@ -68,10 +70,12 @@ message SendLocalSSHUserFlowStatusRequest {
     string workspace_id = 2;
     string instance_id = 3;
     Code failure_code = 5;
-    string failure_reason = 6;
+    string failure_reason = 6 [deprecated = true];
     string daemon_version = 7;
     string extension_version = 8;
     ConnType conn_type = 9;
+    string gitpod_host = 10;
+    string user_id = 11;
 }
 
 message SendLocalSSHUserFlowStatusResponse {}
@@ -110,4 +114,6 @@ message GetWorkspaceAuthInfoResponse {
     string instance_id = 2;
     string workspace_host = 3;
     string owner_token = 4;
+    string gitpod_host = 5;
+    string user_id = 6;
 }

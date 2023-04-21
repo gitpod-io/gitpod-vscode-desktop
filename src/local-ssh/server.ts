@@ -33,16 +33,18 @@ export class LocalSSHGatewayServer {
 	async authenticateClient(clientUsername: string) {
 		const workspaceInfo = await this.localsshService.getWorkspaceAuthInfo(clientUsername).catch(e => {
 			this.logger.error(e, 'failed to get workspace auth info');
+			/*
+			TODO not sure how to get gitpodhost here, probably unauthorized should always go to gitpod.io
 			this.localsshService.sendTelemetry({
 				status: SendLocalSSHUserFlowStatusRequest_Status.STATUS_FAILURE,
 				workspaceId: clientUsername,
 				instanceId: '',
 				failureCode: SendLocalSSHUserFlowStatusRequest_Code.CODE_NO_WORKSPACE_AUTO_INFO,
-				failureReason: e?.toString(),
+				failureReason: e?.toString(), // TODO remove, and report to error reporting
 				daemonVersion: getDaemonVersion(),
 				extensionVersion: getRunningExtensionVersion(),
 				connType: SendLocalSSHUserFlowStatusRequest_ConnType.CONN_TYPE_UNSPECIFIED,
-			});
+			});*/
 			throw e;
 		});
 		if (FORCE_TUNNEL) {
@@ -75,7 +77,8 @@ export class LocalSSHGatewayServer {
 							resolve(new Object());
 						}).catch(e => {
 							this.logger.error(e, 'failed to authenticate client');
-							this.localsshService.sendErrorReport(e.username, undefined, e, 'failed to authenticate client');
+							// TODO not sure how to get gitpod host here
+							// this.localsshService.sendErrorReport(e.username, undefined, e, 'failed to authenticate client');
 							reject(null);
 						});
 					});
@@ -123,13 +126,15 @@ export class LocalSSHGatewayServer {
 			return session;
 		} catch (e) {
 			this.logger.error(e, 'failed to connect with direct ssh');
-			this.localsshService.sendErrorReport(workspaceInfo.workspaceId, workspaceInfo.instanceId, e, 'failed to connect with direct ssh');
+			this.localsshService.sendErrorReport(workspaceInfo.gitpodHost, workspaceInfo.userId, workspaceInfo.workspaceId, workspaceInfo.instanceId, e, 'failed to connect with direct ssh');
 			this.localsshService.sendTelemetry({
+				gitpodHost: workspaceInfo.gitpodHost,
+				userId: workspaceInfo.userId,
 				status: SendLocalSSHUserFlowStatusRequest_Status.STATUS_FAILURE,
 				workspaceId: workspaceInfo.workspaceId,
 				instanceId: workspaceInfo.instanceId,
 				failureCode: SendLocalSSHUserFlowStatusRequest_Code.CODE_SSH_CANNOT_CONNECT,
-				failureReason: e?.toString(),
+				failureReason: e?.toString(), // TODO remove, and report to error reporting
 				daemonVersion: getDaemonVersion(),
 				extensionVersion: getRunningExtensionVersion(),
 				connType: SendLocalSSHUserFlowStatusRequest_ConnType.CONN_TYPE_SSH,
@@ -155,11 +160,13 @@ export class LocalSSHGatewayServer {
 			return session;
 		} catch (e) {
 			this.localsshService.sendTelemetry({
+				gitpodHost: workspaceInfo.gitpodHost,
+				userId: workspaceInfo.userId,
 				status: SendLocalSSHUserFlowStatusRequest_Status.STATUS_FAILURE,
 				workspaceId: workspaceInfo.workspaceId,
 				instanceId: workspaceInfo.instanceId,
 				failureCode: SendLocalSSHUserFlowStatusRequest_Code.CODE_TUNNEL_NO_ESTABLISHED_CONNECTION,
-				failureReason: e?.toString(),
+				failureReason: e?.toString(), // TODO remove, and report to error reporting
 				daemonVersion: getDaemonVersion(),
 				extensionVersion: getRunningExtensionVersion(),
 				connType: SendLocalSSHUserFlowStatusRequest_ConnType.CONN_TYPE_TUNNEL,

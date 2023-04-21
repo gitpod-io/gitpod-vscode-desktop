@@ -66,13 +66,13 @@ export async function showWsNotRunningDialog(workspaceId: string, gitpodHost: st
     }
 }
 
-export async function checkForStoppedWorkspaces(context: vscode.ExtensionContext, gitpodHost: string, flow: UserFlowTelemetry, notificationService: INotificationService, logService: ILogService) {
+export async function checkForStoppedWorkspaces(context: vscode.ExtensionContext, flow: UserFlowTelemetry, notificationService: INotificationService, logService: ILogService) {
     const keys = context.globalState.keys();
     const stopped_ws_keys = keys.filter(k => k.startsWith(WORKSPACE_STOPPED_PREFIX));
     for (const k of stopped_ws_keys) {
         const ws = context.globalState.get<WorkspaceRestartInfo>(k)!;
         context.globalState.update(k, undefined);
-        if (gitpodHost === ws.gitpodHost) {
+        if (flow.gitpodHost === ws.gitpodHost) {
             showWsNotRunningDialog(ws.workspaceId, ws.gitpodHost, { ...flow, workspaceId: ws.workspaceId, gitpodHost: ws.gitpodHost }, notificationService, logService);
         }
     }

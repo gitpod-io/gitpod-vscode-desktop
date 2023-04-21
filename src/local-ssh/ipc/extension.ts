@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ExtensionServiceDefinition, ExtensionServiceImplementation, GetWorkspaceAuthInfoRequest, LocalSSHServiceDefinition, PingRequest, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest, SendLocalSSHUserFlowStatusRequest_Code, SendLocalSSHUserFlowStatusRequest_ConnType, SendLocalSSHUserFlowStatusRequest_Status } from '../../proto/typescript/ipc/v1/ipc';
+import { ExtensionServiceDefinition, ExtensionServiceImplementation, GetWorkspaceAuthInfoRequest, GetWorkspaceAuthInfoResponse, LocalSSHServiceDefinition, PingRequest, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest, SendLocalSSHUserFlowStatusRequest_Code, SendLocalSSHUserFlowStatusRequest_ConnType, SendLocalSSHUserFlowStatusRequest_Status } from '../../proto/typescript/ipc/v1/ipc';
 import { Disposable } from '../../common/dispose';
 import { retry, timeout } from '../../common/async';
 export { ExtensionServiceDefinition } from '../../proto/typescript/ipc/v1/ipc';
@@ -57,15 +57,16 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
         return {};
     }
 
-    async getWorkspaceAuthInfo(request: GetWorkspaceAuthInfoRequest, _context: CallContext): Promise<{ workspaceId?: string | undefined; workspaceHost?: string | undefined; ownerToken?: string | undefined }> {
+    async getWorkspaceAuthInfo(request: GetWorkspaceAuthInfoRequest, _context: CallContext): Promise<GetWorkspaceAuthInfoResponse> {
         try {
             await this.sessionService.didFirstLoad;
             const accessToken = this.sessionService.getGitpodToken();
             if (!accessToken) {
                 throw new ServerError(Status.INTERNAL, 'no access token found');
             }
+            const userId = this.sessionService.getUserId();
             const workspaceId = request.workspaceId;
-
+            
             const gitpodHost = this.hostService.gitpodHost;
             const usePublicApi = await this.experiments.getUsePublicAPI(gitpodHost);
             const [workspace, ownerToken] = await withServerApi(accessToken, gitpodHost, svc => Promise.all([
@@ -77,7 +78,7 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
             if (phase !== 'running') {
                 const show = this.canShowNotification(workspaceId);
                 if (show) {
-                    const flow: UserFlowTelemetry = { workspaceId, gitpodHost, userId: this.sessionService.getUserId(), flow: 'extension_ipc' };
+                    const flow: UserFlowTelemetry = { workspaceId, gitpodHost, userId: userId, flow: 'extension_ipc' };
                     showWsNotRunningDialog(workspaceId, gitpodHost, flow, this.notificationService, this.logService);
                 }
                 throw new ServerError(Status.UNAVAILABLE, 'workspace is not running, current phase: ' + phase);
@@ -89,8 +90,12 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
             }
             const url = new URL(ideUrl);
             const workspaceHost = url.host.substring(url.host.indexOf('.') + 1);
+            const instanceId = (usePublicApi ? (workspace as Workspace).status?.instance?.instanceId : (workspace as WorkspaceInfo).latestInstance?.id) as string;
             return {
+                gitpodHost,
+                userId,
                 workspaceId,
+                instanceId,
                 workspaceHost,
                 ownerToken,
             };
@@ -100,6 +105,7 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
         }
     }
 
+    // TODO remove from protocol, don't pass sensitive info back and forth, only once for auth, daemon should do telemtry directly
     async sendLocalSSHUserFlowStatus(request: SendLocalSSHUserFlowStatusRequest, _context: CallContext): Promise<{}> {
         const flow: UserFlowTelemetry = {
             flow: 'ssh',
@@ -108,12 +114,12 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
             workspaceId: request.workspaceId,
             instanceId: request.instanceId,
             daemonVersion: request.daemonVersion,
-            userId: this.sessionService.safeGetUserId(),
-            gitpodHost: this.hostService.gitpodHost,
+            userId: request.userId,
+            gitpodHost: request.gitpodHost,
             extensionVersion: request.extensionVersion,
         };
         if (request.status !== SendLocalSSHUserFlowStatusRequest_Status.STATUS_SUCCESS && request.failureCode !== SendLocalSSHUserFlowStatusRequest_Code.CODE_UNSPECIFIED) {
-            flow.reason = request.failureReason;
+            flow.reason = request.failureReason; // TODO remove, should go to error reporting only
             flow.reasonCode = SendLocalSSHUserFlowStatusRequest_Code[request.failureCode];
         }
         const status = request.status === SendLocalSSHUserFlowStatusRequest_Status.STATUS_SUCCESS ? 'local-ssh-success' : 'local-ssh-failure';
@@ -121,6 +127,8 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
         return {};
     }
 
+    // TODO remove from protocol, don't pass sensitive info back and forth, only once for auth, daemon should do telemtry directly
+    // local ssh daemon should be own component in reporting?
     async sendErrorReport(request: SendErrorReportRequest, _context: CallContext): Promise<{}> {
         const err = new Error(request.errorMessage);
         err.name = 'local-ssh:' + request.errorName;
@@ -130,12 +138,9 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
             instanceId: request.instanceId,
             daemonVersion: request.daemonVersion,
             extensionVersion: request.extensionVersion,
+            userId: request.userId,
         };
-        const userId = this.sessionService.safeGetUserId();
-        if (userId) {
-            properties[userId] = userId;
-        }
-        this.telemetryService.sendTelemetryException(err, properties);
+        this.telemetryService.sendTelemetryException(request.gitpodHost, err, properties);
         return {};
     }
 }
@@ -197,16 +202,17 @@ export class ExtensionServiceServer extends Disposable {
                 return;
             }
             const userId = this.sessionService.safeGetUserId();
-            this.telemetryService.sendRawTelemetryEvent('vscode_desktop_extension_ipc_svc_active', { id: this.id, userId, active: true });
+            this.telemetryService.sendRawTelemetryEvent(this.hostService.gitpodHost, 'vscode_desktop_extension_ipc_svc_active', { id: this.id, userId, active: true });
             this.lastTimeActiveTelemetry = true;
         } catch (e) {
+            const gitpodHost = this.hostService.gitpodHost;
             const userId = this.sessionService.safeGetUserId();
-            this.telemetryService.sendRawTelemetryEvent('vscode_desktop_extension_ipc_svc_active', { id: this.id, userId, active: false });
+            this.telemetryService.sendRawTelemetryEvent(gitpodHost, 'vscode_desktop_extension_ipc_svc_active', { id: this.id, userId, active: false });
             this.logService.warn(e, 'failed to active extension ipc svc');
             if (this.lastTimeActiveTelemetry === false) {
                 return;
             }
-            this.telemetryService.sendTelemetryException(e, { userId } as any);
+            this.telemetryService.sendTelemetryException(gitpodHost, e, { userId } as any);
             this.lastTimeActiveTelemetry = false;
         }
     }

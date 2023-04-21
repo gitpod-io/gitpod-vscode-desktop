@@ -109,11 +109,13 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
         }
     }
 
-    public async sendErrorReport(workspaceId: string | undefined, instanceId: string | undefined, err: Error | any, message: string) {
+    public async sendErrorReport(gitpodHost: string, userId: string, workspaceId: string | undefined, instanceId: string | undefined, err: Error | any, message: string) {
         if (!err || this.extensionServices.length === 0) {
             return;
         }
         const request: SendErrorReportRequest = {
+            gitpodHost,
+            userId,
             workspaceId: workspaceId ?? '',
             instanceId: instanceId ?? '',
             errorName: '',

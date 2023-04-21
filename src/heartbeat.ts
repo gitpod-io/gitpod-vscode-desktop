@@ -131,7 +131,7 @@ export class HeartbeatManager extends Disposable {
                         ? (!wasClosed ? await this.sessionService.getAPI().sendHeartbeat(this.connectionInfo.workspaceId) : await this.sessionService.getAPI().sendDidClose(this.connectionInfo.workspaceId))
                         : await service.server.sendHeartBeat({ instanceId: this.connectionInfo.instanceId, wasClosed });
                     if (wasClosed) {
-                        this.telemetryService.sendTelemetryEvent('ide_close_signal', { workspaceId: this.connectionInfo.workspaceId, instanceId: this.connectionInfo.instanceId, gitpodHost: this.connectionInfo.gitpodHost, clientKind: 'vscode', debugWorkspace: String(!!this.connectionInfo.debugWorkspace) });
+                        this.telemetryService.sendTelemetryEvent(this.connectionInfo.gitpodHost, 'ide_close_signal', { workspaceId: this.connectionInfo.workspaceId, instanceId: this.connectionInfo.instanceId, gitpodHost: this.connectionInfo.gitpodHost, clientKind: 'vscode', debugWorkspace: String(!!this.connectionInfo.debugWorkspace) });
                         this.logService.trace(`Send closed heartbeat`);
                     } else {
                         this.logService.trace(`Send heartbeat, triggered by ${this.lastActivityEvent} event`);
@@ -147,7 +147,7 @@ export class HeartbeatManager extends Disposable {
             e.message = `Failed to send ${suffix}, triggered by event: ${this.lastActivityEvent}: ${originMsg}`;
             this.logService.error(e);
             e.message = `Failed to send ${suffix}: ${originMsg}`;
-            this.telemetryService.sendTelemetryException(e, { workspaceId: this.connectionInfo.workspaceId, instanceId: this.connectionInfo.instanceId});
+            this.telemetryService.sendTelemetryException(this.connectionInfo.gitpodHost, e, { workspaceId: this.connectionInfo.workspaceId, instanceId: this.connectionInfo.instanceId});
         }
     }
 
@@ -159,7 +159,7 @@ export class HeartbeatManager extends Disposable {
     }
 
     private sendEventData() {
-        this.telemetryService.sendRawTelemetryEvent('vscode_desktop_heartbeat_delta', { events: Object.fromEntries(this.eventCounterMap), workspaceId: this.connectionInfo.workspaceId, instanceId: this.connectionInfo.instanceId, gitpodHost: this.connectionInfo.gitpodHost, clientKind: 'vscode' });
+        this.telemetryService.sendRawTelemetryEvent(this.connectionInfo.gitpodHost, 'vscode_desktop_heartbeat_delta', { events: Object.fromEntries(this.eventCounterMap), workspaceId: this.connectionInfo.workspaceId, instanceId: this.connectionInfo.instanceId, gitpodHost: this.connectionInfo.gitpodHost, clientKind: 'vscode' });
         this.eventCounterMap.clear();
     }
 

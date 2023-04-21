@@ -13,6 +13,7 @@ import { ILogService } from '../services/logService';
 import { INotificationService } from '../services/notificationService';
 import { ITelemetryService, UserFlowTelemetry } from '../services/telemetryService';
 import { Configuration } from '../configuration';
+import { HostService } from '../services/hostService';
 
 interface IFile {
 	path: string;
@@ -27,10 +28,12 @@ export class ExportLogsCommand implements Command {
 		private readonly notificationService: INotificationService,
 		private readonly telemetryService: ITelemetryService,
 		private readonly logService: ILogService,
+		private readonly hostService: HostService,
 	) { }
 
 	async execute() {
-		const flow: UserFlowTelemetry = { flow: 'export_logs' };
+		const gitpodHost = this.hostService.gitpodHost;
+		const flow: UserFlowTelemetry = { gitpodHost, flow: 'export_logs' };
 		this.telemetryService.sendUserFlowStatus('exporting', flow);
 		try {
 			await this.exportLogs();

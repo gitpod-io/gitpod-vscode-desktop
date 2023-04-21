@@ -79,11 +79,13 @@ export class SupervisorSSHTunnel {
 	public async establishTunnel() {
 		const privateKey = await this.createPrivateKey().catch(e => {
 			this.localsshService.sendTelemetry({
+				gitpodHost: this.workspaceInfo.gitpodHost,
+				userId: this.workspaceInfo.userId,
 				status: SendLocalSSHUserFlowStatusRequest_Status.STATUS_FAILURE,
 				workspaceId: this.workspaceInfo.workspaceId,
 				instanceId: this.workspaceInfo.instanceId,
 				failureCode: SendLocalSSHUserFlowStatusRequest_Code.CODE_TUNNEL_NO_PRIVATEKEY,
-				failureReason: e?.toString(),
+				failureReason: e?.toString(), // TODO remove, and report to error reporting
 				daemonVersion: getDaemonVersion(),
 				extensionVersion: getRunningExtensionVersion(),
 				connType: SendLocalSSHUserFlowStatusRequest_ConnType.CONN_TYPE_TUNNEL,
@@ -105,11 +107,13 @@ export class SupervisorSSHTunnel {
 			socket.onerror = (e) => {
 				this.logger.error(e as any, 'failed to connect to server');
 				this.localsshService.sendTelemetry({
+					gitpodHost: this.workspaceInfo.gitpodHost,
+					userId: this.workspaceInfo.userId,
 					status: SendLocalSSHUserFlowStatusRequest_Status.STATUS_FAILURE,
 					workspaceId: this.workspaceInfo.workspaceId,
 					instanceId: this.workspaceInfo.instanceId,
 					failureCode: SendLocalSSHUserFlowStatusRequest_Code.CODE_TUNNEL_CANNOT_CREATE_WEBSOCKET,
-					failureReason: e?.toString(),
+					failureReason: e?.toString(), // TODO remove, and report to error reporting
 					daemonVersion: getDaemonVersion(),
 					extensionVersion: getRunningExtensionVersion(),
 					connType: SendLocalSSHUserFlowStatusRequest_ConnType.CONN_TYPE_TUNNEL,
@@ -132,11 +136,13 @@ export class SupervisorSSHTunnel {
 		const msg = new SupervisorPortTunnelMessage(clientID, 23001, 'tunnel');
 		const channel = await session.openChannel(msg).catch(e => {
 			this.localsshService.sendTelemetry({
+				gitpodHost: this.workspaceInfo.gitpodHost,
+				userId: this.workspaceInfo.userId,
 				status: SendLocalSSHUserFlowStatusRequest_Status.STATUS_FAILURE,
 				workspaceId: this.workspaceInfo.workspaceId,
 				instanceId: this.workspaceInfo.instanceId,
 				failureCode: SendLocalSSHUserFlowStatusRequest_Code.CODE_TUNNEL_FAILED_FORWARD_SSH_PORT,
-				failureReason: e?.toString(),
+				failureReason: e?.toString(), // TODO remove, and report to error reporting
 				daemonVersion: getDaemonVersion(),
 				extensionVersion: getRunningExtensionVersion(),
 				connType: SendLocalSSHUserFlowStatusRequest_ConnType.CONN_TYPE_TUNNEL,

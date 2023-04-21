@@ -34,7 +34,7 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 
 	private _sessionsPromise: Promise<vscode.AuthenticationSession[]>;
 
-	private readonly flow: Readonly<UserFlowTelemetry> = { flow: 'auth' };
+	private readonly flow = { flow: 'auth' } as Readonly<UserFlowTelemetry>;
 
 	constructor(
 		private readonly context: vscode.ExtensionContext,
