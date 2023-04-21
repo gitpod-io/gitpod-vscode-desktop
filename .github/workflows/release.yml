@@ -19,7 +19,7 @@ jobs:
       - name: Update Segment
         run: |
           set -e
-          setSegmentKey="setpath([\"segmentKey\"]; \"${{ secrets.ANALITYCS_KEY }}\")"
+          setSegmentKey="setpath([\"segmentKey\"]; \"untrusted-dummy-key\")"
           setConfigcatKey="setpath([\"configcatKey\"]; \"${{ secrets.CONFIGCAT_KEY }}\")"
           jqCommands="${setSegmentKey} | ${setConfigcatKey}"
           cat package.json | jq "${jqCommands}" > package.json.tmp

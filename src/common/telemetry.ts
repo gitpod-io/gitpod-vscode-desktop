@@ -63,12 +63,10 @@ export class BaseTelemetryAppender implements ITelemetryAppender {
 	private _exceptionQueue: Array<{ exception: Error; data: AppenderData | undefined }> = [];
 
 	// Necessary information to create a telemetry client
-	private _clientFactory: (key: string) => Promise<BaseTelemetryClient>;
-	private _key: string;
+	private _clientFactory: () => Promise<BaseTelemetryClient>;
 
-	constructor(key: string, clientFactory: (key: string) => Promise<BaseTelemetryClient>) {
+	constructor(clientFactory: () => Promise<BaseTelemetryClient>) {
 		this._clientFactory = clientFactory;
-		this._key = key;
 		if (getTelemetryLevel() !== TelemetryLevel.OFF) {
 			this.instantiateAppender();
 		}
@@ -124,20 +122,25 @@ export class BaseTelemetryAppender implements ITelemetryAppender {
 		this._exceptionQueue = [];
 	}
 
+	private isInstantiating = false;
+
 	/**
 	 * Instantiates the telemetry client to make the appender "active"
 	 */
 	instantiateAppender(): void {
-		if (this._isInstantiated) {
+		if (this.isInstantiating || this._isInstantiated) {
 			return;
 		}
+		this.isInstantiating = true;
 		// Call the client factory to get the client and then let it know it's instatntiated
-		this._clientFactory(this._key).then(client => {
+		this._clientFactory().then(client => {
 			this._telemetryClient = client;
 			this._isInstantiated = true;
 			this._flushQueues();
 		}).catch(err => {
 			console.error(err);
+		}).finally(() => {
+			this.isInstantiating = false;
 		});
 	}
 }
@@ -146,12 +149,13 @@ export class BaseTelemetryReporter extends Disposable {
 	private userOptIn = false;
 	private errorOptIn = false;
 	private _extension: vscode.Extension<any> | undefined;
+	private readonly appenders = new Map<string, ITelemetryAppender>();
 
 	constructor(
 		private extensionId: string,
 		private extensionVersion: string,
-		private telemetryAppender: ITelemetryAppender,
 		private osShim: { release: string; platform: string; architecture: string },
+		private readonly clientFactory: (gitpodHost: string) => Promise<BaseTelemetryClient>
 	) {
 		super();
 
@@ -173,7 +177,7 @@ export class BaseTelemetryReporter extends Disposable {
 		this.userOptIn = telemetryLevel === TelemetryLevel.ON;
 		this.errorOptIn = telemetryLevel === TelemetryLevel.ERROR || this.userOptIn;
 		if (this.userOptIn || this.errorOptIn) {
-			this.telemetryAppender.instantiateAppender();
+			this.appenders.forEach(appender => appender.instantiateAppender());
 		}
 	}
 
@@ -354,11 +358,11 @@ export class BaseTelemetryReporter extends Disposable {
 	 * @param eventName The name of the event
 	 * @param properties The properties to send with the event
 	 */
-	public sendTelemetryEvent(eventName: string, properties?: TelemetryEventProperties): void {
+	public sendTelemetryEvent(gitpodHost: string, eventName: string, properties?: TelemetryEventProperties): void {
 		if (this.userOptIn && eventName !== '') {
 			properties = { ...properties, ...this.getCommonProperties() };
 			const cleanProperties = this.cloneAndChange(properties, (_key: string, prop: string) => this.anonymizeFilePaths(prop, false));
-			this.telemetryAppender.logEvent(`${eventName}`, { properties: this.removePropertiesWithPossibleUserInfo(cleanProperties) });
+			this.getAppender(gitpodHost).logEvent(`${eventName}`, { properties: this.removePropertiesWithPossibleUserInfo(cleanProperties) });
 		}
 	}
 
@@ -367,10 +371,10 @@ export class BaseTelemetryReporter extends Disposable {
 	 * @param eventName The name of the event
 	 * @param properties The properties to send with the event
 	 */
-	public sendRawTelemetryEvent(eventName: string, properties?: RawTelemetryEventProperties): void {
+	public sendRawTelemetryEvent(gitpodHost: string, eventName: string, properties?: RawTelemetryEventProperties): void {
 		if (this.userOptIn && eventName !== '') {
 			properties = { ...properties, ...this.getCommonProperties() };
-			this.telemetryAppender.logEvent(`${eventName}`, { properties });
+			this.getAppender(gitpodHost).logEvent(`${eventName}`, { properties });
 		}
 	}
 
@@ -379,14 +383,14 @@ export class BaseTelemetryReporter extends Disposable {
 	 * @param eventName The name of the event
 	 * @param properties The properties to send with the event
 	 */
-	public sendTelemetryErrorEvent(eventName: string, properties?: { [key: string]: string }): void {
+	public sendTelemetryErrorEvent(gitpodHost: string, eventName: string, properties?: { [key: string]: string }): void {
 		if (this.errorOptIn && eventName !== '') {
 			// always clean the properties if first party
 			// do not send any error properties if we shouldn't send error telemetry
 			// if we have no errorProps, assume all are error props
 			properties = { ...properties, ...this.getCommonProperties() };
 			const cleanProperties = this.cloneAndChange(properties, (_key: string, prop: string) => this.anonymizeFilePaths(prop, false));
-			this.telemetryAppender.logEvent(`${eventName}`, { properties: this.removePropertiesWithPossibleUserInfo(cleanProperties) });
+			this.getAppender(gitpodHost).logEvent(`${eventName}`, { properties: this.removePropertiesWithPossibleUserInfo(cleanProperties) });
 		}
 	}
 
@@ -395,7 +399,7 @@ export class BaseTelemetryReporter extends Disposable {
 	 * @param error The error to send
 	 * @param properties The properties to send with the event
 	 */
-	public sendTelemetryException(error: Error, properties?: TelemetryEventProperties): void {
+	public sendTelemetryException(gitpodHost: string, error: Error, properties?: TelemetryEventProperties): void {
 		if (this.errorOptIn && error) {
 			properties = { ...properties, ...this.getCommonProperties() };
 			const cleanProperties = this.cloneAndChange(properties, (_key: string, prop: string) => this.anonymizeFilePaths(prop, false));
@@ -403,12 +407,23 @@ export class BaseTelemetryReporter extends Disposable {
 			if (error.stack) {
 				error.stack = this.anonymizeFilePaths(error.stack, false);
 			}
-			this.telemetryAppender.logException(error, { properties: this.removePropertiesWithPossibleUserInfo(cleanProperties) });
+			this.getAppender(gitpodHost).logException(error, { properties: this.removePropertiesWithPossibleUserInfo(cleanProperties) });
 		}
+	}
+
+	private getAppender(gitpodHost: string) {
+		const gitpodHostUrl = new URL(gitpodHost);
+		const serviceUrl = gitpodHostUrl.toString().replace(/\/$/, '').toLowerCase();
+		let appender = this.appenders.get(serviceUrl);
+		if (!appender) {
+			appender = new BaseTelemetryAppender(() => this.clientFactory(serviceUrl));
+			this.appenders.set(serviceUrl, appender);
+		}
+		return appender;
 	}
 
 	public override async dispose(): Promise<void> {
 		super.dispose();
-		await this.telemetryAppender.flush();
+		await Promise.allSettled([...this.appenders.values()].map(a => a.flush()));
 	}
 }

@@ -112,7 +112,9 @@ export class RemoteSession extends Disposable {
 			}
 			e.message = `Failed to resolve whole gitpod remote connection process: ${e.message}`;
 			this.logService.error(e);
-			this.telemetryService.sendTelemetryException(e, { workspaceId: this.connectionInfo.workspaceId, instanceId: this.connectionInfo.instanceId, userId: this.sessionService.getUserId() });
+			this.telemetryService.sendTelemetryException(this.connectionInfo.gitpodHost, e, {
+				workspaceId: this.connectionInfo.workspaceId, instanceId: this.connectionInfo.instanceId, userId: this.sessionService.getUserId()
+			});
 
 			this.logService.show();
 			const retry = 'Retry';
@@ -249,7 +251,7 @@ export class RemoteSession extends Disposable {
 	}
 
 	private showSignInDialog() {
-		this.notificationService.showErrorMessage(`You are not signed in with a Gitpod account, please sign in first.`, { flow: { flow: 'remote_window' }, id: 'not_signed_in', modal: true });
+		this.notificationService.showErrorMessage(`You are not signed in with a Gitpod account, please sign in first.`, { flow: { flow: 'remote_window', gitpodHost: this.connectionInfo.gitpodHost }, id: 'not_signed_in', modal: true });
 	}
 
 	public override async dispose(): Promise<void> {

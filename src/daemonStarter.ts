@@ -28,7 +28,11 @@ export async function ensureDaemonStarted(logService: ILogService, telemetryServ
             }
             logService.error('lssh unexpectedly exit with code: ' + code + ' attempt retry: ' + retry);
             resolve(false);
-            telemetryService.sendTelemetryException(new Error(`unexpectedly exit with code ${humanReadableCode} ${code} attempt retry: ${retry}`), { humanReadableCode, code: code?.toString() ?? 'null' });
+            telemetryService.sendTelemetryException(
+                Configuration.getGitpodHost(),
+                new Error(`unexpectedly exit with code ${humanReadableCode} ${code} attempt retry: ${retry}`),
+                { humanReadableCode, code: code?.toString() ?? 'null' }
+            );
         });
     });
     if (!ok) {

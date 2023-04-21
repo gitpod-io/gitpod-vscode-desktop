@@ -12,6 +12,8 @@ export interface SendErrorReportRequest {
   errorStack: string;
   daemonVersion: string;
   extensionVersion: string;
+  gitpodHost: string;
+  userId: string;
 }
 
 export interface SendErrorReportResponse {
@@ -22,10 +24,13 @@ export interface SendLocalSSHUserFlowStatusRequest {
   workspaceId: string;
   instanceId: string;
   failureCode: SendLocalSSHUserFlowStatusRequest_Code;
+  /** @deprecated */
   failureReason: string;
   daemonVersion: string;
   extensionVersion: string;
   connType: SendLocalSSHUserFlowStatusRequest_ConnType;
+  gitpodHost: string;
+  userId: string;
 }
 
 export enum SendLocalSSHUserFlowStatusRequest_ConnType {
@@ -225,6 +230,8 @@ export interface GetWorkspaceAuthInfoResponse {
   instanceId: string;
   workspaceHost: string;
   ownerToken: string;
+  gitpodHost: string;
+  userId: string;
 }
 
 function createBaseSendErrorReportRequest(): SendErrorReportRequest {
@@ -236,6 +243,8 @@ function createBaseSendErrorReportRequest(): SendErrorReportRequest {
     errorStack: "",
     daemonVersion: "",
     extensionVersion: "",
+    gitpodHost: "",
+    userId: "",
   };
 }
 
@@ -261,6 +270,12 @@ export const SendErrorReportRequest = {
     }
     if (message.extensionVersion !== "") {
       writer.uint32(58).string(message.extensionVersion);
+    }
+    if (message.gitpodHost !== "") {
+      writer.uint32(66).string(message.gitpodHost);
+    }
+    if (message.userId !== "") {
+      writer.uint32(74).string(message.userId);
     }
     return writer;
   },
@@ -293,6 +308,12 @@ export const SendErrorReportRequest = {
         case 7:
           message.extensionVersion = reader.string();
           break;
+        case 8:
+          message.gitpodHost = reader.string();
+          break;
+        case 9:
+          message.userId = reader.string();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -310,6 +331,8 @@ export const SendErrorReportRequest = {
       errorStack: isSet(object.errorStack) ? String(object.errorStack) : "",
       daemonVersion: isSet(object.daemonVersion) ? String(object.daemonVersion) : "",
       extensionVersion: isSet(object.extensionVersion) ? String(object.extensionVersion) : "",
+      gitpodHost: isSet(object.gitpodHost) ? String(object.gitpodHost) : "",
+      userId: isSet(object.userId) ? String(object.userId) : "",
     };
   },
 
@@ -322,6 +345,8 @@ export const SendErrorReportRequest = {
     message.errorStack !== undefined && (obj.errorStack = message.errorStack);
     message.daemonVersion !== undefined && (obj.daemonVersion = message.daemonVersion);
     message.extensionVersion !== undefined && (obj.extensionVersion = message.extensionVersion);
+    message.gitpodHost !== undefined && (obj.gitpodHost = message.gitpodHost);
+    message.userId !== undefined && (obj.userId = message.userId);
     return obj;
   },
 
@@ -338,6 +363,8 @@ export const SendErrorReportRequest = {
     message.errorStack = object.errorStack ?? "";
     message.daemonVersion = object.daemonVersion ?? "";
     message.extensionVersion = object.extensionVersion ?? "";
+    message.gitpodHost = object.gitpodHost ?? "";
+    message.userId = object.userId ?? "";
     return message;
   },
 };
@@ -395,6 +422,8 @@ function createBaseSendLocalSSHUserFlowStatusRequest(): SendLocalSSHUserFlowStat
     daemonVersion: "",
     extensionVersion: "",
     connType: 0,
+    gitpodHost: "",
+    userId: "",
   };
 }
 
@@ -423,6 +452,12 @@ export const SendLocalSSHUserFlowStatusRequest = {
     }
     if (message.connType !== 0) {
       writer.uint32(72).int32(message.connType);
+    }
+    if (message.gitpodHost !== "") {
+      writer.uint32(82).string(message.gitpodHost);
+    }
+    if (message.userId !== "") {
+      writer.uint32(90).string(message.userId);
     }
     return writer;
   },
@@ -458,6 +493,12 @@ export const SendLocalSSHUserFlowStatusRequest = {
         case 9:
           message.connType = reader.int32() as any;
           break;
+        case 10:
+          message.gitpodHost = reader.string();
+          break;
+        case 11:
+          message.userId = reader.string();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -476,6 +517,8 @@ export const SendLocalSSHUserFlowStatusRequest = {
       daemonVersion: isSet(object.daemonVersion) ? String(object.daemonVersion) : "",
       extensionVersion: isSet(object.extensionVersion) ? String(object.extensionVersion) : "",
       connType: isSet(object.connType) ? sendLocalSSHUserFlowStatusRequest_ConnTypeFromJSON(object.connType) : 0,
+      gitpodHost: isSet(object.gitpodHost) ? String(object.gitpodHost) : "",
+      userId: isSet(object.userId) ? String(object.userId) : "",
     };
   },
 
@@ -491,6 +534,8 @@ export const SendLocalSSHUserFlowStatusRequest = {
     message.extensionVersion !== undefined && (obj.extensionVersion = message.extensionVersion);
     message.connType !== undefined &&
       (obj.connType = sendLocalSSHUserFlowStatusRequest_ConnTypeToJSON(message.connType));
+    message.gitpodHost !== undefined && (obj.gitpodHost = message.gitpodHost);
+    message.userId !== undefined && (obj.userId = message.userId);
     return obj;
   },
 
@@ -508,6 +553,8 @@ export const SendLocalSSHUserFlowStatusRequest = {
     message.daemonVersion = object.daemonVersion ?? "";
     message.extensionVersion = object.extensionVersion ?? "";
     message.connType = object.connType ?? 0;
+    message.gitpodHost = object.gitpodHost ?? "";
+    message.userId = object.userId ?? "";
     return message;
   },
 };
@@ -986,7 +1033,7 @@ export const GetWorkspaceAuthInfoRequest = {
 };
 
 function createBaseGetWorkspaceAuthInfoResponse(): GetWorkspaceAuthInfoResponse {
-  return { workspaceId: "", instanceId: "", workspaceHost: "", ownerToken: "" };
+  return { workspaceId: "", instanceId: "", workspaceHost: "", ownerToken: "", gitpodHost: "", userId: "" };
 }
 
 export const GetWorkspaceAuthInfoResponse = {
@@ -1002,6 +1049,12 @@ export const GetWorkspaceAuthInfoResponse = {
     }
     if (message.ownerToken !== "") {
       writer.uint32(34).string(message.ownerToken);
+    }
+    if (message.gitpodHost !== "") {
+      writer.uint32(42).string(message.gitpodHost);
+    }
+    if (message.userId !== "") {
+      writer.uint32(50).string(message.userId);
     }
     return writer;
   },
@@ -1025,6 +1078,12 @@ export const GetWorkspaceAuthInfoResponse = {
         case 4:
           message.ownerToken = reader.string();
           break;
+        case 5:
+          message.gitpodHost = reader.string();
+          break;
+        case 6:
+          message.userId = reader.string();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -1039,6 +1098,8 @@ export const GetWorkspaceAuthInfoResponse = {
       instanceId: isSet(object.instanceId) ? String(object.instanceId) : "",
       workspaceHost: isSet(object.workspaceHost) ? String(object.workspaceHost) : "",
       ownerToken: isSet(object.ownerToken) ? String(object.ownerToken) : "",
+      gitpodHost: isSet(object.gitpodHost) ? String(object.gitpodHost) : "",
+      userId: isSet(object.userId) ? String(object.userId) : "",
     };
   },
 
@@ -1048,6 +1109,8 @@ export const GetWorkspaceAuthInfoResponse = {
     message.instanceId !== undefined && (obj.instanceId = message.instanceId);
     message.workspaceHost !== undefined && (obj.workspaceHost = message.workspaceHost);
     message.ownerToken !== undefined && (obj.ownerToken = message.ownerToken);
+    message.gitpodHost !== undefined && (obj.gitpodHost = message.gitpodHost);
+    message.userId !== undefined && (obj.userId = message.userId);
     return obj;
   },
 
@@ -1061,6 +1124,8 @@ export const GetWorkspaceAuthInfoResponse = {
     message.instanceId = object.instanceId ?? "";
     message.workspaceHost = object.workspaceHost ?? "";
     message.ownerToken = object.ownerToken ?? "";
+    message.gitpodHost = object.gitpodHost ?? "";
+    message.userId = object.userId ?? "";
     return message;
   },
 };
