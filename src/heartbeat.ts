@@ -139,6 +139,8 @@ export class HeartbeatManager extends Disposable {
                 } else {
                     this.logService.trace('Stopping heartbeat as workspace is not running');
                     this.stopHeartbeat();
+                    this.stopEventCounter();
+                    this.sendEventData();
                 }
             }, this.logService);
         } catch (e) {
