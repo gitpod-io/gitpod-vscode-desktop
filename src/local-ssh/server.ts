@@ -9,7 +9,7 @@ import { LocalSSHServiceImpl, startLocalSSHService } from './ipc/localssh';
 import { SupervisorSSHTunnel } from './sshTunnel';
 import { ILogService } from '../services/logService';
 import { SshServer, SshClient } from '@microsoft/dev-tunnels-ssh-tcp';
-import { NodeStream, SshClientCredentials, SshClientSession, SshSessionConfiguration } from '@microsoft/dev-tunnels-ssh';
+import { NodeStream, SshClientCredentials, SshClientSession, SshDisconnectReason, SshSessionConfiguration } from '@microsoft/dev-tunnels-ssh';
 import { importKeyBytes } from '@microsoft/dev-tunnels-ssh-keys';
 import { parsePrivateKey } from 'sshpk';
 import { PipeExtensions } from './patch/pipeExtension';
@@ -23,6 +23,7 @@ export class LocalSSHGatewayServer {
 	private localsshService!: LocalSSHServiceImpl;
 	private localsshServiceServer?: GrpcServer;
 	private server?: SshServer;
+	private clientCount = 0;
 
 	constructor(
 		private readonly logger: ILogService,
@@ -30,7 +31,7 @@ export class LocalSSHGatewayServer {
 		private readonly ipcPort: number,
 	) { }
 
-	async authenticateClient(clientUsername: string) {
+	private async authenticateClient(clientUsername: string) {
 		const workspaceInfo = await this.localsshService.getWorkspaceAuthInfo(clientUsername).catch(e => {
 			this.logger.error(e, 'failed to get workspace auth info');
 			/*
@@ -69,22 +70,32 @@ export class LocalSSHGatewayServer {
 
 			server.onSessionOpened((session) => {
 				let pipeSession: SshClientSession;
+				this.clientCount += 1;
 				session.onAuthenticating((e) => {
-					e.authenticationPromise = new Promise((resolve, reject) => {
-						this.authenticateClient(e.username!).then(async s => {
+					e.authenticationPromise = this.authenticateClient(e.username!).then(s => {
 							this.logger.info('authenticate with ' + e.username);
 							pipeSession = s;
-							resolve(new Object());
+							return {};
 						}).catch(e => {
 							this.logger.error(e, 'failed to authenticate client');
 							// TODO not sure how to get gitpod host here
 							// this.localsshService.sendErrorReport(e.username, undefined, e, 'failed to authenticate client');
-							reject(null);
+							session.close(SshDisconnectReason.hostNotAllowedToConnect, 'auth failed or workspace is not running');
+							return null;
 						});
-					});
 				});
-				session.onClientAuthenticated(() => {
-					PipeExtensions.pipeSession(session, pipeSession);
+				session.onClientAuthenticated(async () => {
+					try {
+						await PipeExtensions.pipeSession(session, pipeSession);
+					} catch (e) {
+						this.logger.error(e, 'pipe session ended with error');
+					} finally {
+						session.close(SshDisconnectReason.connectionLost, 'pipe session ended');
+					}
+				});
+				session.onClosed(() => {
+					this.clientCount -= 1;
+					this.logger.debug('current connecting client count: ' + this.clientCount);
 				});
 			});
 			await server.acceptSessions(this.port, '127.0.0.1');
@@ -180,4 +191,3 @@ export class LocalSSHGatewayServer {
 		this.localsshServiceServer?.shutdown();
 	}
 }
-

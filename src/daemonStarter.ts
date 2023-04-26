@@ -61,7 +61,7 @@ export async function tryStartDaemon(logService: ILogService, options?: Partial<
     const daemon = spawn(process.execPath, args, {
         detached: true,
         stdio: 'ignore',
-        env: process.env
+        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
     });
     daemon.unref();
     return daemon;
