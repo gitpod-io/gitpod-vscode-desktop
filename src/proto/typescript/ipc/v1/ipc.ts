@@ -4,6 +4,19 @@ import * as _m0 from "protobufjs/minimal";
 
 export const protobufPackage = "ipc.v1";
 
+export interface TryRestartDaemonRequest {
+}
+
+export interface TryRestartDaemonResponse {
+}
+
+export interface GetCurrentExtensionVersionRequest {
+}
+
+export interface GetCurrentExtensionVersionResponse {
+  version: string;
+}
+
 export interface SendErrorReportRequest {
   workspaceId: string;
   instanceId: string;
@@ -214,13 +227,6 @@ export interface PingRequest {
 export interface PingResponse {
 }
 
-export interface GetDaemonVersionRequest {
-}
-
-export interface GetDaemonVersionResponse {
-  version: string;
-}
-
 export interface GetWorkspaceAuthInfoRequest {
   workspaceId: string;
 }
@@ -233,6 +239,186 @@ export interface GetWorkspaceAuthInfoResponse {
   gitpodHost: string;
   userId: string;
 }
+
+function createBaseTryRestartDaemonRequest(): TryRestartDaemonRequest {
+  return {};
+}
+
+export const TryRestartDaemonRequest = {
+  encode(_: TryRestartDaemonRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): TryRestartDaemonRequest {
+    const reader = input instanceof _m0.Reader ? input : new _m0.Reader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseTryRestartDaemonRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+
+  fromJSON(_: any): TryRestartDaemonRequest {
+    return {};
+  },
+
+  toJSON(_: TryRestartDaemonRequest): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<TryRestartDaemonRequest>): TryRestartDaemonRequest {
+    return TryRestartDaemonRequest.fromPartial(base ?? {});
+  },
+
+  fromPartial(_: DeepPartial<TryRestartDaemonRequest>): TryRestartDaemonRequest {
+    const message = createBaseTryRestartDaemonRequest();
+    return message;
+  },
+};
+
+function createBaseTryRestartDaemonResponse(): TryRestartDaemonResponse {
+  return {};
+}
+
+export const TryRestartDaemonResponse = {
+  encode(_: TryRestartDaemonResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): TryRestartDaemonResponse {
+    const reader = input instanceof _m0.Reader ? input : new _m0.Reader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseTryRestartDaemonResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+
+  fromJSON(_: any): TryRestartDaemonResponse {
+    return {};
+  },
+
+  toJSON(_: TryRestartDaemonResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<TryRestartDaemonResponse>): TryRestartDaemonResponse {
+    return TryRestartDaemonResponse.fromPartial(base ?? {});
+  },
+
+  fromPartial(_: DeepPartial<TryRestartDaemonResponse>): TryRestartDaemonResponse {
+    const message = createBaseTryRestartDaemonResponse();
+    return message;
+  },
+};
+
+function createBaseGetCurrentExtensionVersionRequest(): GetCurrentExtensionVersionRequest {
+  return {};
+}
+
+export const GetCurrentExtensionVersionRequest = {
+  encode(_: GetCurrentExtensionVersionRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): GetCurrentExtensionVersionRequest {
+    const reader = input instanceof _m0.Reader ? input : new _m0.Reader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseGetCurrentExtensionVersionRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+
+  fromJSON(_: any): GetCurrentExtensionVersionRequest {
+    return {};
+  },
+
+  toJSON(_: GetCurrentExtensionVersionRequest): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<GetCurrentExtensionVersionRequest>): GetCurrentExtensionVersionRequest {
+    return GetCurrentExtensionVersionRequest.fromPartial(base ?? {});
+  },
+
+  fromPartial(_: DeepPartial<GetCurrentExtensionVersionRequest>): GetCurrentExtensionVersionRequest {
+    const message = createBaseGetCurrentExtensionVersionRequest();
+    return message;
+  },
+};
+
+function createBaseGetCurrentExtensionVersionResponse(): GetCurrentExtensionVersionResponse {
+  return { version: "" };
+}
+
+export const GetCurrentExtensionVersionResponse = {
+  encode(message: GetCurrentExtensionVersionResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.version !== "") {
+      writer.uint32(10).string(message.version);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): GetCurrentExtensionVersionResponse {
+    const reader = input instanceof _m0.Reader ? input : new _m0.Reader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseGetCurrentExtensionVersionResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.version = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+
+  fromJSON(object: any): GetCurrentExtensionVersionResponse {
+    return { version: isSet(object.version) ? String(object.version) : "" };
+  },
+
+  toJSON(message: GetCurrentExtensionVersionResponse): unknown {
+    const obj: any = {};
+    message.version !== undefined && (obj.version = message.version);
+    return obj;
+  },
+
+  create(base?: DeepPartial<GetCurrentExtensionVersionResponse>): GetCurrentExtensionVersionResponse {
+    return GetCurrentExtensionVersionResponse.fromPartial(base ?? {});
+  },
+
+  fromPartial(object: DeepPartial<GetCurrentExtensionVersionResponse>): GetCurrentExtensionVersionResponse {
+    const message = createBaseGetCurrentExtensionVersionResponse();
+    message.version = object.version ?? "";
+    return message;
+  },
+};
 
 function createBaseSendErrorReportRequest(): SendErrorReportRequest {
   return {
@@ -887,100 +1073,6 @@ export const PingResponse = {
   },
 };
 
-function createBaseGetDaemonVersionRequest(): GetDaemonVersionRequest {
-  return {};
-}
-
-export const GetDaemonVersionRequest = {
-  encode(_: GetDaemonVersionRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
-    return writer;
-  },
-
-  decode(input: _m0.Reader | Uint8Array, length?: number): GetDaemonVersionRequest {
-    const reader = input instanceof _m0.Reader ? input : new _m0.Reader(input);
-    let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseGetDaemonVersionRequest();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        default:
-          reader.skipType(tag & 7);
-          break;
-      }
-    }
-    return message;
-  },
-
-  fromJSON(_: any): GetDaemonVersionRequest {
-    return {};
-  },
-
-  toJSON(_: GetDaemonVersionRequest): unknown {
-    const obj: any = {};
-    return obj;
-  },
-
-  create(base?: DeepPartial<GetDaemonVersionRequest>): GetDaemonVersionRequest {
-    return GetDaemonVersionRequest.fromPartial(base ?? {});
-  },
-
-  fromPartial(_: DeepPartial<GetDaemonVersionRequest>): GetDaemonVersionRequest {
-    const message = createBaseGetDaemonVersionRequest();
-    return message;
-  },
-};
-
-function createBaseGetDaemonVersionResponse(): GetDaemonVersionResponse {
-  return { version: "" };
-}
-
-export const GetDaemonVersionResponse = {
-  encode(message: GetDaemonVersionResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
-    if (message.version !== "") {
-      writer.uint32(10).string(message.version);
-    }
-    return writer;
-  },
-
-  decode(input: _m0.Reader | Uint8Array, length?: number): GetDaemonVersionResponse {
-    const reader = input instanceof _m0.Reader ? input : new _m0.Reader(input);
-    let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseGetDaemonVersionResponse();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1:
-          message.version = reader.string();
-          break;
-        default:
-          reader.skipType(tag & 7);
-          break;
-      }
-    }
-    return message;
-  },
-
-  fromJSON(object: any): GetDaemonVersionResponse {
-    return { version: isSet(object.version) ? String(object.version) : "" };
-  },
-
-  toJSON(message: GetDaemonVersionResponse): unknown {
-    const obj: any = {};
-    message.version !== undefined && (obj.version = message.version);
-    return obj;
-  },
-
-  create(base?: DeepPartial<GetDaemonVersionResponse>): GetDaemonVersionResponse {
-    return GetDaemonVersionResponse.fromPartial(base ?? {});
-  },
-
-  fromPartial(object: DeepPartial<GetDaemonVersionResponse>): GetDaemonVersionResponse {
-    const message = createBaseGetDaemonVersionResponse();
-    message.version = object.version ?? "";
-    return message;
-  },
-};
-
 function createBaseGetWorkspaceAuthInfoRequest(): GetWorkspaceAuthInfoRequest {
   return { workspaceId: "" };
 }
@@ -1153,23 +1245,6 @@ export const LocalSSHServiceDefinition = {
       responseStream: false,
       options: {},
     },
-    ping: {
-      name: "Ping",
-      requestType: PingRequest,
-      requestStream: false,
-      responseType: PingResponse,
-      responseStream: false,
-      options: {},
-    },
-    /** GetDaemonVersion returns the version of the daemon */
-    getDaemonVersion: {
-      name: "GetDaemonVersion",
-      requestType: GetDaemonVersionRequest,
-      requestStream: false,
-      responseType: GetDaemonVersionResponse,
-      responseStream: false,
-      options: {},
-    },
   },
 } as const;
 
@@ -1178,12 +1253,6 @@ export interface LocalSSHServiceImplementation<CallContextExt = {}> {
   active(request: ActiveRequest, context: CallContext & CallContextExt): Promise<DeepPartial<ActiveResponse>>;
   /** Inactive is called when extension is deactivated */
   inactive(request: InactiveRequest, context: CallContext & CallContextExt): Promise<DeepPartial<InactiveResponse>>;
-  ping(request: PingRequest, context: CallContext & CallContextExt): Promise<DeepPartial<PingResponse>>;
-  /** GetDaemonVersion returns the version of the daemon */
-  getDaemonVersion(
-    request: GetDaemonVersionRequest,
-    context: CallContext & CallContextExt,
-  ): Promise<DeepPartial<GetDaemonVersionResponse>>;
 }
 
 export interface LocalSSHServiceClient<CallOptionsExt = {}> {
@@ -1191,12 +1260,6 @@ export interface LocalSSHServiceClient<CallOptionsExt = {}> {
   active(request: DeepPartial<ActiveRequest>, options?: CallOptions & CallOptionsExt): Promise<ActiveResponse>;
   /** Inactive is called when extension is deactivated */
   inactive(request: DeepPartial<InactiveRequest>, options?: CallOptions & CallOptionsExt): Promise<InactiveResponse>;
-  ping(request: DeepPartial<PingRequest>, options?: CallOptions & CallOptionsExt): Promise<PingResponse>;
-  /** GetDaemonVersion returns the version of the daemon */
-  getDaemonVersion(
-    request: DeepPartial<GetDaemonVersionRequest>,
-    options?: CallOptions & CallOptionsExt,
-  ): Promise<GetDaemonVersionResponse>;
 }
 
 export type ExtensionServiceDefinition = typeof ExtensionServiceDefinition;
@@ -1236,6 +1299,22 @@ export const ExtensionServiceDefinition = {
       responseStream: false,
       options: {},
     },
+    getCurrentExtensionVersion: {
+      name: "GetCurrentExtensionVersion",
+      requestType: GetCurrentExtensionVersionRequest,
+      requestStream: false,
+      responseType: GetCurrentExtensionVersionResponse,
+      responseStream: false,
+      options: {},
+    },
+    tryRestartDaemon: {
+      name: "TryRestartDaemon",
+      requestType: TryRestartDaemonRequest,
+      requestStream: false,
+      responseType: TryRestartDaemonResponse,
+      responseStream: false,
+      options: {},
+    },
   },
 } as const;
 
@@ -1253,6 +1332,14 @@ export interface ExtensionServiceImplementation<CallContextExt = {}> {
     request: SendErrorReportRequest,
     context: CallContext & CallContextExt,
   ): Promise<DeepPartial<SendErrorReportResponse>>;
+  getCurrentExtensionVersion(
+    request: GetCurrentExtensionVersionRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<GetCurrentExtensionVersionResponse>>;
+  tryRestartDaemon(
+    request: TryRestartDaemonRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<TryRestartDaemonResponse>>;
 }
 
 export interface ExtensionServiceClient<CallOptionsExt = {}> {
@@ -1269,6 +1356,14 @@ export interface ExtensionServiceClient<CallOptionsExt = {}> {
     request: DeepPartial<SendErrorReportRequest>,
     options?: CallOptions & CallOptionsExt,
   ): Promise<SendErrorReportResponse>;
+  getCurrentExtensionVersion(
+    request: DeepPartial<GetCurrentExtensionVersionRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<GetCurrentExtensionVersionResponse>;
+  tryRestartDaemon(
+    request: DeepPartial<TryRestartDaemonRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<TryRestartDaemonResponse>;
 }
 
 type Builtin = Date | Function | Uint8Array | string | number | boolean | undefined;

@@ -8,11 +8,6 @@ service LocalSSHService {
 
     // Inactive is called when extension is deactivated
     rpc Inactive(InactiveRequest) returns (InactiveResponse) {}
-
-    rpc Ping (PingRequest) returns (PingResponse) {}
-
-    // GetDaemonVersion returns the version of the daemon
-    rpc GetDaemonVersion(GetDaemonVersionRequest) returns (GetDaemonVersionResponse) {}
 }
 
 service ExtensionService {
@@ -20,6 +15,17 @@ service ExtensionService {
     rpc GetWorkspaceAuthInfo (GetWorkspaceAuthInfoRequest) returns (GetWorkspaceAuthInfoResponse) {}
     rpc SendLocalSSHUserFlowStatus (SendLocalSSHUserFlowStatusRequest) returns (SendLocalSSHUserFlowStatusResponse) {}
     rpc SendErrorReport (SendErrorReportRequest) returns (SendErrorReportResponse) {}
+    rpc GetCurrentExtensionVersion (GetCurrentExtensionVersionRequest) returns (GetCurrentExtensionVersionResponse) {}
+    rpc TryRestartDaemon (TryRestartDaemonRequest) returns (TryRestartDaemonResponse) {}
+}
+
+message TryRestartDaemonRequest {}
+message TryRestartDaemonResponse {}
+
+message GetCurrentExtensionVersionRequest {}
+
+message GetCurrentExtensionVersionResponse {
+    string version = 1;
 }
 
 message SendErrorReportRequest {
@@ -98,12 +104,6 @@ message InactiveResponse {}
 message PingRequest {}
 
 message PingResponse {}
-
-message GetDaemonVersionRequest {}
-
-message GetDaemonVersionResponse {
-    string version = 1;
-}
 
 message GetWorkspaceAuthInfoRequest {
     string workspace_id = 1;

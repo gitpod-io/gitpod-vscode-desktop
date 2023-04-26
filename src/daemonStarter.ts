@@ -22,6 +22,7 @@ export async function ensureDaemonStarted(logService: ILogService, telemetryServ
             logService.error(`lssh exit with code ${humanReadableCode} ${code}`);
             switch (code) {
                 case ExitCode.OK:
+                case ExitCode.UpgradeRestart:
                 case ExitCode.ListenPortFailed:
                     resolve(true);
                     return;

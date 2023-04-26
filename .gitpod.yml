@@ -1,2 +1,7 @@
+
 tasks:
   - init: yarn install
+
+vscode:
+  extensions:
+    - zxh404.vscode-proto3

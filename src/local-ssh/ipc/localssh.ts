@@ -3,11 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ActiveRequest, ExtensionServiceDefinition, GetDaemonVersionRequest, InactiveRequest, LocalSSHServiceDefinition, LocalSSHServiceImplementation, PingRequest, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest } from '../../proto/typescript/ipc/v1/ipc';
+import { ActiveRequest, ExtensionServiceDefinition, InactiveRequest, LocalSSHServiceDefinition, LocalSSHServiceImplementation, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest } from '../../proto/typescript/ipc/v1/ipc';
 import { CallContext, Client, ServerError, Status, createChannel, createClient, createServer } from 'nice-grpc';
 import { ExitCode, exitProcess, getDaemonVersion, getRunningExtensionVersion } from '../common';
 import { retryWithStop } from '../../common/async';
 import { ILogService } from '../../services/logService';
+import { SemVer } from 'semver';
 
 export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
     public extensionServices: { id: string; client: Client<ExtensionServiceDefinition> }[] = [];
@@ -17,12 +18,6 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
         this.pingExtensionServices();
     }
 
-    async getDaemonVersion(_request: GetDaemonVersionRequest, _context: CallContext): Promise<{ version?: string | undefined }> {
-        return {
-            version: getDaemonVersion(),
-        };
-    }
-
     async active(request: ActiveRequest, _context: CallContext): Promise<{}> {
         this.activeExtension(request.id, request.ipcPort);
         return {};
@@ -30,10 +25,6 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
 
     async inactive(request: InactiveRequest, _context: CallContext): Promise<{}> {
         this.inactiveClientID(request.id, 'request');
-        return {};
-    }
-
-    async ping(_request: PingRequest, _context: CallContext): Promise<{}> {
         return {};
     }
 
@@ -139,6 +130,39 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
             } catch (e) {
                 this.logger.error(e, 'failed to send error report');
             }
+        }
+    }
+
+    public async getLatestExtensionVersion(): Promise<{ maxVersion: SemVer | undefined, maxVersionID: string | undefined }> {
+        let maxVersion: SemVer | undefined;
+        let maxVersionID: string | undefined;
+        for (const ext of this.extensionServices) {
+            try {
+                const version = new SemVer((await ext.client.getCurrentExtensionVersion({})).version);
+                if (!maxVersion) {
+                    maxVersion = version
+                    maxVersionID = ext.id;
+                } else if (version.compare(maxVersion) > 0) {
+                    maxVersion = version;
+                }
+            } catch (e) {
+                this.logger.error(e, 'failed to get extension ipc version');
+            }
+        }
+        return { maxVersion, maxVersionID };
+    }
+
+    public async askExtensionToTryStartDaemon(extensionID: string) {
+        const client = this.extensionServices.find(e => e.id === extensionID)
+        if (!client) {
+            return false;
+        }
+        try {
+            await client.client.tryRestartDaemon({})
+            return true;
+        } catch (e) {
+            this.logger.error(e, 'failed to ask extension to try start daemon');
+            return false;
         }
     }
 }

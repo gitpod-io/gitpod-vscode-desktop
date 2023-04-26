@@ -9,11 +9,12 @@ import { LocalSSHServiceImpl, startLocalSSHService } from './ipc/localssh';
 import { SupervisorSSHTunnel } from './sshTunnel';
 import { ILogService } from '../services/logService';
 import { SshServer, SshClient } from '@microsoft/dev-tunnels-ssh-tcp';
-import { NodeStream, SshClientCredentials, SshClientSession, SshSessionConfiguration } from '@microsoft/dev-tunnels-ssh';
+import { NodeStream, SshClientCredentials, SshClientSession, SshDisconnectReason, SshSessionConfiguration } from '@microsoft/dev-tunnels-ssh';
 import { importKeyBytes } from '@microsoft/dev-tunnels-ssh-keys';
 import { parsePrivateKey } from 'sshpk';
 import { PipeExtensions } from './patch/pipeExtension';
 import { SendLocalSSHUserFlowStatusRequest_Code, SendLocalSSHUserFlowStatusRequest_ConnType, SendLocalSSHUserFlowStatusRequest_Status } from '../proto/typescript/ipc/v1/ipc';
+import { SemVer } from 'semver';
 
 
 // TODO(local-ssh): Remove me after direct ssh works with @microsft/dev-tunnels-ssh
@@ -23,12 +24,19 @@ export class LocalSSHGatewayServer {
 	private localsshService!: LocalSSHServiceImpl;
 	private localsshServiceServer?: GrpcServer;
 	private server?: SshServer;
+	private clientCount = 0;
 
 	constructor(
 		private readonly logger: ILogService,
 		private readonly port: number,
 		private readonly ipcPort: number,
-	) { }
+	) {
+		setInterval(() => {
+			this.tryReloadDaemon().catch(e => {
+				this.logger.error(e, 'failed to check if needs restart daemon');
+			})
+		}, 10000)
+	}
 
 	async authenticateClient(clientUsername: string) {
 		const workspaceInfo = await this.localsshService.getWorkspaceAuthInfo(clientUsername).catch(e => {
@@ -59,6 +67,28 @@ export class LocalSSHGatewayServer {
 		return session;
 	}
 
+	private async tryReloadDaemon() {
+		if (this.clientCount > 0) {
+			return;
+		}
+		const { maxVersion, maxVersionID } = await this.localsshService.getLatestExtensionVersion()
+		if (!maxVersion || !maxVersionID) {
+			return;
+		}
+		const currentVersion = new SemVer(getRunningExtensionVersion());
+		if (currentVersion.compare(maxVersion) >= 0) {
+			return;
+		}
+
+		this.logger.info(`reload daemon from version ${currentVersion} to ${maxVersion} (ext ipc id ${maxVersionID})`);
+		const ok = await this.localsshService.askExtensionToTryStartDaemon(maxVersionID);
+		if (!ok) {
+			this.logger.error('failed to reload daemon');
+		} else {
+			exitProcess(ExitCode.UpgradeRestart);
+		}
+	}
+
 	async startServer() {
 		try {
 			const keys = await importKeyBytes(getHostKey());
@@ -69,6 +99,7 @@ export class LocalSSHGatewayServer {
 
 			server.onSessionOpened((session) => {
 				let pipeSession: SshClientSession;
+				this.clientCount += 1;
 				session.onAuthenticating((e) => {
 					e.authenticationPromise = new Promise((resolve, reject) => {
 						this.authenticateClient(e.username!).then(async s => {
@@ -83,8 +114,17 @@ export class LocalSSHGatewayServer {
 						});
 					});
 				});
-				session.onClientAuthenticated(() => {
-					PipeExtensions.pipeSession(session, pipeSession);
+				session.onClientAuthenticated(async () => {
+					try {
+						await PipeExtensions.pipeSession(session, pipeSession);
+					} catch (e) {
+						this.logger.error(e, 'pipe session ended with error')
+					} finally {
+						session.close(SshDisconnectReason.connectionLost, 'pipe session ended')
+					}
+				});
+				session.onClosed(() => {
+					this.clientCount -= 1;
 				});
 			});
 			await server.acceptSessions(this.port, '127.0.0.1');
