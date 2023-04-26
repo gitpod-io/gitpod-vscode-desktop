@@ -82,6 +82,7 @@ export class LocalSSHGatewayServer {
 							// TODO not sure how to get gitpod host here
 							// this.localsshService.sendErrorReport(e.username, undefined, e, 'failed to authenticate client');
 							reject(null);
+							session.close(SshDisconnectReason.hostNotAllowedToConnect, 'auth failed or workspace is not running');
 						});
 					});
 				});
