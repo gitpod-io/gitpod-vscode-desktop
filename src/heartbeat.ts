@@ -12,11 +12,24 @@ import { ITelemetryService } from './services/telemetryService';
 import { SSHConnectionParams } from './remote';
 import { ISessionService } from './services/sessionService';
 import { ILogService } from './services/logService';
+import { RawTelemetryEventProperties } from './common/telemetry';
+
+const IDEHeartbeatTelemetryEvent = 'ide_heartbeat';
+interface IDEHeartbeatTelemetryData extends RawTelemetryEventProperties {
+    clientKind: 'vscode-desktop'; // 'ssh' | 'jetbrains' | 'vscode-desktop' | 'supervisor-frontend';
+    totalCount: number;
+    successfulCount: number;
+    workspaceId: string;
+    instanceId: string;
+    gitpodHost: string;
+    debugWorkspace: 'true' | 'false';
+    delta?: { [key: string]: number; };
+}
 
 export class HeartbeatManager extends Disposable {
 
     static HEARTBEAT_INTERVAL = 30000;
-    static EVENT_COUNTER_INTERVAL = 3600000;
+    static IDE_HEARTBEAT_INTERVAL = 900000; // 15 minutes
 
     private lastActivity = new Date().getTime();
     private lastActivityEvent: string = 'init';
@@ -24,7 +37,12 @@ export class HeartbeatManager extends Disposable {
     private heartBeatHandle: NodeJS.Timer | undefined;
 
     private eventCounterMap = new Map<string, number>();
-    private eventCounterHandle: NodeJS.Timer | undefined;
+
+    private ideHeartbeatTelemetryHandle: NodeJS.Timer | undefined;
+    private ideHeartbeatData: Pick<IDEHeartbeatTelemetryData, "successfulCount" | "totalCount"> = {
+        successfulCount: 0,
+        totalCount: 0,
+    }
 
     constructor(
         private readonly connectionInfo: SSHConnectionParams,
@@ -104,7 +122,7 @@ export class HeartbeatManager extends Disposable {
             this.sendHeartBeat();
         }, HeartbeatManager.HEARTBEAT_INTERVAL);
 
-        this.eventCounterHandle = setInterval(() => this.sendEventData(), HeartbeatManager.EVENT_COUNTER_INTERVAL);
+        this.ideHeartbeatTelemetryHandle = setInterval(() => this.sendIDEHeartbeatTelemetry(), HeartbeatManager.IDE_HEARTBEAT_INTERVAL);
     }
 
     private updateLastActivity(event: string, document?: vscode.TextDocument) {
@@ -118,6 +136,7 @@ export class HeartbeatManager extends Disposable {
     }
 
     private async sendHeartBeat(wasClosed?: true) {
+        let heartbeatSucceed = false
         try {
             await withServerApi(this.sessionService.getGitpodToken(), this.connectionInfo.gitpodHost, async service => {
                 const workspaceInfo = this.usePublicApi
@@ -136,9 +155,11 @@ export class HeartbeatManager extends Disposable {
                     } else {
                         this.logService.trace(`Send heartbeat, triggered by ${this.lastActivityEvent} event`);
                     }
+                    heartbeatSucceed = true;
                 } else {
                     this.logService.trace('Stopping heartbeat as workspace is not running');
                     this.stopHeartbeat();
+                    this.stopIDEHeartbeatTelemetry();
                 }
             }, this.logService);
         } catch (e) {
@@ -148,6 +169,11 @@ export class HeartbeatManager extends Disposable {
             this.logService.error(e);
             e.message = `Failed to send ${suffix}: ${originMsg}`;
             this.telemetryService.sendTelemetryException(this.connectionInfo.gitpodHost, e, { workspaceId: this.connectionInfo.workspaceId, instanceId: this.connectionInfo.instanceId});
+        } finally {
+            if (heartbeatSucceed) {
+                this.ideHeartbeatData.successfulCount++;
+            }
+            this.ideHeartbeatData.totalCount++;
         }
     }
 
@@ -158,22 +184,33 @@ export class HeartbeatManager extends Disposable {
         }
     }
 
-    private sendEventData() {
-        this.telemetryService.sendRawTelemetryEvent(this.connectionInfo.gitpodHost, 'vscode_desktop_heartbeat_delta', { events: Object.fromEntries(this.eventCounterMap), workspaceId: this.connectionInfo.workspaceId, instanceId: this.connectionInfo.instanceId, gitpodHost: this.connectionInfo.gitpodHost, clientKind: 'vscode' });
+    private sendIDEHeartbeatTelemetry() {
+        this.telemetryService.sendRawTelemetryEvent(this.connectionInfo.gitpodHost, IDEHeartbeatTelemetryEvent, {
+            ...this.ideHeartbeatData,
+            workspaceId: this.connectionInfo.workspaceId,
+            instanceId: this.connectionInfo.instanceId,
+            gitpodHost: this.connectionInfo.gitpodHost,
+            clientKind: 'vscode-desktop',
+            debugWorkspace: String(!!this.connectionInfo.debugWorkspace),
+            delta: Object.fromEntries(this.eventCounterMap),
+        } as IDEHeartbeatTelemetryData);
+
         this.eventCounterMap.clear();
+        this.ideHeartbeatData.successfulCount = 0;
+        this.ideHeartbeatData.totalCount = 0;
     }
 
-    private stopEventCounter() {
-        if (this.eventCounterHandle) {
-            clearInterval(this.eventCounterHandle);
-            this.eventCounterHandle = undefined;
+    private stopIDEHeartbeatTelemetry() {
+        if (this.ideHeartbeatTelemetryHandle) {
+            clearInterval(this.ideHeartbeatTelemetryHandle);
+            this.ideHeartbeatTelemetryHandle = undefined;
+            this.sendIDEHeartbeatTelemetry()
         }
     }
 
     public override async dispose(): Promise<void> {
         super.dispose();
-        this.stopEventCounter();
-        this.sendEventData();
+        this.stopIDEHeartbeatTelemetry();
         this.stopHeartbeat();
         if (this.isWorkspaceRunning) {
             await this.sendHeartBeat(true);
