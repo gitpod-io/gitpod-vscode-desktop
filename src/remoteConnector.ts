@@ -797,7 +797,8 @@ export class RemoteConnector extends Disposable {
 
 		await this.context.globalState.update(`${SSH_DEST_KEY}${sshDestination!.toRemoteSSHString()}`, { ...params } as SSHConnectionParams);
 
-		const forceNewWindow = this.context.extensionMode === vscode.ExtensionMode.Production;
+		const forceNewWindow = this.context.extensionMode === vscode.ExtensionMode.Production
+			&& (!!vscode.env.remoteName || !!vscode.workspace.workspaceFile || !!vscode.workspace.workspaceFolders || !!vscode.window.visibleTextEditors.length || !!vscode.window.visibleNotebookEditors.length);
 
 		// Force Linux as host platform (https://github.com/gitpod-io/gitpod/issues/16058)
 		if (isWindows) {
