@@ -72,7 +72,7 @@ export async function checkForStoppedWorkspaces(context: vscode.ExtensionContext
     for (const k of stopped_ws_keys) {
         const ws = context.globalState.get<WorkspaceRestartInfo>(k)!;
         context.globalState.update(k, undefined);
-        if (flow.gitpodHost === ws.gitpodHost) {
+        if (new URL(flow.gitpodHost).host === new URL(ws.gitpodHost).host) {
             showWsNotRunningDialog(ws.workspaceId, ws.gitpodHost, { ...flow, workspaceId: ws.workspaceId, gitpodHost: ws.gitpodHost }, notificationService, logService);
         }
     }

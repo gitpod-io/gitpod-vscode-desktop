@@ -78,20 +78,17 @@ export class RemoteSession extends Disposable {
 
 			if (this.usePublicApi) {
 				this.workspaceState = new WorkspaceState(this.connectionInfo.workspaceId, this.sessionService, this.logService);
+				await this.workspaceState.initialize();
 
-				let handled = false;
-				this._register(this.workspaceState.onWorkspaceStatusChanged(async () => {
-					if (!this.workspaceState!.isWorkspaceRunning() && !handled) {
-						handled = true;
-						await this.context.globalState.update(`${WORKSPACE_STOPPED_PREFIX}${this.connectionInfo.workspaceId}`, { workspaceId: this.connectionInfo.workspaceId, gitpodHost: this.connectionInfo.gitpodHost } as WorkspaceRestartInfo);
-						vscode.commands.executeCommand('workbench.action.remote.close');
-					}
+				this._register(this.workspaceState.onWorkspaceStopped(async () => {
+					await this.context.globalState.update(`${WORKSPACE_STOPPED_PREFIX}${this.connectionInfo.workspaceId}`, { workspaceId: this.connectionInfo.workspaceId, gitpodHost: this.connectionInfo.gitpodHost } as WorkspaceRestartInfo);
+					vscode.commands.executeCommand('workbench.action.remote.close');
 				}));
 			}
 
 			const heartbeatSupported = this.sessionService.getScopes().includes(ScopeFeature.LocalHeartbeat);
 			if (heartbeatSupported) {
-				this.heartbeatManager = new HeartbeatManager(this.connectionInfo, this.sessionService, this.logService, this.telemetryService, this.usePublicApi);
+				this.heartbeatManager = new HeartbeatManager(this.connectionInfo, this.workspaceState, this.sessionService, this.logService, this.telemetryService);
 			} else {
 				this.logService.error(`Local heartbeat not supported in ${this.connectionInfo.gitpodHost}, using version ${gitpodVersion.raw}`);
 			}

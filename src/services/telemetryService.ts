@@ -14,23 +14,23 @@ const analyticsClientFactory = async (gitpodHost: string, segmentKey: string, lo
 	const settings: AnalyticsSettings = {
 		writeKey: segmentKey,
 		// in dev mode we report directly to IDE playground source
-		host: "https://api.segment.io",
-		path: "/v1/batch"
-	}
-	if (segmentKey === "untrusted-dummy-key") {
+		host: 'https://api.segment.io',
+		path: '/v1/batch'
+	};
+	if (segmentKey === 'untrusted-dummy-key') {
 		settings.host = gitpodHost;
 		settings.path = '/analytics' + settings.path;
 	} else {
-		if (serviceUrl.host !== "gitpod.io" && !serviceUrl.host.endsWith(".gitpod-dev.com")) {
+		if (serviceUrl.host !== 'gitpod.io' && !serviceUrl.host.endsWith('.gitpod-dev.com')) {
 			logger.warn(`No telemetry: dedicated installations should send data always to own endpoints, host: ${serviceUrl.host}`);
 			return {
 				logEvent: () => { },
 				logException: () => { },
 				flush: () => { },
-			}
+			};
 		}
 	}
-	logger.debug("analytics: " + new URL(settings.path!, settings.host).href.replace(/\/$/, '')); // aligned with how segment does it internally
+	logger.debug('analytics: ' + new URL(settings.path!, settings.host).href.replace(/\/$/, '')); // aligned with how segment does it internally
 
 	const errorMetricsEndpoint = `https://ide.${serviceUrl.hostname}/metrics-api/reportError`;
 
