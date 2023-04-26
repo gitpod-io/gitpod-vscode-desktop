@@ -6,14 +6,8 @@
 import winston from 'winston';
 import { ILogService } from '../services/logService';
 
-export enum ExitCode {
-    OK = 0,
-    ListenPortFailed = 100,
-    UnexpectedError = 101,
-    InvalidOptions = 102,
-}
-
 const DefaultLogFormatter = winston.format.combine(winston.format.timestamp(), winston.format.errors({ stack: true }), winston.format.simple());
+
 export class Logger implements ILogService {
     private logger: winston.Logger;
 

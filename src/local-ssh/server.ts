@@ -31,7 +31,7 @@ export class LocalSSHGatewayServer {
 		private readonly ipcPort: number,
 	) { }
 
-	async authenticateClient(clientUsername: string) {
+	private async authenticateClient(clientUsername: string) {
 		const workspaceInfo = await this.localsshService.getWorkspaceAuthInfo(clientUsername).catch(e => {
 			this.logger.error(e, 'failed to get workspace auth info');
 			/*
@@ -72,19 +72,17 @@ export class LocalSSHGatewayServer {
 				let pipeSession: SshClientSession;
 				this.clientCount += 1;
 				session.onAuthenticating((e) => {
-					e.authenticationPromise = new Promise((resolve, reject) => {
-						this.authenticateClient(e.username!).then(async s => {
+					e.authenticationPromise = this.authenticateClient(e.username!).then(s => {
 							this.logger.info('authenticate with ' + e.username);
 							pipeSession = s;
-							resolve(new Object());
+							return {};
 						}).catch(e => {
 							this.logger.error(e, 'failed to authenticate client');
 							// TODO not sure how to get gitpod host here
 							// this.localsshService.sendErrorReport(e.username, undefined, e, 'failed to authenticate client');
-							reject(null);
 							session.close(SshDisconnectReason.hostNotAllowedToConnect, 'auth failed or workspace is not running');
+							return null;
 						});
-					});
 				});
 				session.onClientAuthenticated(async () => {
 					try {
@@ -193,4 +191,3 @@ export class LocalSSHGatewayServer {
 		this.localsshServiceServer?.shutdown();
 	}
 }
-
