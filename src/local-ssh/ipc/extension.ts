@@ -234,9 +234,6 @@ export class ExtensionServiceServer extends Disposable {
             try {
                 await this.localSSHServiceClient.ping({});
                 this.pingLocalSSHRetryCount = 0;
-                this.notifyIfDaemonNeedsRestart().catch(e => {
-                    this.logService.error(e, 'failed to notify if daemon needs restart');
-                });
             } catch (err) {
                 this.logService.error('failed to ping local ssh service, going to start a new one', err);
                 ensureDaemonStarted(this.logService, this.telemetryService).catch(() => { });
@@ -247,15 +244,15 @@ export class ExtensionServiceServer extends Disposable {
         }
     }
 
-    private async notifyIfDaemonNeedsRestart() {
-        const resp = await this.localSSHServiceClient.getDaemonVersion({});
-        const runningVersion = new SemVer(resp.version);
-        const wantedVersion = new SemVer(getDaemonVersion());
-        if (runningVersion.compare(wantedVersion) >= 0) {
-            return;
-        }
-        // TODO(local-ssh): allow to hide always for current version (wantedVersion)
-        this.logService.info('restart vscode to get latest features of local ssh');
-        // await this.notificationService.showWarningMessage('Restart VSCode to use latest local ssh daemon', { id: 'daemon_needs_restart', flow: { flow: 'daemon_needs_restart' } });
-    }
+    // private async notifyIfDaemonNeedsRestart() {
+    //     const resp = await this.localSSHServiceClient.getDaemonVersion({});
+    //     const runningVersion = new SemVer(resp.version);
+    //     const wantedVersion = new SemVer(getDaemonVersion());
+    //     if (runningVersion.compare(wantedVersion) >= 0) {
+    //         return;
+    //     }
+    //     // TODO(local-ssh): allow to hide always for current version (wantedVersion)
+    //     this.logService.info('restart vscode to get latest features of local ssh');
+    //     // await this.notificationService.showWarningMessage('Restart VSCode to use latest local ssh daemon', { id: 'daemon_needs_restart', flow: { flow: 'daemon_needs_restart' } });
+    // }
 }
