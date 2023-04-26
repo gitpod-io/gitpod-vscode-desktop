@@ -16,12 +16,10 @@ import { ISessionService } from '../../services/sessionService';
 import { CallContext, ServerError, Status } from 'nice-grpc-common';
 import { IHostService } from '../../services/hostService';
 import { Server, createClient, createServer, createChannel } from 'nice-grpc';
-import { getDaemonVersion } from '../common';
 import { INotificationService } from '../../services/notificationService';
 import { showWsNotRunningDialog } from '../../remote';
 import { ITelemetryService, UserFlowTelemetry } from '../../services/telemetryService';
 import { ExperimentalSettings } from '../../experiments';
-import { SemVer } from 'semver';
 import { Configuration } from '../../configuration';
 
 const phaseMap: Record<WorkspaceInstanceStatus_Phase, WorkspaceInstancePhase | undefined> = {
