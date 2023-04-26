@@ -75,6 +75,7 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
                 }, 10000);
             } else if (this.exitCancel) {
                 clearTimeout(this.exitCancel);
+                this.exitCancel = undefined;
             }
         }, 1000);
     }
