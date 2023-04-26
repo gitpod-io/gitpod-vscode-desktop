@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ActiveRequest, ExtensionServiceDefinition, InactiveRequest, LocalSSHServiceDefinition, LocalSSHServiceImplementation, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest } from '../../proto/typescript/ipc/v1/ipc';
+import { ActiveRequest, ExtensionServiceDefinition, GetDaemonVersionRequest, InactiveRequest, LocalSSHServiceDefinition, LocalSSHServiceImplementation, PingRequest, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest } from '../../proto/typescript/ipc/v1/ipc';
 import { CallContext, Client, ServerError, Status, createChannel, createClient, createServer } from 'nice-grpc';
 import { ExitCode, exitProcess, getDaemonVersion, getRunningExtensionVersion } from '../common';
 import { retryWithStop } from '../../common/async';
@@ -18,6 +18,12 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
         this.pingExtensionServices();
     }
 
+    async getDaemonVersion(_request: GetDaemonVersionRequest, _context: CallContext): Promise<{ version?: string | undefined }> {
+        return {
+            version: getDaemonVersion(),
+        };
+    }
+
     async active(request: ActiveRequest, _context: CallContext): Promise<{}> {
         this.activeExtension(request.id, request.ipcPort);
         return {};
@@ -25,6 +31,10 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
 
     async inactive(request: InactiveRequest, _context: CallContext): Promise<{}> {
         this.inactiveClientID(request.id, 'request');
+        return {};
+    }
+
+    async ping(_request: PingRequest, _context: CallContext): Promise<{}> {
         return {};
     }
 
@@ -140,7 +150,7 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
             try {
                 const version = new SemVer((await ext.client.getCurrentExtensionVersion({})).version);
                 if (!maxVersion) {
-                    maxVersion = version
+                    maxVersion = version;
                     maxVersionID = ext.id;
                 } else if (version.compare(maxVersion) > 0) {
                     maxVersion = version;
@@ -153,12 +163,12 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
     }
 
     public async askExtensionToTryStartDaemon(extensionID: string) {
-        const client = this.extensionServices.find(e => e.id === extensionID)
+        const client = this.extensionServices.find(e => e.id === extensionID);
         if (!client) {
             return false;
         }
         try {
-            await client.client.tryRestartDaemon({})
+            await client.client.tryRestartDaemon({});
             return true;
         } catch (e) {
             this.logger.error(e, 'failed to ask extension to try start daemon');

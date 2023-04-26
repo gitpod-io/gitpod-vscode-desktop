@@ -227,6 +227,13 @@ export interface PingRequest {
 export interface PingResponse {
 }
 
+export interface GetDaemonVersionRequest {
+}
+
+export interface GetDaemonVersionResponse {
+  version: string;
+}
+
 export interface GetWorkspaceAuthInfoRequest {
   workspaceId: string;
 }
@@ -1073,6 +1080,100 @@ export const PingResponse = {
   },
 };
 
+function createBaseGetDaemonVersionRequest(): GetDaemonVersionRequest {
+  return {};
+}
+
+export const GetDaemonVersionRequest = {
+  encode(_: GetDaemonVersionRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): GetDaemonVersionRequest {
+    const reader = input instanceof _m0.Reader ? input : new _m0.Reader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseGetDaemonVersionRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+
+  fromJSON(_: any): GetDaemonVersionRequest {
+    return {};
+  },
+
+  toJSON(_: GetDaemonVersionRequest): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<GetDaemonVersionRequest>): GetDaemonVersionRequest {
+    return GetDaemonVersionRequest.fromPartial(base ?? {});
+  },
+
+  fromPartial(_: DeepPartial<GetDaemonVersionRequest>): GetDaemonVersionRequest {
+    const message = createBaseGetDaemonVersionRequest();
+    return message;
+  },
+};
+
+function createBaseGetDaemonVersionResponse(): GetDaemonVersionResponse {
+  return { version: "" };
+}
+
+export const GetDaemonVersionResponse = {
+  encode(message: GetDaemonVersionResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.version !== "") {
+      writer.uint32(10).string(message.version);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): GetDaemonVersionResponse {
+    const reader = input instanceof _m0.Reader ? input : new _m0.Reader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseGetDaemonVersionResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.version = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+
+  fromJSON(object: any): GetDaemonVersionResponse {
+    return { version: isSet(object.version) ? String(object.version) : "" };
+  },
+
+  toJSON(message: GetDaemonVersionResponse): unknown {
+    const obj: any = {};
+    message.version !== undefined && (obj.version = message.version);
+    return obj;
+  },
+
+  create(base?: DeepPartial<GetDaemonVersionResponse>): GetDaemonVersionResponse {
+    return GetDaemonVersionResponse.fromPartial(base ?? {});
+  },
+
+  fromPartial(object: DeepPartial<GetDaemonVersionResponse>): GetDaemonVersionResponse {
+    const message = createBaseGetDaemonVersionResponse();
+    message.version = object.version ?? "";
+    return message;
+  },
+};
+
 function createBaseGetWorkspaceAuthInfoRequest(): GetWorkspaceAuthInfoRequest {
   return { workspaceId: "" };
 }
@@ -1245,6 +1346,23 @@ export const LocalSSHServiceDefinition = {
       responseStream: false,
       options: {},
     },
+    ping: {
+      name: "Ping",
+      requestType: PingRequest,
+      requestStream: false,
+      responseType: PingResponse,
+      responseStream: false,
+      options: {},
+    },
+    /** GetDaemonVersion returns the version of the daemon */
+    getDaemonVersion: {
+      name: "GetDaemonVersion",
+      requestType: GetDaemonVersionRequest,
+      requestStream: false,
+      responseType: GetDaemonVersionResponse,
+      responseStream: false,
+      options: {},
+    },
   },
 } as const;
 
@@ -1253,6 +1371,12 @@ export interface LocalSSHServiceImplementation<CallContextExt = {}> {
   active(request: ActiveRequest, context: CallContext & CallContextExt): Promise<DeepPartial<ActiveResponse>>;
   /** Inactive is called when extension is deactivated */
   inactive(request: InactiveRequest, context: CallContext & CallContextExt): Promise<DeepPartial<InactiveResponse>>;
+  ping(request: PingRequest, context: CallContext & CallContextExt): Promise<DeepPartial<PingResponse>>;
+  /** GetDaemonVersion returns the version of the daemon */
+  getDaemonVersion(
+    request: GetDaemonVersionRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<GetDaemonVersionResponse>>;
 }
 
 export interface LocalSSHServiceClient<CallOptionsExt = {}> {
@@ -1260,6 +1384,12 @@ export interface LocalSSHServiceClient<CallOptionsExt = {}> {
   active(request: DeepPartial<ActiveRequest>, options?: CallOptions & CallOptionsExt): Promise<ActiveResponse>;
   /** Inactive is called when extension is deactivated */
   inactive(request: DeepPartial<InactiveRequest>, options?: CallOptions & CallOptionsExt): Promise<InactiveResponse>;
+  ping(request: DeepPartial<PingRequest>, options?: CallOptions & CallOptionsExt): Promise<PingResponse>;
+  /** GetDaemonVersion returns the version of the daemon */
+  getDaemonVersion(
+    request: DeepPartial<GetDaemonVersionRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<GetDaemonVersionResponse>;
 }
 
 export type ExtensionServiceDefinition = typeof ExtensionServiceDefinition;

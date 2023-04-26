@@ -40,7 +40,7 @@ import { IHostService } from './services/hostService';
 import { Configuration } from './configuration';
 import { getLocalSSHUrl, getServiceURL } from './common/utils';
 import { GitpodDefaultLocalhost as GITPOD_DEFAULT_LOCALHOST_RECORD, HOST_PUBLIC_KEY_TYPE, getHostKeyFingerprint, isDNSPointToLocalhost, isDomainConnectable } from './local-ssh/common';
-import { ensureDaemonStarted, tryStartDaemon } from './daemonStarter';
+import { ensureDaemonStarted } from './daemonStarter';
 
 interface LocalAppConfig {
 	gitpodHost: string;
@@ -563,7 +563,7 @@ export class RemoteConnector extends Disposable {
 	private tryEnsureLocalSSHDaemon() {
 		ensureDaemonStarted(this.logService, this.telemetryService, 3).then().catch(e => {
 			this.logService.debug('failed to start local SSH daemon: ' + e.toString());
-		})
+		});
 	}
 
 	private async getWorkspaceLocalAppSSHDestination(params: SSHConnectionParams): Promise<{ destination: SSHDestination; localAppSSHConfigPath: string }> {

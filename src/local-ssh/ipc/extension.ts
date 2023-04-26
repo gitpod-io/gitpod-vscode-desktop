@@ -68,7 +68,7 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
             }
             const userId = this.sessionService.getUserId();
             const workspaceId = request.workspaceId;
-            
+
             const gitpodHost = this.hostService.gitpodHost;
             const usePublicApi = await this.experiments.getUsePublicAPI(gitpodHost);
             const [workspace, ownerToken] = await withServerApi(accessToken, gitpodHost, svc => Promise.all([
@@ -149,7 +149,7 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
     async getCurrentExtensionVersion(_request: getCurrentExtensionVersionRequest, _context: CallContext): Promise<{ version?: string | undefined; }> {
         return { version: this.extensionVersion };
     }
-    
+
     async tryRestartDaemon(_request: TryRestartDaemonRequest, _context: CallContext): Promise<{}> {
         this.logService.info('daemon requested to restart');
         this._onDidDaemonRestartRequired.fire();
@@ -181,10 +181,10 @@ export class ExtensionServiceServer extends Disposable {
 
         this.createLocalSSHClient();
         vscode.workspace.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration('gitpod.lsshIpcPort')) {
+            if (e.affectsConfiguration('gitpod.lsshIpcPort')) {
                 this.createLocalSSHClient();
-			}
-		})
+            }
+        });
     }
 
     private createLocalSSHClient() {
@@ -204,7 +204,7 @@ export class ExtensionServiceServer extends Disposable {
         serviceImpl.onDidDaemonRestartRequired(() => {
             ensureDaemonStarted(this.logService, this.telemetryService, 3).then().catch(e => {
                 this.logService.debug('failed to start local SSH daemon: ' + e.toString());
-            })
+            });
         });
         return server;
     }
