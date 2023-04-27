@@ -13,6 +13,12 @@ service LocalSSHService {
 
     // GetDaemonVersion returns the version of the daemon
     rpc GetDaemonVersion(GetDaemonVersionRequest) returns (GetDaemonVersionResponse) {}
+
+    // GetDaemonInfo returns the infomation of daemon
+    rpc GetDaemonInfo(GetDaemonInfoRequest) returns (GetDaemonInfoResponse) {}
+
+    // KillDaemon kills the daemon
+    rpc KillDaemon(KillDaemonRequest) returns (KillDaemonResponse) {}
 }
 
 service ExtensionService {
@@ -21,6 +27,18 @@ service ExtensionService {
     rpc SendLocalSSHUserFlowStatus (SendLocalSSHUserFlowStatusRequest) returns (SendLocalSSHUserFlowStatusResponse) {}
     rpc SendErrorReport (SendErrorReportRequest) returns (SendErrorReportResponse) {}
 }
+
+message GetDaemonInfoRequest {}
+message GetDaemonInfoResponse {
+    string daemon_version = 1;
+    string running_extension_version = 2;
+    uint32 pid = 3;
+}
+
+message KillDaemonRequest {
+    string reason = 1;
+}
+message KillDaemonResponse {}
 
 message SendErrorReportRequest {
     string workspace_id = 1;

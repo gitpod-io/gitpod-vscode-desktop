@@ -4,6 +4,22 @@ import * as _m0 from "protobufjs/minimal";
 
 export const protobufPackage = "ipc.v1";
 
+export interface GetDaemonInfoRequest {
+}
+
+export interface GetDaemonInfoResponse {
+  daemonVersion: string;
+  runningExtensionVersion: string;
+  pid: number;
+}
+
+export interface KillDaemonRequest {
+  reason: string;
+}
+
+export interface KillDaemonResponse {
+}
+
 export interface SendErrorReportRequest {
   workspaceId: string;
   instanceId: string;
@@ -233,6 +249,214 @@ export interface GetWorkspaceAuthInfoResponse {
   gitpodHost: string;
   userId: string;
 }
+
+function createBaseGetDaemonInfoRequest(): GetDaemonInfoRequest {
+  return {};
+}
+
+export const GetDaemonInfoRequest = {
+  encode(_: GetDaemonInfoRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): GetDaemonInfoRequest {
+    const reader = input instanceof _m0.Reader ? input : new _m0.Reader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseGetDaemonInfoRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+
+  fromJSON(_: any): GetDaemonInfoRequest {
+    return {};
+  },
+
+  toJSON(_: GetDaemonInfoRequest): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<GetDaemonInfoRequest>): GetDaemonInfoRequest {
+    return GetDaemonInfoRequest.fromPartial(base ?? {});
+  },
+
+  fromPartial(_: DeepPartial<GetDaemonInfoRequest>): GetDaemonInfoRequest {
+    const message = createBaseGetDaemonInfoRequest();
+    return message;
+  },
+};
+
+function createBaseGetDaemonInfoResponse(): GetDaemonInfoResponse {
+  return { daemonVersion: "", runningExtensionVersion: "", pid: 0 };
+}
+
+export const GetDaemonInfoResponse = {
+  encode(message: GetDaemonInfoResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.daemonVersion !== "") {
+      writer.uint32(10).string(message.daemonVersion);
+    }
+    if (message.runningExtensionVersion !== "") {
+      writer.uint32(18).string(message.runningExtensionVersion);
+    }
+    if (message.pid !== 0) {
+      writer.uint32(24).uint32(message.pid);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): GetDaemonInfoResponse {
+    const reader = input instanceof _m0.Reader ? input : new _m0.Reader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseGetDaemonInfoResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.daemonVersion = reader.string();
+          break;
+        case 2:
+          message.runningExtensionVersion = reader.string();
+          break;
+        case 3:
+          message.pid = reader.uint32();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+
+  fromJSON(object: any): GetDaemonInfoResponse {
+    return {
+      daemonVersion: isSet(object.daemonVersion) ? String(object.daemonVersion) : "",
+      runningExtensionVersion: isSet(object.runningExtensionVersion) ? String(object.runningExtensionVersion) : "",
+      pid: isSet(object.pid) ? Number(object.pid) : 0,
+    };
+  },
+
+  toJSON(message: GetDaemonInfoResponse): unknown {
+    const obj: any = {};
+    message.daemonVersion !== undefined && (obj.daemonVersion = message.daemonVersion);
+    message.runningExtensionVersion !== undefined && (obj.runningExtensionVersion = message.runningExtensionVersion);
+    message.pid !== undefined && (obj.pid = Math.round(message.pid));
+    return obj;
+  },
+
+  create(base?: DeepPartial<GetDaemonInfoResponse>): GetDaemonInfoResponse {
+    return GetDaemonInfoResponse.fromPartial(base ?? {});
+  },
+
+  fromPartial(object: DeepPartial<GetDaemonInfoResponse>): GetDaemonInfoResponse {
+    const message = createBaseGetDaemonInfoResponse();
+    message.daemonVersion = object.daemonVersion ?? "";
+    message.runningExtensionVersion = object.runningExtensionVersion ?? "";
+    message.pid = object.pid ?? 0;
+    return message;
+  },
+};
+
+function createBaseKillDaemonRequest(): KillDaemonRequest {
+  return { reason: "" };
+}
+
+export const KillDaemonRequest = {
+  encode(message: KillDaemonRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.reason !== "") {
+      writer.uint32(10).string(message.reason);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): KillDaemonRequest {
+    const reader = input instanceof _m0.Reader ? input : new _m0.Reader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseKillDaemonRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.reason = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+
+  fromJSON(object: any): KillDaemonRequest {
+    return { reason: isSet(object.reason) ? String(object.reason) : "" };
+  },
+
+  toJSON(message: KillDaemonRequest): unknown {
+    const obj: any = {};
+    message.reason !== undefined && (obj.reason = message.reason);
+    return obj;
+  },
+
+  create(base?: DeepPartial<KillDaemonRequest>): KillDaemonRequest {
+    return KillDaemonRequest.fromPartial(base ?? {});
+  },
+
+  fromPartial(object: DeepPartial<KillDaemonRequest>): KillDaemonRequest {
+    const message = createBaseKillDaemonRequest();
+    message.reason = object.reason ?? "";
+    return message;
+  },
+};
+
+function createBaseKillDaemonResponse(): KillDaemonResponse {
+  return {};
+}
+
+export const KillDaemonResponse = {
+  encode(_: KillDaemonResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): KillDaemonResponse {
+    const reader = input instanceof _m0.Reader ? input : new _m0.Reader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseKillDaemonResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+
+  fromJSON(_: any): KillDaemonResponse {
+    return {};
+  },
+
+  toJSON(_: KillDaemonResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<KillDaemonResponse>): KillDaemonResponse {
+    return KillDaemonResponse.fromPartial(base ?? {});
+  },
+
+  fromPartial(_: DeepPartial<KillDaemonResponse>): KillDaemonResponse {
+    const message = createBaseKillDaemonResponse();
+    return message;
+  },
+};
 
 function createBaseSendErrorReportRequest(): SendErrorReportRequest {
   return {
@@ -1170,6 +1394,24 @@ export const LocalSSHServiceDefinition = {
       responseStream: false,
       options: {},
     },
+    /** GetDaemonInfo returns the infomation of daemon */
+    getDaemonInfo: {
+      name: "GetDaemonInfo",
+      requestType: GetDaemonInfoRequest,
+      requestStream: false,
+      responseType: GetDaemonInfoResponse,
+      responseStream: false,
+      options: {},
+    },
+    /** KillDaemon kills the daemon */
+    killDaemon: {
+      name: "KillDaemon",
+      requestType: KillDaemonRequest,
+      requestStream: false,
+      responseType: KillDaemonResponse,
+      responseStream: false,
+      options: {},
+    },
   },
 } as const;
 
@@ -1184,6 +1426,16 @@ export interface LocalSSHServiceImplementation<CallContextExt = {}> {
     request: GetDaemonVersionRequest,
     context: CallContext & CallContextExt,
   ): Promise<DeepPartial<GetDaemonVersionResponse>>;
+  /** GetDaemonInfo returns the infomation of daemon */
+  getDaemonInfo(
+    request: GetDaemonInfoRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<GetDaemonInfoResponse>>;
+  /** KillDaemon kills the daemon */
+  killDaemon(
+    request: KillDaemonRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<KillDaemonResponse>>;
 }
 
 export interface LocalSSHServiceClient<CallOptionsExt = {}> {
@@ -1197,6 +1449,16 @@ export interface LocalSSHServiceClient<CallOptionsExt = {}> {
     request: DeepPartial<GetDaemonVersionRequest>,
     options?: CallOptions & CallOptionsExt,
   ): Promise<GetDaemonVersionResponse>;
+  /** GetDaemonInfo returns the infomation of daemon */
+  getDaemonInfo(
+    request: DeepPartial<GetDaemonInfoRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<GetDaemonInfoResponse>;
+  /** KillDaemon kills the daemon */
+  killDaemon(
+    request: DeepPartial<KillDaemonRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<KillDaemonResponse>;
 }
 
 export type ExtensionServiceDefinition = typeof ExtensionServiceDefinition;

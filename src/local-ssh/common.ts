@@ -23,6 +23,7 @@ export enum ExitCode {
 	ListenPortFailed = 100,
 	UnexpectedError = 101,
 	InvalidOptions = 102,
+	AskedToQuit = 103,
 }
 
 export function exitProcess(code: ExitCode) {

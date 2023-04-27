@@ -8,7 +8,7 @@ import { ExtensionServiceDefinition, ExtensionServiceImplementation, GetWorkspac
 import { Disposable } from '../../common/dispose';
 import { retry, timeout } from '../../common/async';
 export { ExtensionServiceDefinition } from '../../proto/typescript/ipc/v1/ipc';
-import { ensureDaemonStarted } from '../../daemonStarter';
+import { ensureDaemonStarted, killDaemon } from '../../daemonStarter';
 import { withServerApi } from '../../internalApi';
 import { Workspace, WorkspaceInstanceStatus_Phase } from '@gitpod/public-api/lib/gitpod/experimental/v1';
 import { WorkspaceInfo, WorkspaceInstancePhase } from '@gitpod/gitpod-protocol';
@@ -22,6 +22,7 @@ import { getGitpodRemoteWindowConnectionInfo, showWsNotRunningDialog } from '../
 import { ITelemetryService, UserFlowTelemetry } from '../../services/telemetryService';
 import { ExperimentalSettings } from '../../experiments';
 import { Configuration } from '../../configuration';
+import { SemVer } from 'semver';
 
 const phaseMap: Record<WorkspaceInstanceStatus_Phase, WorkspaceInstancePhase | undefined> = {
     [WorkspaceInstanceStatus_Phase.CREATING]: 'pending',
@@ -69,7 +70,7 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
             }
             const userId = this.sessionService.getUserId();
             const workspaceId = request.workspaceId;
-            
+
             const gitpodHost = this.hostService.gitpodHost;
             const usePublicApi = await this.experiments.getUsePublicAPI(gitpodHost);
             const [workspace, ownerToken] = await withServerApi(accessToken, gitpodHost, svc => Promise.all([
@@ -171,6 +172,7 @@ export class ExtensionServiceServer extends Disposable {
     ) {
         super();
         this.server = this.getServer();
+        this.tryForceKillZombieDaemon();
         this.tryActive();
         this.hostService.onDidChangeHost(() => {
             this.tryActive();
@@ -259,4 +261,18 @@ export class ExtensionServiceServer extends Disposable {
     //     this.logService.info('restart vscode to get latest features of local ssh');
     //     // await this.notificationService.showWarningMessage('Restart VSCode to use latest local ssh daemon', { id: 'daemon_needs_restart', flow: { flow: 'daemon_needs_restart' } });
     // }
+
+    private async tryForceKillZombieDaemon() {
+        try {
+            // force kill daemon if its version less than 0.0.3
+            const resp = await this.localSSHServiceClient.getDaemonVersion({});
+            const runningDaemonVersion = new SemVer(resp.version);
+            if (runningDaemonVersion.compare(new SemVer('0.0.3')) >= 0) {
+                return;
+            }
+            killDaemon(this.logService);
+        } catch (e) {
+            this.logService.error(e, 'failed to force kill zombie daemon');
+        }
+    }
 }

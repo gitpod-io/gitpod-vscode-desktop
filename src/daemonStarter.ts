@@ -4,12 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { spawn } from 'child_process';
+import { spawn, exec } from 'child_process';
 import { DaemonOptions, ExitCode } from './local-ssh/common';
 import { ILogService } from './services/logService';
 import { timeout } from './common/async';
 import { Configuration } from './configuration';
 import { ITelemetryService } from './services/telemetryService';
+import { kill, lookup } from 'ps-node';
 
 export async function ensureDaemonStarted(logService: ILogService, telemetryService: ITelemetryService, retry = 10) {
     if (retry < 0) {
@@ -23,6 +24,7 @@ export async function ensureDaemonStarted(logService: ILogService, telemetryServ
             switch (code) {
                 case ExitCode.OK:
                 case ExitCode.ListenPortFailed:
+                case ExitCode.AskedToQuit:
                     resolve(true);
                     return;
             }
@@ -65,4 +67,33 @@ export async function tryStartDaemon(logService: ILogService, options?: Partial<
     });
     daemon.unref();
     return daemon;
+}
+
+export function killDaemon(logService: ILogService) {
+    const logName = Configuration.getDaemonLogFileName();
+    switch (process.platform) {
+        case 'win32': {
+            lookup({
+                arguments: 'local-ssh'
+            }, (err, resultList) => {
+                if (err) {
+                    throw err;
+                }
+                const process = resultList.find(process => process.arguments.join(' ').includes(logName));
+                if (!process) {
+                    return;
+                }
+                kill(process.pid);
+            });
+            return;
+        }
+        case 'darwin':
+        case 'linux': {
+            const regex = `node.*local-ssh.*daemon.js.*${logName}`;
+            exec(`pkill -f ${regex}`);
+            return;
+        }
+        default:
+            logService.warn('failed to kill daemon: unsupported platform');
+    }
 }

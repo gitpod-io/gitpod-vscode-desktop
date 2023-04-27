@@ -44,11 +44,15 @@ function getLocalSshIpcPort() {
     return vscode.workspace.getConfiguration('gitpod').get<number>('lsshIpcPort', defaultPort) || defaultPort;
 }
 
-function getDaemonLogPath(): string {
+function getDaemonLogFileName(): string {
     if (vscode.env.appName.includes('Insiders')) {
-        return join(tmpdir(), 'gitpod-vscode-daemon-insiders.log');
+        return 'gitpod-vscode-daemon-insiders.log';
     }
-    return join(tmpdir(), 'gitpod-vscode-daemon.log');
+    return 'gitpod-vscode-daemon.log';
+}
+
+function getDaemonLogPath(): string {
+    return join(tmpdir(), getDaemonLogFileName());
 }
 
 export const Configuration = {
@@ -58,4 +62,5 @@ export const Configuration = {
     getLocalSSHServerPort,
     getLocalSshIpcPort,
     getDaemonLogPath,
+    getDaemonLogFileName,
 };
