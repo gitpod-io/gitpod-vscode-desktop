@@ -42,8 +42,7 @@
 		"onCommand:gitpod.installLocalExtensions",
 		"onAuthenticationRequest:gitpod",
 		"onUri",
-		"onStartupFinished",
-		"onResolveRemoteAuthority:ssh-remote"
+		"onStartupFinished"
 	],
 	"contributes": {
 		"authentication": [
