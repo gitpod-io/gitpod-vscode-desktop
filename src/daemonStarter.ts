@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { spawn } from 'child_process';
+import { spawn, exec } from 'child_process';
 import { DaemonOptions, ExitCode } from './local-ssh/common';
 import { ILogService } from './services/logService';
 import { timeout } from './common/async';
@@ -65,4 +65,25 @@ export async function tryStartDaemon(logService: ILogService, options?: Partial<
     });
     daemon.unref();
     return daemon;
+}
+
+function killProcess(regex: string) {
+    let cmd;
+    switch (process.platform) {
+        case 'win32':
+            cmd = `taskkill /F /FI "IMAGENAME eq ${regex}"`;
+            break;
+        case 'darwin':
+        case 'linux':
+            cmd = `pkill -f ${regex}`;
+            break;
+        default:
+            throw new Error(`Unsupported platform: ${process.platform}`);
+    }
+    exec(cmd);
+}
+
+export async function killDaemon() {
+    const logName = Configuration.getDaemonLogFileName();
+    return killProcess(`node.*?local-ssh.*?daemon.js.*?${logName}`);
 }
