@@ -135,7 +135,9 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
     async sendErrorReport(request: SendErrorReportRequest, _context: CallContext): Promise<{}> {
         const err = new Error(request.errorMessage);
         err.name = 'local-ssh:' + request.errorName;
-        err.stack = request.errorStack;
+        if (request.errorStack) {
+            err.stack = request.errorStack;
+        }
         const properties: Record<string, any> = {
             workspaceId: request.workspaceId,
             instanceId: request.instanceId,

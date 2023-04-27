@@ -128,10 +128,11 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
         if (err instanceof Error) {
             request.errorName = err.name;
             request.errorMessage = message + ': ' + err.message;
-            request.errorStack = err.stack ?? '';
+            request.errorStack = err.stack ?? request.errorMessage;
         } else {
             request.errorName = err.toString();
             request.errorMessage = message + ': ' + err.toString();
+            request.errorStack = request.errorMessage;
         }
         for (const ext of this.extensionServices) {
             try {
