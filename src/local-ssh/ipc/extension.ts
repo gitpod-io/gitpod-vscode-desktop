@@ -123,7 +123,6 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
             extensionVersion: request.extensionVersion,
         };
         if (request.status !== SendLocalSSHUserFlowStatusRequest_Status.STATUS_SUCCESS && request.failureCode !== SendLocalSSHUserFlowStatusRequest_Code.CODE_UNSPECIFIED) {
-            flow.reason = request.failureReason; // TODO remove, should go to error reporting only
             flow.reasonCode = SendLocalSSHUserFlowStatusRequest_Code[request.failureCode];
         }
         const status = request.status === SendLocalSSHUserFlowStatusRequest_Status.STATUS_SUCCESS ? 'local-ssh-success' : 'local-ssh-failure';

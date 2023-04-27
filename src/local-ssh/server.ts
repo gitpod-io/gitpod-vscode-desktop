@@ -40,7 +40,7 @@ export class LocalSSHGatewayServer {
 				workspaceId: clientUsername,
 				instanceId: '',
 				failureCode: SendLocalSSHUserFlowStatusRequest_Code.CODE_NO_WORKSPACE_AUTO_INFO,
-				failureReason: e?.toString(), // TODO remove, and report to error reporting
+				// TODO remove, and report to error reporting
 				daemonVersion: getDaemonVersion(),
 				extensionVersion: getRunningExtensionVersion(),
 				connType: SendLocalSSHUserFlowStatusRequest_ConnType.CONN_TYPE_UNSPECIFIED,
@@ -144,7 +144,6 @@ export class LocalSSHGatewayServer {
 				workspaceId: workspaceInfo.workspaceId,
 				instanceId: workspaceInfo.instanceId,
 				failureCode: SendLocalSSHUserFlowStatusRequest_Code.CODE_SSH_CANNOT_CONNECT,
-				failureReason: e?.toString(), // TODO remove, and report to error reporting
 				daemonVersion: getDaemonVersion(),
 				extensionVersion: getRunningExtensionVersion(),
 				connType: SendLocalSSHUserFlowStatusRequest_ConnType.CONN_TYPE_SSH,
@@ -154,12 +153,12 @@ export class LocalSSHGatewayServer {
 	}
 
 	private async getTunnelSSHConfig(workspaceInfo: GetWorkspaceAuthInfoResponse): Promise<SshClientSession> {
-		const ssh = new SupervisorSSHTunnel(this.logger, workspaceInfo, this.localsshService);
-		const connConfig = await ssh.establishTunnel();
-		const config = new SshSessionConfiguration();
-		const session = new SshClientSession(config);
-		session.onAuthenticating((e) => e.authenticationPromise = Promise.resolve({}));
 		try {
+            const ssh = new SupervisorSSHTunnel(this.logger, workspaceInfo, this.localsshService);
+            const connConfig = await ssh.establishTunnel();
+            const config = new SshSessionConfiguration();
+            const session = new SshClientSession(config);
+            session.onAuthenticating((e) => e.authenticationPromise = Promise.resolve({}));
 			await session.connect(new NodeStream(connConfig.sock!));
 			// we need to convert openssh to pkcs8 since dev-tunnels-ssh not support openssh
 			const credentials: SshClientCredentials = { username: connConfig.username, publicKeys: [await importKeyBytes(parsePrivateKey(connConfig.privateKey, 'openssh').toBuffer('pkcs8'))] };
@@ -169,6 +168,7 @@ export class LocalSSHGatewayServer {
 			}
 			return session;
 		} catch (e) {
+            this.localsshService.sendErrorReport(workspaceInfo.gitpodHost, workspaceInfo.userId, workspaceInfo.workspaceId, workspaceInfo.instanceId, e, 'failed to connect with tunnel ssh');
 			this.localsshService.sendTelemetry({
 				gitpodHost: workspaceInfo.gitpodHost,
 				userId: workspaceInfo.userId,
@@ -176,7 +176,6 @@ export class LocalSSHGatewayServer {
 				workspaceId: workspaceInfo.workspaceId,
 				instanceId: workspaceInfo.instanceId,
 				failureCode: SendLocalSSHUserFlowStatusRequest_Code.CODE_TUNNEL_NO_ESTABLISHED_CONNECTION,
-				failureReason: e?.toString(), // TODO remove, and report to error reporting
 				daemonVersion: getDaemonVersion(),
 				extensionVersion: getRunningExtensionVersion(),
 				connType: SendLocalSSHUserFlowStatusRequest_ConnType.CONN_TYPE_TUNNEL,

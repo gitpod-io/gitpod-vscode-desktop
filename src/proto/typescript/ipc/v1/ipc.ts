@@ -40,8 +40,6 @@ export interface SendLocalSSHUserFlowStatusRequest {
   workspaceId: string;
   instanceId: string;
   failureCode: SendLocalSSHUserFlowStatusRequest_Code;
-  /** @deprecated */
-  failureReason: string;
   daemonVersion: string;
   extensionVersion: string;
   connType: SendLocalSSHUserFlowStatusRequest_ConnType;
@@ -651,7 +649,6 @@ function createBaseSendLocalSSHUserFlowStatusRequest(): SendLocalSSHUserFlowStat
     workspaceId: "",
     instanceId: "",
     failureCode: 0,
-    failureReason: "",
     daemonVersion: "",
     extensionVersion: "",
     connType: 0,
@@ -673,9 +670,6 @@ export const SendLocalSSHUserFlowStatusRequest = {
     }
     if (message.failureCode !== 0) {
       writer.uint32(40).int32(message.failureCode);
-    }
-    if (message.failureReason !== "") {
-      writer.uint32(50).string(message.failureReason);
     }
     if (message.daemonVersion !== "") {
       writer.uint32(58).string(message.daemonVersion);
@@ -714,9 +708,6 @@ export const SendLocalSSHUserFlowStatusRequest = {
         case 5:
           message.failureCode = reader.int32() as any;
           break;
-        case 6:
-          message.failureReason = reader.string();
-          break;
         case 7:
           message.daemonVersion = reader.string();
           break;
@@ -746,7 +737,6 @@ export const SendLocalSSHUserFlowStatusRequest = {
       workspaceId: isSet(object.workspaceId) ? String(object.workspaceId) : "",
       instanceId: isSet(object.instanceId) ? String(object.instanceId) : "",
       failureCode: isSet(object.failureCode) ? sendLocalSSHUserFlowStatusRequest_CodeFromJSON(object.failureCode) : 0,
-      failureReason: isSet(object.failureReason) ? String(object.failureReason) : "",
       daemonVersion: isSet(object.daemonVersion) ? String(object.daemonVersion) : "",
       extensionVersion: isSet(object.extensionVersion) ? String(object.extensionVersion) : "",
       connType: isSet(object.connType) ? sendLocalSSHUserFlowStatusRequest_ConnTypeFromJSON(object.connType) : 0,
@@ -762,7 +752,6 @@ export const SendLocalSSHUserFlowStatusRequest = {
     message.instanceId !== undefined && (obj.instanceId = message.instanceId);
     message.failureCode !== undefined &&
       (obj.failureCode = sendLocalSSHUserFlowStatusRequest_CodeToJSON(message.failureCode));
-    message.failureReason !== undefined && (obj.failureReason = message.failureReason);
     message.daemonVersion !== undefined && (obj.daemonVersion = message.daemonVersion);
     message.extensionVersion !== undefined && (obj.extensionVersion = message.extensionVersion);
     message.connType !== undefined &&
@@ -782,7 +771,6 @@ export const SendLocalSSHUserFlowStatusRequest = {
     message.workspaceId = object.workspaceId ?? "";
     message.instanceId = object.instanceId ?? "";
     message.failureCode = object.failureCode ?? 0;
-    message.failureReason = object.failureReason ?? "";
     message.daemonVersion = object.daemonVersion ?? "";
     message.extensionVersion = object.extensionVersion ?? "";
     message.connType = object.connType ?? 0;
