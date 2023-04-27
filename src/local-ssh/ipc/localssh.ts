@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ActiveRequest, ExtensionServiceDefinition, GetDaemonVersionRequest, InactiveRequest, LocalSSHServiceDefinition, LocalSSHServiceImplementation, PingRequest, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest } from '../../proto/typescript/ipc/v1/ipc';
+import { ActiveRequest, ExtensionServiceDefinition, GetDaemonInfoRequest, GetDaemonVersionRequest, InactiveRequest, KillDaemonRequest, LocalSSHServiceDefinition, LocalSSHServiceImplementation, PingRequest, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest } from '../../proto/typescript/ipc/v1/ipc';
 import { CallContext, Client, ServerError, Status, createChannel, createClient, createServer } from 'nice-grpc';
 import { ExitCode, exitProcess, getDaemonVersion, getRunningExtensionVersion } from '../common';
 import { retryWithStop } from '../../common/async';
@@ -141,6 +141,20 @@ export class LocalSSHServiceImpl implements LocalSSHServiceImplementation {
                 this.logger.error(e, 'failed to send error report');
             }
         }
+    }
+
+    async getDaemonInfo(_request: GetDaemonInfoRequest, _context: CallContext): Promise<{ daemonVersion?: string | undefined; runningExtensionVersion?: string | undefined; pid?: number | undefined }> {
+        return {
+            daemonVersion: getDaemonVersion(),
+            runningExtensionVersion: getRunningExtensionVersion(),
+            pid: process.pid,
+        };
+    }
+
+    public async killDaemon(request: KillDaemonRequest, _context: CallContext): Promise<{}> {
+        this.logger.info('received kill daemon request, reason: ' + request.reason);
+        exitProcess(ExitCode.AskedToQuit);
+        return {};
     }
 }
 

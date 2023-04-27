@@ -23,6 +23,7 @@ export async function ensureDaemonStarted(logService: ILogService, telemetryServ
             switch (code) {
                 case ExitCode.OK:
                 case ExitCode.ListenPortFailed:
+                case ExitCode.AskedToQuit:
                     resolve(true);
                     return;
             }
