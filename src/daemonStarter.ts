@@ -10,6 +10,7 @@ import { ILogService } from './services/logService';
 import { timeout } from './common/async';
 import { Configuration } from './configuration';
 import { ITelemetryService } from './services/telemetryService';
+import { kill, lookup } from 'ps-node';
 
 export async function ensureDaemonStarted(logService: ILogService, telemetryService: ITelemetryService, retry = 10) {
     if (retry < 0) {
@@ -68,23 +69,31 @@ export async function tryStartDaemon(logService: ILogService, options?: Partial<
     return daemon;
 }
 
-function killProcess(regex: string) {
-    let cmd;
+export function killDaemon(logService: ILogService) {
     switch (process.platform) {
-        case 'win32':
-            cmd = `taskkill /F /FI "IMAGENAME eq ${regex}"`;
-            break;
+        case 'win32': {
+            lookup({
+                arguments: 'local-ssh'
+            }, (err, resultList) => {
+                if (err) {
+                    throw err;
+                }
+                const process = resultList.find(process => process.arguments.join(' ').includes('gitpod-vscode-daemon.log'));
+                if (!process) {
+                    return;
+                }
+                kill(process.pid);
+            });
+            return;
+        }
         case 'darwin':
-        case 'linux':
-            cmd = `pkill -f ${regex}`;
-            break;
+        case 'linux': {
+            const logName = Configuration.getDaemonLogFileName();
+            const regex = `node.*local-ssh.*daemon.js.*${logName}`;
+            exec(`pkill -f ${regex}`);
+            return;
+        }
         default:
-            throw new Error(`Unsupported platform: ${process.platform}`);
+            logService.warn('failed to kill daemon: unsupported platform');
     }
-    exec(cmd);
-}
-
-export async function killDaemon() {
-    const logName = Configuration.getDaemonLogFileName();
-    return killProcess(`node.*local-ssh.*daemon.js.*${logName}`);
 }

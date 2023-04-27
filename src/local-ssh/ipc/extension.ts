@@ -264,7 +264,7 @@ export class ExtensionServiceServer extends Disposable {
             if (runningDaemonVersion.compare(new SemVer('0.0.3')) >= 0) {
                 return;
             }
-            await killDaemon();
+            killDaemon(this.logService);
         } catch (e) {
             this.logService.error(e, 'failed to force kill zombie daemon');
         }
