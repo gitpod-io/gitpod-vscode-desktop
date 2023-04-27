@@ -86,5 +86,5 @@ function killProcess(regex: string) {
 
 export async function killDaemon() {
     const logName = Configuration.getDaemonLogFileName();
-    return killProcess(`node.*?local-ssh.*?daemon.js.*?${logName}`);
+    return killProcess(`node.*local-ssh.*daemon.js.*${logName}`);
 }
