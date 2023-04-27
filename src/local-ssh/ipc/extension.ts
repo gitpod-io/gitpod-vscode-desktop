@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as vscode from 'vscode';
 import { ExtensionServiceDefinition, ExtensionServiceImplementation, GetWorkspaceAuthInfoRequest, GetWorkspaceAuthInfoResponse, LocalSSHServiceDefinition, PingRequest, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest, SendLocalSSHUserFlowStatusRequest_Code, SendLocalSSHUserFlowStatusRequest_ConnType, SendLocalSSHUserFlowStatusRequest_Status } from '../../proto/typescript/ipc/v1/ipc';
 import { Disposable } from '../../common/dispose';
 import { retry, timeout } from '../../common/async';
@@ -17,7 +18,7 @@ import { CallContext, ServerError, Status } from 'nice-grpc-common';
 import { IHostService } from '../../services/hostService';
 import { Server, createClient, createServer, createChannel } from 'nice-grpc';
 import { INotificationService } from '../../services/notificationService';
-import { showWsNotRunningDialog } from '../../remote';
+import { getGitpodRemoteWindowConnectionInfo, showWsNotRunningDialog } from '../../remote';
 import { ITelemetryService, UserFlowTelemetry } from '../../services/telemetryService';
 import { ExperimentalSettings } from '../../experiments';
 import { Configuration } from '../../configuration';
@@ -38,9 +39,13 @@ const phaseMap: Record<WorkspaceInstanceStatus_Phase, WorkspaceInstancePhase | u
 export class ExtensionServiceImpl implements ExtensionServiceImplementation {
     private notificationGapSet = new Set<string>();
 
-    constructor(private logService: ILogService, private sessionService: ISessionService, private hostService: IHostService, private notificationService: INotificationService, private experiments: ExperimentalSettings, private telemetryService: ITelemetryService) { }
+    constructor(private readonly context: vscode.ExtensionContext, private logService: ILogService, private sessionService: ISessionService, private hostService: IHostService, private notificationService: INotificationService, private experiments: ExperimentalSettings, private telemetryService: ITelemetryService) { }
 
     private canShowNotification(id: string) {
+        let remoteConnectionInfo = getGitpodRemoteWindowConnectionInfo(this.context);
+        if (!remoteConnectionInfo || remoteConnectionInfo.connectionInfo.workspaceId !== id) {
+            return false;
+        }
         if (this.notificationGapSet.has(id)) {
             return false;
         }
@@ -156,6 +161,7 @@ export class ExtensionServiceServer extends Disposable {
     private localSSHServiceClient = createClient(LocalSSHServiceDefinition, createChannel('127.0.0.1:' + Configuration.getLocalSshIpcPort()));
 
     constructor(
+        private readonly context: vscode.ExtensionContext,
         private readonly logService: ILogService,
         private readonly sessionService: ISessionService,
         private readonly hostService: IHostService,
@@ -173,7 +179,7 @@ export class ExtensionServiceServer extends Disposable {
 
     private getServer(): Server {
         const server = createServer();
-        const serviceImpl = new ExtensionServiceImpl(this.logService, this.sessionService, this.hostService, this.notificationService, this.experiments, this.telemetryService);
+        const serviceImpl = new ExtensionServiceImpl(this.context, this.logService, this.sessionService, this.hostService, this.notificationService, this.experiments, this.telemetryService);
         server.add(ExtensionServiceDefinition, serviceImpl);
         return server;
     }
