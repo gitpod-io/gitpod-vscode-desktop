@@ -70,6 +70,7 @@ export async function tryStartDaemon(logService: ILogService, options?: Partial<
 }
 
 export function killDaemon(logService: ILogService) {
+    const logName = Configuration.getDaemonLogFileName();
     switch (process.platform) {
         case 'win32': {
             lookup({
@@ -78,7 +79,7 @@ export function killDaemon(logService: ILogService) {
                 if (err) {
                     throw err;
                 }
-                const process = resultList.find(process => process.arguments.join(' ').includes('gitpod-vscode-daemon.log'));
+                const process = resultList.find(process => process.arguments.join(' ').includes(logName));
                 if (!process) {
                     return;
                 }
@@ -88,7 +89,6 @@ export function killDaemon(logService: ILogService) {
         }
         case 'darwin':
         case 'linux': {
-            const logName = Configuration.getDaemonLogFileName();
             const regex = `node.*local-ssh.*daemon.js.*${logName}`;
             exec(`pkill -f ${regex}`);
             return;
