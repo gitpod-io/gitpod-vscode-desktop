@@ -1,8 +1,7 @@
 {
 	"compilerOptions": {
-		"target": "es2020",
+		"target": "es2021",
 		"lib": [
-			"ES2021.Promise",
 			"ES2016",
 			"ES2017.Object",
 			"ES2017.String",
@@ -22,6 +21,8 @@
 			"ES2020.String",
 			"ES2020.Symbol.WellKnown",
 			"ES2020.Intl",
+			"ES2021.Promise",
+			"ES2021.String",
 			"DOM"
 		],
 		"module": "commonjs",
