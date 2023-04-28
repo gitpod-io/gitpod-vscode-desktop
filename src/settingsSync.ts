@@ -117,6 +117,12 @@ export class SettingsSync extends Disposable {
 
 		this._register(vscode.workspace.onDidChangeConfiguration(async e => {
 			if (e.affectsConfiguration('gitpod.host') || e.affectsConfiguration('configurationSync.store')) {
+				if (e.affectsConfiguration('git') && e.affectsConfiguration('javascript')) {
+					// Seems onDidChangeConfiguration fires many times while resolving the remote (once with all settings),
+					// and because now we active the extension earlier with onResolveRemoteAuthority we get this false positive
+					// event, so ignore it if more settings are affected at the same time.
+					return;
+				}
 				const gitpodHost = this.getServiceUrl().origin;
 				const flow = { ...this.flow, gitpodHost };
 				const addedSyncProvider = await this.updateSyncContext();
