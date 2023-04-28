@@ -159,6 +159,9 @@ export class ExtensionServiceServer extends Disposable {
     private readonly id: string = Math.random().toString(36).slice(2);
     private ipcPort?: number;
 
+    private _isActiveResolve!: (value: boolean) => void;
+    public isActive: Promise<boolean>;
+
     private localSSHServiceClient = createClient(LocalSSHServiceDefinition, createChannel('127.0.0.1:' + Configuration.getLocalSshIpcPort()));
 
     constructor(
@@ -171,6 +174,9 @@ export class ExtensionServiceServer extends Disposable {
         private experiments: ExperimentalSettings,
     ) {
         super();
+        this.isActive = new Promise((resolve) => {
+            this._isActiveResolve = resolve;
+        });
         this.server = this.getServer();
         this.tryForceKillZombieDaemon();
         this.tryActive();
@@ -204,6 +210,7 @@ export class ExtensionServiceServer extends Disposable {
                 await this.localSSHServiceClient.active({ id: this.id, ipcPort: this.ipcPort! });
                 this.logService.info('extension ipc svc activated id: ' + this.id);
             }, 200, ExtensionServiceServer.MAX_EXTENSION_ACTIVE_RETRY_COUNT);
+            this._isActiveResolve(true);
             if (this.lastTimeActiveTelemetry === true) {
                 return;
             }

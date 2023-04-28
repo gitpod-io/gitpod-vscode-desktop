@@ -40,6 +40,8 @@ import { IHostService } from './services/hostService';
 import { Configuration } from './configuration';
 import { getLocalSSHUrl, getServiceURL } from './common/utils';
 import { GitpodDefaultLocalhost as GITPOD_DEFAULT_LOCALHOST_RECORD, HOST_PUBLIC_KEY_TYPE, getHostKeyFingerprint, isDNSPointToLocalhost, isDomainConnectable } from './local-ssh/common';
+import { ensureDaemonStarted } from './daemonStarter';
+import { ExtensionServiceServer } from './local-ssh/ipc/extension';
 
 interface LocalAppConfig {
 	gitpodHost: string;
@@ -109,6 +111,7 @@ export class RemoteConnector extends Disposable {
 		private readonly logService: ILogService,
 		private readonly telemetryService: ITelemetryService,
 		private readonly notificationService: INotificationService,
+		private readonly extensionIPCService: ExtensionServiceServer,
 	) {
 		super();
 
@@ -515,8 +518,20 @@ export class RemoteConnector extends Disposable {
 		};
 	}
 
+	private async tryEnsureLocalSSHDaemon() {
+		try {
+			await ensureDaemonStarted(this.logService, this.telemetryService, 3);
+		} catch (e) {
+			// ignore
+		}
+		await this.extensionIPCService.isActive;
+	}
+
 	private async getLocalSSHWorkspaceSSHDestination({ workspaceId, gitpodHost, debugWorkspace }: SSHConnectionParams): Promise<{ destination: SSHDestination; password?: string }> {
-		const workspaceInfo = await withServerApi(this.sessionService.getGitpodToken(), getServiceURL(gitpodHost), async service => this.usePublicApi ? this.sessionService.getAPI().getWorkspace(workspaceId) : service.server.getWorkspace(workspaceId), this.logService);
+		const [, workspaceInfo] = await Promise.all([
+			this.tryEnsureLocalSSHDaemon(),
+			withServerApi(this.sessionService.getGitpodToken(), getServiceURL(gitpodHost), async service => this.usePublicApi ? this.sessionService.getAPI().getWorkspace(workspaceId) : service.server.getWorkspace(workspaceId), this.logService),
+		]);
 
 		const isNotRunning = this.usePublicApi
 			? !((workspaceInfo as Workspace)?.status?.instance) || (workspaceInfo as Workspace)?.status?.instance?.status?.phase === WorkspaceInstanceStatus_Phase.STOPPING || (workspaceInfo as Workspace)?.status?.instance?.status?.phase === WorkspaceInstanceStatus_Phase.STOPPED
