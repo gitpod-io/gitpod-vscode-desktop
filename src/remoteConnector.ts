@@ -532,23 +532,19 @@ export class RemoteConnector extends Disposable {
 		}
 
 		const domain = getLocalSSHUrl(gitpodHost);
-		let hostname = workspaceId + '.' + domain;
-		const ok = await isDNSPointToLocalhost(this.logService, hostname);
-		if (!ok) {
-			this.logService.warn('DNS record for lssh is not pointing to localhost. Falling back to default record');
-			const defaultOK = await isDomainConnectable(this.logService, workspaceId + '.' + GITPOD_DEFAULT_LOCALHOST_RECORD);
-			if (defaultOK) {
-				hostname = workspaceId + '.' + GITPOD_DEFAULT_LOCALHOST_RECORD;
-			} else {
-				this.logService.warn('Default DNS record is not connectable. Falling back to localhost');
+		let hostname = `${workspaceId}.${domain}`;
+		if (!await isDNSPointToLocalhost(hostname)) {
+			this.logService.warn(`'${hostname}' DNS record for lssh is not pointing to localhost. Falling back to default record`);
+			hostname = `${workspaceId}.${GITPOD_DEFAULT_LOCALHOST_RECORD}`;
+			if (!await isDomainConnectable(hostname)) {
+				this.logService.warn(`'${hostname}' DNS record is not connectable. Falling back to localhost`);
 				hostname = 'localhost';
 			}
-			if (await checkNewHostInHostkeys(hostname)) {
-				await addHostToHostFile(hostname, getHostKeyFingerprint(), HOST_PUBLIC_KEY_TYPE);
-			}
-		} else {
-			this.logService.debug('DNS record for lssh is pointing to localhost');
 		}
+		if (await checkNewHostInHostkeys(hostname)) {
+			await addHostToHostFile(hostname, getHostKeyFingerprint(), HOST_PUBLIC_KEY_TYPE);
+		}
+
 		const user = debugWorkspace ? ('debug-' + workspaceId) : workspaceId;
 		const port = Configuration.getLocalSSHServerPort();
 		this.logService.info('connecting with local ssh destination', { port, domain });
