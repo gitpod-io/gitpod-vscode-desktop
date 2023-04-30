@@ -12,7 +12,6 @@ import { SshServer, SshClient } from '@microsoft/dev-tunnels-ssh-tcp';
 import { NodeStream, SshClientCredentials, SshClientSession, SshDisconnectReason, SshSessionConfiguration } from '@microsoft/dev-tunnels-ssh';
 import { importKeyBytes } from '@microsoft/dev-tunnels-ssh-keys';
 import { parsePrivateKey } from 'sshpk';
-import { PipeExtensions } from './patch/pipeExtension';
 import { SendLocalSSHUserFlowStatusRequest_Code, SendLocalSSHUserFlowStatusRequest_ConnType, SendLocalSSHUserFlowStatusRequest_Status } from '../proto/typescript/ipc/v1/ipc';
 
 
@@ -86,7 +85,7 @@ export class LocalSSHGatewayServer {
 				});
 				session.onClientAuthenticated(async () => {
 					try {
-						await PipeExtensions.pipeSession(session, pipeSession);
+						await session.pipe(pipeSession);
 					} catch (e) {
 						this.logger.error(e, 'pipe session ended with error');
 					} finally {
