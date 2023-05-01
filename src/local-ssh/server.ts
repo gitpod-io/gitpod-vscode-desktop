@@ -13,7 +13,7 @@ import { NodeStream, SshClientCredentials, SshClientSession, SshDisconnectReason
 import { importKeyBytes } from '@microsoft/dev-tunnels-ssh-keys';
 import { parsePrivateKey } from 'sshpk';
 import { SendLocalSSHUserFlowStatusRequest_Code, SendLocalSSHUserFlowStatusRequest_ConnType, SendLocalSSHUserFlowStatusRequest_Status } from '../proto/typescript/ipc/v1/ipc';
-
+import { PipeExtensions } from './patch/pipeExtension';
 
 // TODO(local-ssh): Remove me after direct ssh works with @microsft/dev-tunnels-ssh
 const FORCE_TUNNEL = true;
@@ -85,7 +85,7 @@ export class LocalSSHGatewayServer {
 				});
 				session.onClientAuthenticated(async () => {
 					try {
-						await session.pipe(pipeSession);
+						await PipeExtensions.pipeSession(session, pipeSession);
 					} catch (e) {
 						this.logger.error(e, 'pipe session ended with error');
 					} finally {
