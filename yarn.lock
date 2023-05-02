@@ -2,6 +2,48 @@
 # yarn lockfile v1
 
 
+"@bufbuild/buf-darwin-arm64@1.15.0-1":
+  version "1.15.0-1"
+  resolved "https://registry.yarnpkg.com/@bufbuild/buf-darwin-arm64/-/buf-darwin-arm64-1.15.0-1.tgz#f636e271d172bced2a092cc1d787a472726d51ad"
+  integrity sha512-KV3rvScwjMCcj0DSkmx6Ejk8YF7LtnqA3jSokeYbGaLLfSvPXu4q9d0I2pq+jaYIA8RfbMerAqzR8MccdY4Vqw==
+
+"@bufbuild/buf-darwin-x64@1.15.0-1":
+  version "1.15.0-1"
+  resolved "https://registry.yarnpkg.com/@bufbuild/buf-darwin-x64/-/buf-darwin-x64-1.15.0-1.tgz#b15a624efcfcd06d602171c9087e39bd1fd9347a"
+  integrity sha512-hSEK9TIGmTA58PhUsvcuhF9LcmZ3mZedPgWT8cAeGZYcNJd1mkUEzsWsqnYYGZRe1QvOPZW1BsPIayWFBrlBMQ==
+
+"@bufbuild/buf-linux-aarch64@1.15.0-1":
+  version "1.15.0-1"
+  resolved "https://registry.yarnpkg.com/@bufbuild/buf-linux-aarch64/-/buf-linux-aarch64-1.15.0-1.tgz#354bc94dd2df51e146e38ecc1596854102b6c3c4"
+  integrity sha512-Ppa5mNy3z5cmTPo18Sc5xUIPfRBpa/Bc9VyqtUqwMJGtTQ1fC+JJ9LFUL8UxXcvdVRcErxXNyd6oGEZzOoLFFQ==
+
+"@bufbuild/buf-linux-x64@1.15.0-1":
+  version "1.15.0-1"
+  resolved "https://registry.yarnpkg.com/@bufbuild/buf-linux-x64/-/buf-linux-x64-1.15.0-1.tgz#33de1509db7956391a2d4e45ab49dfa60a189254"
+  integrity sha512-6QtcPOf6D3cXGAhMIhCkOlveLc19nXFCteUktuK73Ls8XDOLuhef4cEfb/Gh7RQCq6IyfFyzoEzb0cWybXnBbQ==
+
+"@bufbuild/buf-win32-arm64@1.15.0-1":
+  version "1.15.0-1"
+  resolved "https://registry.yarnpkg.com/@bufbuild/buf-win32-arm64/-/buf-win32-arm64-1.15.0-1.tgz#5cd2b679b352d411b21be63f67e9efbdd3382de0"
+  integrity sha512-h356aHM1BvHKjxrs9GjeuDxljqJDNtv8NhzssR3kD4ZkRjZYpMhc8YzpnodY3W520W9/6Q7k7CuVd2vhib1Fyg==
+
+"@bufbuild/buf-win32-x64@1.15.0-1":
+  version "1.15.0-1"
+  resolved "https://registry.yarnpkg.com/@bufbuild/buf-win32-x64/-/buf-win32-x64-1.15.0-1.tgz#72d27405312abf48b92372d14cc8050f50b3a617"
+  integrity sha512-dc1dBFDTNF/3ulr7rejsX/lBb2eqAPZtHI3w6YUQaXTkhmQtNOe45QkaOYnj4UFj6sBVI53WeAisNf3Wg+SUFQ==
+
+"@bufbuild/buf@^1.15.0-1":
+  version "1.15.0-1"
+  resolved "https://registry.yarnpkg.com/@bufbuild/buf/-/buf-1.15.0-1.tgz#31178b20982cc5bcd199e439e1718e7c770a8d93"
+  integrity sha512-j+mkNd9kM+2b9JacmZNBxTkbOXtLUltzv0inWBYRqd4dJ+EwAR/CDfK6OXvia94aJsKWy8YKSgLu19VlTYSh1Q==
+  optionalDependencies:
+    "@bufbuild/buf-darwin-arm64" "1.15.0-1"
+    "@bufbuild/buf-darwin-x64" "1.15.0-1"
+    "@bufbuild/buf-linux-aarch64" "1.15.0-1"
+    "@bufbuild/buf-linux-x64" "1.15.0-1"
+    "@bufbuild/buf-win32-arm64" "1.15.0-1"
+    "@bufbuild/buf-win32-x64" "1.15.0-1"
+
 "@bufbuild/connect-node@^0.8.4":
   version "0.8.4"
   resolved "https://registry.yarnpkg.com/@bufbuild/connect-node/-/connect-node-0.8.4.tgz#3e8bc897e9a761202c6aa015c162421121b8434e"

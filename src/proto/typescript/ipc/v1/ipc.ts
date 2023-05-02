@@ -224,7 +224,16 @@ export interface InactiveRequest {
 export interface InactiveResponse {
 }
 
-export interface PingRequest {
+export interface LocalSSHServicePingRequest {
+}
+
+export interface LocalSSHServicePingResponse {
+}
+
+export interface ExtensionServicePingRequest {
+}
+
+export interface ExtensionServicePingResponse {
 }
 
 export interface PingResponse {
@@ -1025,19 +1034,19 @@ export const InactiveResponse = {
   },
 };
 
-function createBasePingRequest(): PingRequest {
+function createBaseLocalSSHServicePingRequest(): LocalSSHServicePingRequest {
   return {};
 }
 
-export const PingRequest = {
-  encode(_: PingRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+export const LocalSSHServicePingRequest = {
+  encode(_: LocalSSHServicePingRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
     return writer;
   },
 
-  decode(input: _m0.Reader | Uint8Array, length?: number): PingRequest {
+  decode(input: _m0.Reader | Uint8Array, length?: number): LocalSSHServicePingRequest {
     const reader = input instanceof _m0.Reader ? input : new _m0.Reader(input);
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBasePingRequest();
+    const message = createBaseLocalSSHServicePingRequest();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -1049,21 +1058,150 @@ export const PingRequest = {
     return message;
   },
 
-  fromJSON(_: any): PingRequest {
+  fromJSON(_: any): LocalSSHServicePingRequest {
     return {};
   },
 
-  toJSON(_: PingRequest): unknown {
+  toJSON(_: LocalSSHServicePingRequest): unknown {
     const obj: any = {};
     return obj;
   },
 
-  create(base?: DeepPartial<PingRequest>): PingRequest {
-    return PingRequest.fromPartial(base ?? {});
+  create(base?: DeepPartial<LocalSSHServicePingRequest>): LocalSSHServicePingRequest {
+    return LocalSSHServicePingRequest.fromPartial(base ?? {});
   },
 
-  fromPartial(_: DeepPartial<PingRequest>): PingRequest {
-    const message = createBasePingRequest();
+  fromPartial(_: DeepPartial<LocalSSHServicePingRequest>): LocalSSHServicePingRequest {
+    const message = createBaseLocalSSHServicePingRequest();
+    return message;
+  },
+};
+
+function createBaseLocalSSHServicePingResponse(): LocalSSHServicePingResponse {
+  return {};
+}
+
+export const LocalSSHServicePingResponse = {
+  encode(_: LocalSSHServicePingResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): LocalSSHServicePingResponse {
+    const reader = input instanceof _m0.Reader ? input : new _m0.Reader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseLocalSSHServicePingResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+
+  fromJSON(_: any): LocalSSHServicePingResponse {
+    return {};
+  },
+
+  toJSON(_: LocalSSHServicePingResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<LocalSSHServicePingResponse>): LocalSSHServicePingResponse {
+    return LocalSSHServicePingResponse.fromPartial(base ?? {});
+  },
+
+  fromPartial(_: DeepPartial<LocalSSHServicePingResponse>): LocalSSHServicePingResponse {
+    const message = createBaseLocalSSHServicePingResponse();
+    return message;
+  },
+};
+
+function createBaseExtensionServicePingRequest(): ExtensionServicePingRequest {
+  return {};
+}
+
+export const ExtensionServicePingRequest = {
+  encode(_: ExtensionServicePingRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): ExtensionServicePingRequest {
+    const reader = input instanceof _m0.Reader ? input : new _m0.Reader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseExtensionServicePingRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+
+  fromJSON(_: any): ExtensionServicePingRequest {
+    return {};
+  },
+
+  toJSON(_: ExtensionServicePingRequest): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<ExtensionServicePingRequest>): ExtensionServicePingRequest {
+    return ExtensionServicePingRequest.fromPartial(base ?? {});
+  },
+
+  fromPartial(_: DeepPartial<ExtensionServicePingRequest>): ExtensionServicePingRequest {
+    const message = createBaseExtensionServicePingRequest();
+    return message;
+  },
+};
+
+function createBaseExtensionServicePingResponse(): ExtensionServicePingResponse {
+  return {};
+}
+
+export const ExtensionServicePingResponse = {
+  encode(_: ExtensionServicePingResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): ExtensionServicePingResponse {
+    const reader = input instanceof _m0.Reader ? input : new _m0.Reader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseExtensionServicePingResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+
+  fromJSON(_: any): ExtensionServicePingResponse {
+    return {};
+  },
+
+  toJSON(_: ExtensionServicePingResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<ExtensionServicePingResponse>): ExtensionServicePingResponse {
+    return ExtensionServicePingResponse.fromPartial(base ?? {});
+  },
+
+  fromPartial(_: DeepPartial<ExtensionServicePingResponse>): ExtensionServicePingResponse {
+    const message = createBaseExtensionServicePingResponse();
     return message;
   },
 };
@@ -1379,9 +1517,9 @@ export const LocalSSHServiceDefinition = {
     },
     ping: {
       name: "Ping",
-      requestType: PingRequest,
+      requestType: LocalSSHServicePingRequest,
       requestStream: false,
-      responseType: PingResponse,
+      responseType: LocalSSHServicePingResponse,
       responseStream: false,
       options: {},
     },
@@ -1420,7 +1558,10 @@ export interface LocalSSHServiceImplementation<CallContextExt = {}> {
   active(request: ActiveRequest, context: CallContext & CallContextExt): Promise<DeepPartial<ActiveResponse>>;
   /** Inactive is called when extension is deactivated */
   inactive(request: InactiveRequest, context: CallContext & CallContextExt): Promise<DeepPartial<InactiveResponse>>;
-  ping(request: PingRequest, context: CallContext & CallContextExt): Promise<DeepPartial<PingResponse>>;
+  ping(
+    request: LocalSSHServicePingRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<LocalSSHServicePingResponse>>;
   /** GetDaemonVersion returns the version of the daemon */
   getDaemonVersion(
     request: GetDaemonVersionRequest,
@@ -1443,7 +1584,10 @@ export interface LocalSSHServiceClient<CallOptionsExt = {}> {
   active(request: DeepPartial<ActiveRequest>, options?: CallOptions & CallOptionsExt): Promise<ActiveResponse>;
   /** Inactive is called when extension is deactivated */
   inactive(request: DeepPartial<InactiveRequest>, options?: CallOptions & CallOptionsExt): Promise<InactiveResponse>;
-  ping(request: DeepPartial<PingRequest>, options?: CallOptions & CallOptionsExt): Promise<PingResponse>;
+  ping(
+    request: DeepPartial<LocalSSHServicePingRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<LocalSSHServicePingResponse>;
   /** GetDaemonVersion returns the version of the daemon */
   getDaemonVersion(
     request: DeepPartial<GetDaemonVersionRequest>,
@@ -1468,9 +1612,9 @@ export const ExtensionServiceDefinition = {
   methods: {
     ping: {
       name: "Ping",
-      requestType: PingRequest,
+      requestType: ExtensionServicePingRequest,
       requestStream: false,
-      responseType: PingResponse,
+      responseType: ExtensionServicePingResponse,
       responseStream: false,
       options: {},
     },
@@ -1502,7 +1646,10 @@ export const ExtensionServiceDefinition = {
 } as const;
 
 export interface ExtensionServiceImplementation<CallContextExt = {}> {
-  ping(request: PingRequest, context: CallContext & CallContextExt): Promise<DeepPartial<PingResponse>>;
+  ping(
+    request: ExtensionServicePingRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<ExtensionServicePingResponse>>;
   getWorkspaceAuthInfo(
     request: GetWorkspaceAuthInfoRequest,
     context: CallContext & CallContextExt,
@@ -1518,7 +1665,10 @@ export interface ExtensionServiceImplementation<CallContextExt = {}> {
 }
 
 export interface ExtensionServiceClient<CallOptionsExt = {}> {
-  ping(request: DeepPartial<PingRequest>, options?: CallOptions & CallOptionsExt): Promise<PingResponse>;
+  ping(
+    request: DeepPartial<ExtensionServicePingRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<ExtensionServicePingResponse>;
   getWorkspaceAuthInfo(
     request: DeepPartial<GetWorkspaceAuthInfoRequest>,
     options?: CallOptions & CallOptionsExt,
