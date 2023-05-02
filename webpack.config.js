@@ -29,6 +29,7 @@ const config = {
 		vscode: "commonjs vscode",
 		bufferutil: "bufferutil",
 		"utf-8-validate": "utf-8-validate",
+		"node-rsa": "node-rsa"
 	},
 	resolve: {
 		extensions: ['.ts', '.js']
