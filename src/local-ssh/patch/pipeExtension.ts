@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { CancellationToken, ChannelMessage, ChannelOpenConfirmationMessage, ChannelOpenFailureMessage, ChannelRequestMessage, PromiseCompletionSource, SshChannel, SshChannelClosedEventArgs, SshChannelError, SshChannelOpenFailureReason, SshChannelOpeningEventArgs, SshMessage, SshRequestEventArgs, SshSession, SshSessionClosedEventArgs, SshStream } from '@microsoft/dev-tunnels-ssh';
+import { CancellationToken, ChannelMessage, ChannelOpenConfirmationMessage, ChannelOpenFailureMessage, ChannelRequestMessage, PromiseCompletionSource, SessionRequestFailureMessage, SessionRequestMessage, SessionRequestSuccessMessage, SshChannel, SshChannelClosedEventArgs, SshChannelError, SshChannelOpenFailureReason, SshChannelOpeningEventArgs, SshMessage, SshRequestEventArgs, SshSession, SshSessionClosedEventArgs } from '@microsoft/dev-tunnels-ssh';
 import { ChannelFailureMessage, ChannelSuccessMessage } from '@microsoft/dev-tunnels-ssh/messages/connectionMessages';
 
 // Patch of https://github.com/microsoft/dev-tunnels-ssh/blob/main/src/ts/ssh/pipeExtensions.ts
@@ -15,12 +15,12 @@ export class PipeExtensions {
 
         const endCompletion = new PromiseCompletionSource<Promise<void>>();
 
-        // session.onRequest((e) => {
-        //     e.responsePromise = PipeExtensions.forwardSessionRequest(e, toSession, e.cancellation);
-        // });
-        // toSession.onRequest((e) => {
-        //     e.responsePromise = PipeExtensions.forwardSessionRequest(e, session, e.cancellation);
-        // });
+        session.onRequest((e) => {
+            e.responsePromise = PipeExtensions.forwardSessionRequest(e, toSession, e.cancellation);
+        });
+        toSession.onRequest((e) => {
+            e.responsePromise = PipeExtensions.forwardSessionRequest(e, session, e.cancellation);
+        });
 
         session.onChannelOpening((e) => {
             if (e.isRemoteRequest) {
@@ -58,17 +58,12 @@ export class PipeExtensions {
             e.responsePromise = PipeExtensions.forwardChannelRequest(e, channel, e.cancellation);
         });
 
-        const stream1 = new SshStream(channel);
-        const stream2 = new SshStream(toChannel);
-        stream1.pipe(stream2);
-        stream2.pipe(stream1);
-
-        // channel.onDataReceived((data) => {
-        //     void PipeExtensions.forwardData(channel, toChannel, data).catch(console.error);
-        // });
-        // toChannel.onDataReceived((data) => {
-        //     void PipeExtensions.forwardData(toChannel, channel, data).catch(console.error);
-        // });
+        channel.onDataReceived((data) => {
+            void PipeExtensions.forwardData(channel, toChannel, data).catch();
+        });
+        toChannel.onDataReceived((data) => {
+            void PipeExtensions.forwardData(toChannel, channel, data).catch();
+        });
 
         channel.onClosed((e) => {
             if (!closed) {
@@ -87,18 +82,27 @@ export class PipeExtensions {
         await endTask;
     }
 
-    // private static async forwardSessionRequest(
-    //     e: SshRequestEventArgs<SessionRequestMessage>,
-    //     toSession: SshSession,
-    //     cancellation?: CancellationToken,
-    // ): Promise<SshMessage> {
-    //     return await toSession.requestResponse(
-    //         e.request,
-    //         SessionRequestSuccessMessage,
-    //         SessionRequestFailureMessage,
-    //         cancellation,
-    //     );
-    // }
+    private static async forwardSessionRequest(
+        e: SshRequestEventArgs<SessionRequestMessage>,
+        toSession: SshSession,
+        cancellation?: CancellationToken,
+    ): Promise<SshMessage> {
+        // `toSession.requestResponse` always set `wantReply` to `true` internally and awaits for response
+        // but `SessionRequestMessage` has an internal cache when piped so it will send original message with `false`,
+        // use `toSession.request` instead so it returns immeadiately
+        if (!e.request.wantReply) {
+            return toSession.request(
+                e.request,
+                cancellation,
+            ).then(() => new SessionRequestSuccessMessage());
+        }
+        return toSession.requestResponse(
+            e.request,
+            SessionRequestSuccessMessage,
+            SessionRequestFailureMessage,
+            cancellation,
+        );
+    }
 
     private static async forwardChannel(
         e: SshChannelOpeningEventArgs,
@@ -119,8 +123,7 @@ export class PipeExtensions {
                 failureMessage.reasonCode = SshChannelOpenFailureReason.connectFailed;
             }
 
-            failureMessage.description = err?.toString();
-            // failureMessage.description = err.message;
+            failureMessage.description = err.message;
             return failureMessage;
         }
     }
@@ -139,17 +142,21 @@ export class PipeExtensions {
         session: SshSession,
         e: SshSessionClosedEventArgs,
     ): Promise<void> {
-        return session.close(e.reason, e?.toString(), e?.error ?? undefined);
+        return session.close(e.reason, e.message, e.error ?? undefined);
     }
 
-    // private static async forwardData(
-    //     channel: SshChannel,
-    //     toChannel: SshChannel,
-    //     data: Buffer,
-    // ): Promise<void> {
-    //     await toChannel.send(data, CancellationToken.None);
-    //     channel.adjustWindow(data.length);
-    // }
+    private static async forwardData(
+        channel: SshChannel,
+        toChannel: SshChannel,
+        data: Buffer,
+    ): Promise<void> {
+        // Seems that somehow data gets corrupted/disposed? so do a copy first thing
+        const buffer = Buffer.alloc(data.length);
+        data.copy(buffer);
+        const promise = toChannel.send(buffer, CancellationToken.None);
+        channel.adjustWindow(buffer.length);
+        return promise;
+    }
 
     private static async forwardChannelClose(
         channel: SshChannel,

@@ -12,9 +12,8 @@ import { SshServer, SshClient } from '@microsoft/dev-tunnels-ssh-tcp';
 import { NodeStream, SshClientCredentials, SshClientSession, SshDisconnectReason, SshSessionConfiguration } from '@microsoft/dev-tunnels-ssh';
 import { importKeyBytes } from '@microsoft/dev-tunnels-ssh-keys';
 import { parsePrivateKey } from 'sshpk';
-import { PipeExtensions } from './patch/pipeExtension';
 import { GetWorkspaceAuthInfoResponse, SendLocalSSHUserFlowStatusRequest_Code, SendLocalSSHUserFlowStatusRequest_ConnType, SendLocalSSHUserFlowStatusRequest_Status } from '../proto/typescript/ipc/v1/ipc';
-
+import { PipeExtensions } from './patch/pipeExtension';
 
 // TODO(local-ssh): Remove me after direct ssh works with @microsft/dev-tunnels-ssh
 const FORCE_TUNNEL = true;
