@@ -11,10 +11,10 @@ import { CreateSSHKeyPairRequest, CreateSSHKeyPairResponse } from '@gitpod/super
 import { NodeHttpTransport } from '@improbable-eng/grpc-web-node-http-transport';
 import { grpc } from '@improbable-eng/grpc-web';
 import { BrowserHeaders } from 'browser-headers';
-import { WorkspaceAuthInfo, getDaemonVersion, getRunningExtensionVersion } from './common';
+import { getDaemonVersion, getRunningExtensionVersion } from './common';
 import { ILogService } from '../services/logService';
 import { LocalSSHServiceImpl } from './ipc/localssh';
-import { SendLocalSSHUserFlowStatusRequest_Code, SendLocalSSHUserFlowStatusRequest_ConnType, SendLocalSSHUserFlowStatusRequest_Status } from '../proto/typescript/ipc/v1/ipc';
+import { GetWorkspaceAuthInfoResponse, SendLocalSSHUserFlowStatusRequest_Code, SendLocalSSHUserFlowStatusRequest_ConnType, SendLocalSSHUserFlowStatusRequest_Status } from '../proto/typescript/ipc/v1/ipc';
 
 grpc.setDefaultTransport(NodeHttpTransport());
 
@@ -44,7 +44,7 @@ export class SupervisorSSHTunnel {
 
 	constructor(
 		private readonly logger: ILogService,
-		readonly workspaceInfo: WorkspaceAuthInfo,
+		readonly workspaceInfo: GetWorkspaceAuthInfoResponse,
 		private readonly localsshService: LocalSSHServiceImpl,
 	) { }
 

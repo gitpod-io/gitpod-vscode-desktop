@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Server as GrpcServer } from 'nice-grpc';
-import { WorkspaceAuthInfo, ExitCode, exitProcess, getHostKey, getDaemonVersion, getRunningExtensionVersion } from './common';
+import { ExitCode, exitProcess, getHostKey, getDaemonVersion, getRunningExtensionVersion } from './common';
 import { LocalSSHServiceImpl, startLocalSSHService } from './ipc/localssh';
 import { SupervisorSSHTunnel } from './sshTunnel';
 import { ILogService } from '../services/logService';
@@ -12,7 +12,7 @@ import { SshServer, SshClient } from '@microsoft/dev-tunnels-ssh-tcp';
 import { NodeStream, SshClientCredentials, SshClientSession, SshDisconnectReason, SshSessionConfiguration } from '@microsoft/dev-tunnels-ssh';
 import { importKeyBytes } from '@microsoft/dev-tunnels-ssh-keys';
 import { parsePrivateKey } from 'sshpk';
-import { SendLocalSSHUserFlowStatusRequest_Code, SendLocalSSHUserFlowStatusRequest_ConnType, SendLocalSSHUserFlowStatusRequest_Status } from '../proto/typescript/ipc/v1/ipc';
+import { GetWorkspaceAuthInfoResponse, SendLocalSSHUserFlowStatusRequest_Code, SendLocalSSHUserFlowStatusRequest_ConnType, SendLocalSSHUserFlowStatusRequest_Status } from '../proto/typescript/ipc/v1/ipc';
 import { PipeExtensions } from './patch/pipeExtension';
 
 // TODO(local-ssh): Remove me after direct ssh works with @microsft/dev-tunnels-ssh
@@ -116,7 +116,7 @@ export class LocalSSHGatewayServer {
 		});
 	}
 
-	private async tryDirectSSH(workspaceInfo: WorkspaceAuthInfo): Promise<SshClientSession | undefined> {
+	private async tryDirectSSH(workspaceInfo: GetWorkspaceAuthInfoResponse): Promise<SshClientSession | undefined> {
 		try {
 			const connConfig = {
 				host: `${workspaceInfo.workspaceId}.ssh.${workspaceInfo.workspaceHost}`,
@@ -153,7 +153,7 @@ export class LocalSSHGatewayServer {
 		return;
 	}
 
-	private async getTunnelSSHConfig(workspaceInfo: WorkspaceAuthInfo): Promise<SshClientSession> {
+	private async getTunnelSSHConfig(workspaceInfo: GetWorkspaceAuthInfoResponse): Promise<SshClientSession> {
 		const ssh = new SupervisorSSHTunnel(this.logger, workspaceInfo, this.localsshService);
 		const connConfig = await ssh.establishTunnel();
 		const config = new SshSessionConfiguration();
