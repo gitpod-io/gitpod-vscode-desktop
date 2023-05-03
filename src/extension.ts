@@ -15,7 +15,7 @@ import { RemoteConnector } from './remoteConnector';
 import { SettingsSync } from './settingsSync';
 import { TelemetryService } from './services/telemetryService';
 import { RemoteSession } from './remoteSession';
-import { SSHConnectionParams, checkForStoppedWorkspaces, getGitpodRemoteWindowConnectionInfo } from './remote';
+import { SSHConnectionParams, getGitpodRemoteWindowConnectionInfo } from './remote';
 import { HostService } from './services/hostService';
 import { SessionService } from './services/sessionService';
 import { CommandManager } from './commandManager';
@@ -89,7 +89,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		const remoteConnector = new RemoteConnector(context, sessionService, hostService, experiments, logger, telemetryService, notificationService);
 		context.subscriptions.push(remoteConnector);
 
-		const extensionIPCService = new ExtensionServiceServer(context, logger, sessionService, hostService, notificationService, telemetryService, experiments);
+		const extensionIPCService = new ExtensionServiceServer(logger, sessionService, hostService, telemetryService, experiments);
 		context.subscriptions.push(extensionIPCService);
 
 		context.subscriptions.push(vscode.window.registerUriHandler({
@@ -124,9 +124,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
 				remoteSession = new RemoteSession(remoteConnectionInfo.remoteAuthority, remoteConnectionInfo.connectionInfo, context, hostService!, sessionService, settingsSync, experiments, logger!, telemetryService!, notificationService);
 				await remoteSession.initialize();
-			} else if (sessionService.isSignedIn()) {
-				const restartFlow = { flow: 'restart_workspace', userId: sessionService.getUserId(), gitpodHost: hostService!.gitpodHost };
-				checkForStoppedWorkspaces(context, restartFlow, notificationService, logger!);
 			}
 		});
 

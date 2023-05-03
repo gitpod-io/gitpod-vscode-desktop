@@ -33,7 +33,6 @@ export class NoSSHGatewayError extends Error {
 }
 
 export const SSH_DEST_KEY = 'ssh-dest:';
-export const WORKSPACE_STOPPED_PREFIX = 'stopped_workspace:';
 
 export function getGitpodRemoteWindowConnectionInfo(context: vscode.ExtensionContext): { remoteAuthority: string; connectionInfo: SSHConnectionParams } | undefined {
     const remoteUri = vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.[0].uri;
@@ -57,23 +56,11 @@ export async function showWsNotRunningDialog(workspaceId: string, gitpodHost: st
     workspaceUrl.hash = workspaceId;
 
     const openUrl = 'Restart workspace';
-    const resp = await notificationService.showErrorMessage(msg, { id: 'ws_not_running', flow }, openUrl);
+    const resp = await notificationService.showErrorMessage(msg, { id: 'ws_not_running', flow, modal: true }, openUrl);
     if (resp === openUrl) {
         const opened = await vscode.env.openExternal(vscode.Uri.parse(workspaceUrl.toString()));
         if (opened) {
             vscode.commands.executeCommand('workbench.action.closeWindow');
-        }
-    }
-}
-
-export async function checkForStoppedWorkspaces(context: vscode.ExtensionContext, flow: UserFlowTelemetry, notificationService: INotificationService, logService: ILogService) {
-    const keys = context.globalState.keys();
-    const stopped_ws_keys = keys.filter(k => k.startsWith(WORKSPACE_STOPPED_PREFIX));
-    for (const k of stopped_ws_keys) {
-        const ws = context.globalState.get<WorkspaceRestartInfo>(k)!;
-        context.globalState.update(k, undefined);
-        if (new URL(flow.gitpodHost).host === new URL(ws.gitpodHost).host) {
-            showWsNotRunningDialog(ws.workspaceId, ws.gitpodHost, { ...flow, workspaceId: ws.workspaceId, gitpodHost: ws.gitpodHost }, notificationService, logService);
         }
     }
 }

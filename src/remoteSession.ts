@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { v4 as uuid } from 'uuid';
-import { NoRunningInstanceError, SSHConnectionParams, SSH_DEST_KEY, WORKSPACE_STOPPED_PREFIX, WorkspaceRestartInfo, showWsNotRunningDialog } from './remote';
+import { NoRunningInstanceError, SSHConnectionParams, SSH_DEST_KEY, showWsNotRunningDialog } from './remote';
 import { Disposable } from './common/dispose';
 import { HeartbeatManager } from './heartbeat';
 import { WorkspaceState } from './workspaceState';
@@ -79,10 +79,9 @@ export class RemoteSession extends Disposable {
 			if (this.usePublicApi) {
 				this.workspaceState = new WorkspaceState(this.connectionInfo.workspaceId, this.sessionService, this.logService);
 				await this.workspaceState.initialize();
-
 				this._register(this.workspaceState.onWorkspaceStopped(async () => {
-					await this.context.globalState.update(`${WORKSPACE_STOPPED_PREFIX}${this.connectionInfo.workspaceId}`, { workspaceId: this.connectionInfo.workspaceId, gitpodHost: this.connectionInfo.gitpodHost } as WorkspaceRestartInfo);
-					vscode.commands.executeCommand('workbench.action.remote.close');
+					const remoteFlow: UserFlowTelemetry = { ...this.connectionInfo, userId: this.sessionService.getUserId(), flow: 'remote_window', phase: 'stopped' };
+					showWsNotRunningDialog(this.connectionInfo.workspaceId, this.connectionInfo.gitpodHost, remoteFlow, this.notificationService, this.logService);
 				}));
 			}
 

@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
 import { ExtensionServiceDefinition, ExtensionServiceImplementation, GetWorkspaceAuthInfoRequest, GetWorkspaceAuthInfoResponse, LocalSSHServiceDefinition, ExtensionServicePingRequest, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest, SendLocalSSHUserFlowStatusRequest_Code, SendLocalSSHUserFlowStatusRequest_ConnType, SendLocalSSHUserFlowStatusRequest_Status } from '../../proto/typescript/ipc/v1/ipc';
 import { Disposable } from '../../common/dispose';
 import { retry, timeout } from '../../common/async';
@@ -17,8 +16,6 @@ import { ISessionService } from '../../services/sessionService';
 import { CallContext, ServerError, Status } from 'nice-grpc-common';
 import { IHostService } from '../../services/hostService';
 import { Server, createClient, createServer, createChannel } from 'nice-grpc';
-import { INotificationService } from '../../services/notificationService';
-import { getGitpodRemoteWindowConnectionInfo, showWsNotRunningDialog } from '../../remote';
 import { ITelemetryService, UserFlowTelemetry } from '../../services/telemetryService';
 import { ExperimentalSettings } from '../../experiments';
 import { Configuration } from '../../configuration';
@@ -38,23 +35,14 @@ const phaseMap: Record<WorkspaceInstanceStatus_Phase, WorkspaceInstancePhase | u
 };
 
 export class ExtensionServiceImpl implements ExtensionServiceImplementation {
-    private notificationGapSet = new Set<string>();
+    constructor(
+        private logService: ILogService,
+        private sessionService: ISessionService,
+        private hostService: IHostService,
+        private experiments: ExperimentalSettings,
+        private telemetryService: ITelemetryService
+    ) {
 
-    constructor(private readonly context: vscode.ExtensionContext, private logService: ILogService, private sessionService: ISessionService, private hostService: IHostService, private notificationService: INotificationService, private experiments: ExperimentalSettings, private telemetryService: ITelemetryService) { }
-
-    private canShowNotification(id: string) {
-        let remoteConnectionInfo = getGitpodRemoteWindowConnectionInfo(this.context);
-        if (!remoteConnectionInfo || remoteConnectionInfo.connectionInfo.workspaceId !== id) {
-            return false;
-        }
-        if (this.notificationGapSet.has(id)) {
-            return false;
-        }
-        this.notificationGapSet.add(id);
-        setTimeout(() => {
-            this.notificationGapSet.delete(id);
-        }, 10000); // clean gap after 10s
-        return true;
     }
 
     async ping(_request: ExtensionServicePingRequest, _context: CallContext): Promise<{}> {
@@ -80,11 +68,6 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
 
             const phase = usePublicApi ? phaseMap[(workspace as Workspace).status?.instance?.status?.phase ?? WorkspaceInstanceStatus_Phase.UNSPECIFIED] : (workspace as WorkspaceInfo).latestInstance?.status.phase;
             if (phase !== 'running') {
-                const show = this.canShowNotification(workspaceId);
-                if (show) {
-                    const flow: UserFlowTelemetry = { workspaceId, gitpodHost, userId: userId, flow: 'extension_ipc' };
-                    showWsNotRunningDialog(workspaceId, gitpodHost, flow, this.notificationService, this.logService);
-                }
                 throw new ServerError(Status.UNAVAILABLE, 'workspace is not running, current phase: ' + phase);
             }
 
@@ -161,11 +144,9 @@ export class ExtensionServiceServer extends Disposable {
     private localSSHServiceClient = createClient(LocalSSHServiceDefinition, createChannel('127.0.0.1:' + Configuration.getLocalSshIpcPort()));
 
     constructor(
-        private readonly context: vscode.ExtensionContext,
         private readonly logService: ILogService,
         private readonly sessionService: ISessionService,
         private readonly hostService: IHostService,
-        private readonly notificationService: INotificationService,
         private readonly telemetryService: ITelemetryService,
         private experiments: ExperimentalSettings,
     ) {
@@ -180,7 +161,7 @@ export class ExtensionServiceServer extends Disposable {
 
     private getServer(): Server {
         const server = createServer();
-        const serviceImpl = new ExtensionServiceImpl(this.context, this.logService, this.sessionService, this.hostService, this.notificationService, this.experiments, this.telemetryService);
+        const serviceImpl = new ExtensionServiceImpl(this.logService, this.sessionService, this.hostService, this.experiments, this.telemetryService);
         server.add(ExtensionServiceDefinition, serviceImpl);
         return server;
     }
