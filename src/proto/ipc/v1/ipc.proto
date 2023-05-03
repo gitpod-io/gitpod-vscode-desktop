@@ -88,7 +88,8 @@ message SendLocalSSHUserFlowStatusRequest {
     string workspace_id = 2;
     string instance_id = 3;
     Code failure_code = 5;
-    string failure_reason = 6 [deprecated = true];
+    // DEPRECATED string failure_reason = 6
+    reserved 6;
     string daemon_version = 7;
     string extension_version = 8;
     ConnType conn_type = 9;

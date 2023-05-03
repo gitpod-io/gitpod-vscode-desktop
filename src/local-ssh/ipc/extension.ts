@@ -123,7 +123,6 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
             extensionVersion: request.extensionVersion,
         };
         if (request.status !== SendLocalSSHUserFlowStatusRequest_Status.STATUS_SUCCESS && request.failureCode !== SendLocalSSHUserFlowStatusRequest_Code.CODE_UNSPECIFIED) {
-            flow.reason = request.failureReason; // TODO remove, should go to error reporting only
             flow.reasonCode = SendLocalSSHUserFlowStatusRequest_Code[request.failureCode];
         }
         const status = request.status === SendLocalSSHUserFlowStatusRequest_Status.STATUS_SUCCESS ? 'local-ssh-success' : 'local-ssh-failure';
@@ -135,7 +134,7 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
     // local ssh daemon should be own component in reporting?
     async sendErrorReport(request: SendErrorReportRequest, _context: CallContext): Promise<{}> {
         const err = new Error(request.errorMessage);
-        err.name = 'local-ssh:' + request.errorName;
+        err.name = `${request.errorName}[local-ssh]`;
         err.stack = request.errorStack;
         const properties: Record<string, any> = {
             workspaceId: request.workspaceId,

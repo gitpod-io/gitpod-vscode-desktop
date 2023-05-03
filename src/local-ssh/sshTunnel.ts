@@ -85,7 +85,6 @@ export class SupervisorSSHTunnel {
 				workspaceId: this.workspaceInfo.workspaceId,
 				instanceId: this.workspaceInfo.instanceId,
 				failureCode: SendLocalSSHUserFlowStatusRequest_Code.CODE_TUNNEL_NO_PRIVATEKEY,
-				failureReason: e?.toString(), // TODO remove, and report to error reporting
 				daemonVersion: getDaemonVersion(),
 				extensionVersion: getRunningExtensionVersion(),
 				connType: SendLocalSSHUserFlowStatusRequest_ConnType.CONN_TYPE_TUNNEL,
@@ -113,7 +112,6 @@ export class SupervisorSSHTunnel {
 					workspaceId: this.workspaceInfo.workspaceId,
 					instanceId: this.workspaceInfo.instanceId,
 					failureCode: SendLocalSSHUserFlowStatusRequest_Code.CODE_TUNNEL_CANNOT_CREATE_WEBSOCKET,
-					failureReason: e?.toString(), // TODO remove, and report to error reporting
 					daemonVersion: getDaemonVersion(),
 					extensionVersion: getRunningExtensionVersion(),
 					connType: SendLocalSSHUserFlowStatusRequest_ConnType.CONN_TYPE_TUNNEL,
@@ -142,7 +140,6 @@ export class SupervisorSSHTunnel {
 				workspaceId: this.workspaceInfo.workspaceId,
 				instanceId: this.workspaceInfo.instanceId,
 				failureCode: SendLocalSSHUserFlowStatusRequest_Code.CODE_TUNNEL_FAILED_FORWARD_SSH_PORT,
-				failureReason: e?.toString(), // TODO remove, and report to error reporting
 				daemonVersion: getDaemonVersion(),
 				extensionVersion: getRunningExtensionVersion(),
 				connType: SendLocalSSHUserFlowStatusRequest_ConnType.CONN_TYPE_TUNNEL,
