@@ -134,10 +134,8 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
     // local ssh daemon should be own component in reporting?
     async sendErrorReport(request: SendErrorReportRequest, _context: CallContext): Promise<{}> {
         const err = new Error(request.errorMessage);
-        err.name = 'local-ssh:' + request.errorName;
-        if (request.errorStack) {
-            err.stack = request.errorStack;
-        }
+        err.name = `${request.errorName}[local-ssh]`;
+        err.stack = request.errorStack;
         const properties: Record<string, any> = {
             workspaceId: request.workspaceId,
             instanceId: request.instanceId,
