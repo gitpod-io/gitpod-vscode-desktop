@@ -68,7 +68,7 @@ const analyticsClientFactory = async (gitpodHost: string, segmentKey: string, lo
 
 			const jsonData = {
 				component: 'vscode-desktop-extension',
-				errorStack: exception.stack ?? String(exception),
+				errorStack: exception.stack || String(exception),
 				version: properties['common.extversion'],
 				workspaceId,
 				instanceId,
