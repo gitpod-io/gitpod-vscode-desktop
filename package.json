@@ -38,7 +38,6 @@
 		"onCommand:gitpod.syncProvider.remove",
 		"onCommand:gitpod.exportLogs",
 		"onCommand:gitpod.api.autoTunnel",
-		"onCommand:gitpod.showReleaseNotes",
 		"onCommand:gitpod.installLocalExtensions",
 		"onAuthenticationRequest:gitpod",
 		"onUri",
@@ -107,11 +106,6 @@
 				"command": "gitpod.exportLogs",
 				"category": "Gitpod",
 				"title": "Export all logs"
-			},
-			{
-				"command": "gitpod.showReleaseNotes",
-				"category": "Gitpod",
-				"title": "Show Release Notes"
 			},
 			{
 				"command": "gitpod.installLocalExtensions",
