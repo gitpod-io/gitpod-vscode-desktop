@@ -10,7 +10,6 @@ import GitpodAuthenticationProvider from './authentication/authentication';
 import { ExperimentalSettings } from './experiments';
 import GitpodServer from './authentication/gitpodServer';
 import { NotificationService } from './services/notificationService';
-import { ReleaseNotes } from './releaseNotes';
 import { RemoteConnector } from './remoteConnector';
 import { SettingsSync } from './settingsSync';
 import { TelemetryService } from './services/telemetryService';
@@ -49,9 +48,6 @@ export async function activate(context: vscode.ExtensionContext) {
 	let remoteConnectionInfo: { remoteAuthority: string; connectionInfo: SSHConnectionParams } | undefined;
 	let success = false;
 	try {
-		// sync between machines
-		context.globalState.setKeysForSync([ReleaseNotes.RELEASE_NOTES_LAST_READ_KEY]);
-
 		logger = vscode.window.createOutputChannel('Gitpod', { log: true });
 		context.subscriptions.push(logger);
 
@@ -102,8 +98,6 @@ export async function activate(context: vscode.ExtensionContext) {
 				}
 			}
 		}));
-
-		context.subscriptions.push(new ReleaseNotes(context, commandManager, logger));
 
 		// Register global commands
 		commandManager.register(new SignInCommand(sessionService));
