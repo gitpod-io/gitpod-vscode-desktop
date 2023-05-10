@@ -16,7 +16,7 @@ const config = {
 	target: 'node',
 	entry: {
 		extension: './src/extension.ts',
-		'local-ssh/daemon': './src/local-ssh/daemon.ts',
+		'local-ssh/client': './src/local-ssh/client.ts',
 	},
 	output: {
 		path: path.resolve(__dirname, 'out'),

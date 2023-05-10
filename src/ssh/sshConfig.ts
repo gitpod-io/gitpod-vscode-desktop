@@ -6,9 +6,10 @@
 import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
+import Handlebars from 'handlebars';
 import SSHConfig, { Line, Section, Directive } from 'ssh-config';
 import * as vscode from 'vscode';
-import { isFile, untildify } from '../common/files';
+import { exists, isFile, untildify } from '../common/files';
 import { isWindows } from '../common/platform';
 
 const systemSSHConfig = isWindows ? path.resolve(process.env.ALLUSERSPROFILE || 'C:\\ProgramData', 'ssh\\ssh_config') : '/etc/ssh/ssh_config';
@@ -71,6 +72,54 @@ export default class SSHConfiguration {
         }
 
         return new SSHConfiguration(config);
+    }
+
+    static async configureLocalSSHSettings(scopeName: string, hosts: string[], scriptLocation: string, port: number) {
+        hosts = hosts.map(host => host.replace(/^[^:]+:\/\//, ''));
+        const render = Handlebars.compile(`## START GITPOD {{scopeName}}
+### This section is managed by Gitpod. Any manual changes will be lost.
+
+{{#each hosts}}
+### {{this}}
+Host *.{{../scopeName}}.lssh.{{this}}
+    StrictHostKeyChecking no
+    ProxyCommand "{{../execPath}}" "{{../scriptLocation}}" %h {{../port}}
+{{/each}}
+
+## END GITPOD {{scopeName}}`);
+        // const newContent = render({ scopeName, hosts, scriptLocation, port, execPath: process.execPath });
+        // TODO(lssh): use `process.execPath` and `--ms-enable-electron-run-as-node`
+        const newContent = render({ scopeName, hosts, scriptLocation, port, execPath: 'node' });
+        
+        const findAndReplaceScope = async (configPath: string) => {
+            try {
+                let content = '';
+                if (await exists(configPath)) {
+                    if (!(await isFile(configPath))) {
+                        return false;
+                    }
+                    content = (await fs.promises.readFile(configPath, 'utf8')).trim();
+                } else {
+                    await fs.promises.mkdir(path.dirname(configPath), { recursive: true });
+                }
+                const scopeRegex = new RegExp(`## START GITPOD ${scopeName}.*## END GITPOD ${scopeName}`, 's');
+                if (scopeRegex.test(content)) {
+                    content = content.replace(scopeRegex, newContent);
+                } else {
+                    content = `${content}\n\n${newContent}`;
+                }
+                await fs.promises.writeFile(configPath, content);
+                return true;
+            } catch (err) {
+                // ignore
+                return false;
+            }
+        };
+        const ok = await findAndReplaceScope(getSSHConfigPath());
+        if (!ok) {
+            return await findAndReplaceScope(systemSSHConfig);
+        }
+        return false;
     }
 
     constructor(private sshConfig: SSHConfig) {

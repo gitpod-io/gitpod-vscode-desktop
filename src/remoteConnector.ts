@@ -39,7 +39,7 @@ import { ILogService } from './services/logService';
 import { IHostService } from './services/hostService';
 import { Configuration } from './configuration';
 import { getLocalSSHUrl, getServiceURL } from './common/utils';
-import { GitpodDefaultLocalhost as GITPOD_DEFAULT_LOCALHOST_RECORD, HOST_PUBLIC_KEY_TYPE, getHostKeyFingerprint, isDNSPointToLocalhost, isDomainConnectable } from './local-ssh/common';
+import { ILocalSSHService } from './services/localSSHService';
 
 interface LocalAppConfig {
 	gitpodHost: string;
@@ -109,6 +109,7 @@ export class RemoteConnector extends Disposable {
 		private readonly logService: ILogService,
 		private readonly telemetryService: ITelemetryService,
 		private readonly notificationService: INotificationService,
+		private readonly localSSHService: ILocalSSHService,
 	) {
 		super();
 
@@ -531,25 +532,15 @@ export class RemoteConnector extends Disposable {
 			);
 		}
 
-		const domain = getLocalSSHUrl(gitpodHost);
+		const appName = vscode.env.appName.includes('Insiders') ? 'insiders' : 'stable';
+		const domain = appName + '.' + getLocalSSHUrl(gitpodHost);
+
 		let hostname = `${workspaceId}.${domain}`;
-		if (!await isDNSPointToLocalhost(hostname)) {
-			this.logService.warn(`'${hostname}' DNS record for lssh is not pointing to localhost. Falling back to default record`);
-			hostname = `${workspaceId}.${GITPOD_DEFAULT_LOCALHOST_RECORD}`;
-			if (!await isDomainConnectable(hostname)) {
-				this.logService.warn(`'${hostname}' DNS record is not connectable. Falling back to localhost`);
-				hostname = 'localhost';
-			}
-		}
-		if (await checkNewHostInHostkeys(hostname)) {
-			await addHostToHostFile(hostname, getHostKeyFingerprint(), HOST_PUBLIC_KEY_TYPE);
-		}
 
 		const user = debugWorkspace ? ('debug-' + workspaceId) : workspaceId;
-		const port = Configuration.getLocalSSHServerPort();
-		this.logService.info('connecting with local ssh destination', { port, domain });
+		this.logService.info('connecting with local ssh destination', { domain });
 		return {
-			destination: new SSHDestination(hostname, user, port),
+			destination: new SSHDestination(hostname, user),
 			password: '',
 		};
 	}
@@ -698,7 +689,11 @@ export class RemoteConnector extends Disposable {
 				this.usePublicApi = await this.experiments.getUsePublicAPI(params.gitpodHost);
 				this.logService.info(`Going to use ${this.usePublicApi ? 'public' : 'server'} API`);
 
-				const useLocalSSH = await this.experiments.getUseLocalSSHServer(params.gitpodHost);
+				let useLocalSSH = await this.experiments.getUseLocalSSHServer(params.gitpodHost);
+				if (this.localSSHService.isSupportLocalSSH) {
+					this.logService.error('Local SSH is not supported on this platform');
+					useLocalSSH = false;
+				}
 				if (useLocalSSH) {
 					this.logService.info('Going to use lssh');
 				}

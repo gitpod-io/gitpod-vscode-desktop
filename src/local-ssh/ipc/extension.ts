@@ -3,11 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ExtensionServiceDefinition, ExtensionServiceImplementation, GetWorkspaceAuthInfoRequest, GetWorkspaceAuthInfoResponse, LocalSSHServiceDefinition, ExtensionServicePingRequest, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest, SendLocalSSHUserFlowStatusRequest_Code, SendLocalSSHUserFlowStatusRequest_ConnType, SendLocalSSHUserFlowStatusRequest_Status } from '../../proto/typescript/ipc/v1/ipc';
+import { ExtensionServiceDefinition, ExtensionServiceImplementation, GetWorkspaceAuthInfoRequest, GetWorkspaceAuthInfoResponse, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest, SendLocalSSHUserFlowStatusRequest_Code, SendLocalSSHUserFlowStatusRequest_ConnType, SendLocalSSHUserFlowStatusRequest_Status } from '../../proto/typescript/ipc/v1/ipc';
 import { Disposable } from '../../common/dispose';
-import { retry, timeout } from '../../common/async';
 export { ExtensionServiceDefinition } from '../../proto/typescript/ipc/v1/ipc';
-import { ensureDaemonStarted, killDaemon } from '../../daemonStarter';
 import { withServerApi } from '../../internalApi';
 import { Workspace, WorkspaceInstanceStatus_Phase } from '@gitpod/public-api/lib/gitpod/experimental/v1';
 import { WorkspaceInfo, WorkspaceInstancePhase } from '@gitpod/gitpod-protocol';
@@ -15,11 +13,11 @@ import { ILogService } from '../../services/logService';
 import { ISessionService } from '../../services/sessionService';
 import { CallContext, ServerError, Status } from 'nice-grpc-common';
 import { IHostService } from '../../services/hostService';
-import { Server, createClient, createServer, createChannel } from 'nice-grpc';
+import { Server, createServer } from 'nice-grpc';
 import { ITelemetryService, UserFlowTelemetry } from '../../services/telemetryService';
 import { ExperimentalSettings } from '../../experiments';
 import { Configuration } from '../../configuration';
-import { SemVer } from 'semver';
+import { timeout } from '../../common/async';
 
 const phaseMap: Record<WorkspaceInstanceStatus_Phase, WorkspaceInstancePhase | undefined> = {
     [WorkspaceInstanceStatus_Phase.CREATING]: 'pending',
@@ -45,10 +43,6 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
 
     }
 
-    async ping(_request: ExtensionServicePingRequest, _context: CallContext): Promise<{}> {
-        return {};
-    }
-
     async getWorkspaceAuthInfo(request: GetWorkspaceAuthInfoRequest, _context: CallContext): Promise<GetWorkspaceAuthInfoResponse> {
         try {
             await this.sessionService.didFirstLoad;
@@ -58,7 +52,7 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
             }
             const userId = this.sessionService.getUserId();
             const workspaceId = request.workspaceId;
-
+            // TODO(lssh): Get auth info according to `request.gitpodHost`
             const gitpodHost = this.hostService.gitpodHost;
             const usePublicApi = await this.experiments.getUsePublicAPI(gitpodHost);
             const [workspace, ownerToken] = await withServerApi(accessToken, gitpodHost, svc => Promise.all([
@@ -68,6 +62,7 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
 
             const phase = usePublicApi ? phaseMap[(workspace as Workspace).status?.instance?.status?.phase ?? WorkspaceInstanceStatus_Phase.UNSPECIFIED] : (workspace as WorkspaceInfo).latestInstance?.status.phase;
             if (phase !== 'running') {
+                // TODO(lssh): extension child ipc broadcasts this error to all windows
                 throw new ServerError(Status.UNAVAILABLE, 'workspace is not running, current phase: ' + phase);
             }
 
@@ -103,7 +98,7 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
             daemonVersion: request.daemonVersion,
             userId: request.userId,
             gitpodHost: request.gitpodHost,
-            extensionVersion: request.extensionVersion,
+            // extensionVersion: request.extensionVersion,
         };
         if (request.status !== SendLocalSSHUserFlowStatusRequest_Status.STATUS_SUCCESS && request.failureCode !== SendLocalSSHUserFlowStatusRequest_Code.CODE_UNSPECIFIED) {
             flow.reasonCode = SendLocalSSHUserFlowStatusRequest_Code[request.failureCode];
@@ -136,12 +131,6 @@ export class ExtensionServiceServer extends Disposable {
     static MAX_EXTENSION_ACTIVE_RETRY_COUNT = 10;
 
     private server: Server;
-    private pingLocalSSHRetryCount = 0;
-    private lastTimeActiveTelemetry: boolean | undefined;
-    private readonly id: string = Math.random().toString(36).slice(2);
-    private ipcPort?: number;
-
-    private localSSHServiceClient = createClient(LocalSSHServiceDefinition, createChannel('127.0.0.1:' + Configuration.getLocalSshIpcPort()));
 
     constructor(
         private readonly logService: ILogService,
@@ -152,7 +141,6 @@ export class ExtensionServiceServer extends Disposable {
     ) {
         super();
         this.server = this.getServer();
-        this.tryForceKillZombieDaemon();
         this.tryActive();
         this.hostService.onDidChangeHost(() => {
             this.tryActive();
@@ -167,92 +155,20 @@ export class ExtensionServiceServer extends Disposable {
     }
 
     private async tryActive() {
-        this.logService.info('going to start extension ipc service server with id', this.id);
-        this.server.listen('127.0.0.1:0').then((port) => {
-            this.ipcPort = port;
-            this.logService.info('extension ipc service server started to listen with id: ' + this.id);
-            this.pingLocalSSHService();
-            this.backoffActive();
+        const port = Configuration.getLocalSshExtensionIpcPort();
+        this.logService.debug('going to try active extension ipc service server on port ' + port);
+        this.server.listen('127.0.0.1:' + port).then(() => {
+            this.logService.info('extension ipc service server started to listen');
         }).catch(e => {
-            this.logService.error(e, `extension ipc service server failed to listen with id: ${this.id}`);
+            this.logService.debug(`extension ipc service server failed to listen`, e);
+            // TODO(lssh): listen to port and wait until disconnect and try again
+            timeout(1000).then(() => {
+                this.tryActive();
+            });
         });
-    }
-
-    private async backoffActive() {
-        try {
-            await retry(async () => {
-                await this.localSSHServiceClient.active({ id: this.id, ipcPort: this.ipcPort! });
-                this.logService.info('extension ipc svc activated id: ' + this.id);
-            }, 200, ExtensionServiceServer.MAX_EXTENSION_ACTIVE_RETRY_COUNT);
-            if (this.lastTimeActiveTelemetry === true) {
-                return;
-            }
-            const userId = this.sessionService.safeGetUserId();
-            this.telemetryService.sendRawTelemetryEvent(this.hostService.gitpodHost, 'vscode_desktop_extension_ipc_svc_active', { id: this.id, userId, active: true });
-            this.lastTimeActiveTelemetry = true;
-        } catch (e) {
-            const gitpodHost = this.hostService.gitpodHost;
-            const userId = this.sessionService.safeGetUserId();
-            this.telemetryService.sendRawTelemetryEvent(gitpodHost, 'vscode_desktop_extension_ipc_svc_active', { id: this.id, userId, active: false });
-            this.logService.warn(e, 'failed to active extension ipc svc');
-            if (this.lastTimeActiveTelemetry === false) {
-                return;
-            }
-            this.telemetryService.sendTelemetryException(gitpodHost, e, { userId } as any);
-            this.lastTimeActiveTelemetry = false;
-        }
     }
 
     public override dispose() {
         this.server.shutdown();
-    }
-
-    /**
-     * pingLocalSSHService to see if it's still alive
-     * if not, start a new one
-     */
-    private async pingLocalSSHService() {
-        while (true) {
-            if (this.pingLocalSSHRetryCount > ExtensionServiceServer.MAX_LOCAL_SSH_PING_RETRY_COUNT) {
-                this.logService.error('failed to ping local ssh service for 10 times, stopping ping process');
-                return;
-            }
-            try {
-                await this.localSSHServiceClient.ping({});
-                this.pingLocalSSHRetryCount = 0;
-            } catch (err) {
-                this.logService.error('failed to ping local ssh service, going to start a new one', err);
-                ensureDaemonStarted(this.logService, this.telemetryService).catch(() => { });
-                this.backoffActive();
-                this.pingLocalSSHRetryCount++;
-            }
-            await timeout(1000 * 1);
-        }
-    }
-
-    // private async notifyIfDaemonNeedsRestart() {
-    //     const resp = await this.localSSHServiceClient.getDaemonVersion({});
-    //     const runningVersion = new SemVer(resp.version);
-    //     const wantedVersion = new SemVer(getDaemonVersion());
-    //     if (runningVersion.compare(wantedVersion) >= 0) {
-    //         return;
-    //     }
-    //     // TODO(local-ssh): allow to hide always for current version (wantedVersion)
-    //     this.logService.info('restart vscode to get latest features of local ssh');
-    //     // await this.notificationService.showWarningMessage('Restart VSCode to use latest local ssh daemon', { id: 'daemon_needs_restart', flow: { flow: 'daemon_needs_restart' } });
-    // }
-
-    private async tryForceKillZombieDaemon() {
-        try {
-            // force kill daemon if its version less than 0.0.3
-            const resp = await this.localSSHServiceClient.getDaemonVersion({});
-            const runningDaemonVersion = new SemVer(resp.version);
-            if (runningDaemonVersion.compare(new SemVer('0.0.3')) >= 0) {
-                return;
-            }
-            killDaemon(this.logService);
-        } catch (e) {
-            this.logService.error(e, 'failed to force kill zombie daemon');
-        }
     }
 }

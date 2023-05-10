@@ -11,7 +11,7 @@ const DefaultLogFormatter = winston.format.combine(winston.format.timestamp(), w
 export class Logger implements ILogService {
     private logger: winston.Logger;
 
-    constructor(logLevel: 'debug' | 'info', logFile: string) {
+    constructor(logLevel: 'debug' | 'info' = 'debug', logFile: string = '/tmp/lssh.log') {
         this.logger = winston.createLogger({
             level: logLevel,
             defaultMeta: { pid: process.pid },

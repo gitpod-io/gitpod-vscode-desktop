@@ -2,43 +2,11 @@ syntax = "proto3";
 
 package ipc.v1;
 
-service LocalSSHService {
-    // Active is called when extension is activated
-    rpc Active(ActiveRequest) returns (ActiveResponse) {}
-
-    // Inactive is called when extension is deactivated
-    rpc Inactive(InactiveRequest) returns (InactiveResponse) {}
-
-    rpc Ping (LocalSSHServicePingRequest) returns (LocalSSHServicePingResponse) {}
-
-    // GetDaemonVersion returns the version of the daemon
-    rpc GetDaemonVersion(GetDaemonVersionRequest) returns (GetDaemonVersionResponse) {}
-
-    // GetDaemonInfo returns the infomation of daemon
-    rpc GetDaemonInfo(GetDaemonInfoRequest) returns (GetDaemonInfoResponse) {}
-
-    // KillDaemon kills the daemon
-    rpc KillDaemon(KillDaemonRequest) returns (KillDaemonResponse) {}
-}
-
 service ExtensionService {
-    rpc Ping (ExtensionServicePingRequest) returns (ExtensionServicePingResponse) {}
     rpc GetWorkspaceAuthInfo (GetWorkspaceAuthInfoRequest) returns (GetWorkspaceAuthInfoResponse) {}
     rpc SendLocalSSHUserFlowStatus (SendLocalSSHUserFlowStatusRequest) returns (SendLocalSSHUserFlowStatusResponse) {}
     rpc SendErrorReport (SendErrorReportRequest) returns (SendErrorReportResponse) {}
 }
-
-message GetDaemonInfoRequest {}
-message GetDaemonInfoResponse {
-    string daemon_version = 1;
-    string running_extension_version = 2;
-    uint32 pid = 3;
-}
-
-message KillDaemonRequest {
-    string reason = 1;
-}
-message KillDaemonResponse {}
 
 message SendErrorReportRequest {
     string workspace_id = 1;
@@ -91,7 +59,8 @@ message SendLocalSSHUserFlowStatusRequest {
     // DEPRECATED string failure_reason = 6
     reserved 6;
     string daemon_version = 7;
-    string extension_version = 8;
+    // DEPRECATED string extension_version = 8
+    reserved 8;
     ConnType conn_type = 9;
     string gitpod_host = 10;
     string user_id = 11;
@@ -99,39 +68,9 @@ message SendLocalSSHUserFlowStatusRequest {
 
 message SendLocalSSHUserFlowStatusResponse {}
 
-message ActiveRequest {
-    // id is the extenson id
-    string id = 1;
-    // ipc_port is the port of the extension service ipc server
-    uint32 ipc_port = 2;
-}
-
-message ActiveResponse {}
-
-message InactiveRequest {
-    string id = 1;
-}
-
-message InactiveResponse {}
-
-message LocalSSHServicePingRequest {}
-
-message LocalSSHServicePingResponse {}
-
-message ExtensionServicePingRequest {}
-
-message ExtensionServicePingResponse {}
-
-message PingResponse {}
-
-message GetDaemonVersionRequest {}
-
-message GetDaemonVersionResponse {
-    string version = 1;
-}
-
 message GetWorkspaceAuthInfoRequest {
     string workspace_id = 1;
+    string gitpod_host = 2;
 }
 
 message GetWorkspaceAuthInfoResponse {
