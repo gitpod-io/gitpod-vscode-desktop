@@ -62,7 +62,7 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
 
             const phase = usePublicApi ? phaseMap[(workspace as Workspace).status?.instance?.status?.phase ?? WorkspaceInstanceStatus_Phase.UNSPECIFIED] : (workspace as WorkspaceInfo).latestInstance?.status.phase;
             if (phase !== 'running') {
-                // TODO(lssh): extension child ipc broadcasts this error to all windows
+                // TODO(lssh): extension child ipc broadcasts this error to all windows (window itself will figure it out if it needs to be shown)
                 throw new ServerError(Status.UNAVAILABLE, 'workspace is not running, current phase: ' + phase);
             }
 

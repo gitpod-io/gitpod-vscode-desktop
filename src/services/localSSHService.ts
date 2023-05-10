@@ -9,6 +9,7 @@ import { ILogService } from './logService';
 import { Configuration } from '../configuration';
 import { IHostService } from './hostService';
 import SSHConfiguration from '../ssh/sshConfig';
+import { chmod } from 'fs/promises';
 
 export interface ILocalSSHService {
 
@@ -23,15 +24,15 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
         private readonly logService: ILogService
     ) {
         super();
-        this.copyClientScript().then(scriptLocation => {
-            this.configureSettings(scriptLocation);
+        this.copyClientScript().then(locations => {
+            this.configureSettings(locations);
             this._register(vscode.workspace.onDidChangeConfiguration(async e => {
                 if (
                     e.affectsConfiguration('gitpod.lsshExtensionIpcPort') ||
                     e.affectsConfiguration('gitpod.host') ||
                     e.affectsConfiguration('remote.SSH.configFile')
                 ) {
-                    this.configureSettings(scriptLocation);   
+                    this.configureSettings(locations);
                 }
             }));
         }).catch(err => {
@@ -40,18 +41,28 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
         });
     }
 
-    private async configureSettings(scriptLocation: string) {
+    private async configureSettings(locations: { js: string; sh: string; bat: string }) {
         const newExtIpcPort = Configuration.getLocalSshExtensionIpcPort();
         const appName = vscode.env.appName.includes('Insiders') ? 'insiders' : 'stable';
-        this.isSupportLocalSSH = await SSHConfiguration.configureLocalSSHSettings(appName, [this.hostService.gitpodHost], scriptLocation, newExtIpcPort);
+        const starter = process.platform === 'win32' ? locations.bat : locations.sh;
+        this.isSupportLocalSSH = await SSHConfiguration.configureLocalSSHSettings(appName, [this.hostService.gitpodHost], starter, locations.js, newExtIpcPort);
     }
 
-    async copyClientScript() {
-		// Copy local ssh client.js to global storage
-		const clientJsPath = this.context.asAbsolutePath('out/local-ssh/client.js');
-		const clientJsUri = vscode.Uri.file(clientJsPath);
-		const clientJsDestUri = vscode.Uri.joinPath(this.context.globalStorageUri, 'gitpod-client.js');
-		await vscode.workspace.fs.copy(clientJsUri, clientJsDestUri, { overwrite: true });
-        return clientJsDestUri.fsPath;
+    private async copyClientScript() {
+        const [js, sh, bat] = await Promise.all([
+            this.copyFileToGlobalStorage('out/local-ssh/client.js', 'gitpod-client.js'),
+            this.copyFileToGlobalStorage('out/local-ssh/starter.sh', 'gitpod-client-starter.sh'),
+            this.copyFileToGlobalStorage('out/local-ssh/starter.bat', 'gitpod-client-starter.bat'),
+        ]);
+        await chmod(sh, 0o755);
+        return { js, sh, bat };
+    }
+
+    private async copyFileToGlobalStorage(filepath: string, destPath: string) {
+        const absFilepath = this.context.asAbsolutePath(filepath);
+        const fileUri = vscode.Uri.file(absFilepath);
+        const destUri = vscode.Uri.joinPath(this.context.globalStorageUri, destPath);
+        await vscode.workspace.fs.copy(fileUri, destUri, { overwrite: true });
+        return destUri.fsPath;
     }
 }

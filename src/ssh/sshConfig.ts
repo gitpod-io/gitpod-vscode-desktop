@@ -74,7 +74,7 @@ export default class SSHConfiguration {
         return new SSHConfiguration(config);
     }
 
-    static async configureLocalSSHSettings(scopeName: string, hosts: string[], scriptLocation: string, port: number) {
+    static async configureLocalSSHSettings(scopeName: string, hosts: string[], starter: string, jsLocation: string, extIpcPort: number) {
         hosts = hosts.map(host => host.replace(/^[^:]+:\/\//, ''));
         const render = Handlebars.compile(`## START GITPOD {{scopeName}}
 ### This section is managed by Gitpod. Any manual changes will be lost.
@@ -83,14 +83,12 @@ export default class SSHConfiguration {
 ### {{this}}
 Host *.{{../scopeName}}.lssh.{{this}}
     StrictHostKeyChecking no
-    ProxyCommand "{{../execPath}}" "{{../scriptLocation}}" %h {{../port}}
+    ProxyCommand "{{../execPath}}" "{{../nodeLocation}}" "{{../jsLocation}}" --ms-enable-electron-run-as-node %h {{../port}}
 {{/each}}
 
 ## END GITPOD {{scopeName}}`);
-        // const newContent = render({ scopeName, hosts, scriptLocation, port, execPath: process.execPath });
-        // TODO(lssh): use `process.execPath` and `--ms-enable-electron-run-as-node`
-        const newContent = render({ scopeName, hosts, scriptLocation, port, execPath: 'node' });
-        
+        const newContent = render({ scopeName, hosts, jsLocation, port: extIpcPort, execPath: starter, nodeLocation: process.execPath });
+
         const findAndReplaceScope = async (configPath: string) => {
             try {
                 let content = '';

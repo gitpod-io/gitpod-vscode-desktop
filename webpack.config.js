@@ -5,6 +5,7 @@
 const path = require('path');
 const webpack = require('webpack');
 const packageJSON = require('./package.json')
+const CopyPlugin = require('copy-webpack-plugin');
 
 const daemonVersion = new webpack.DefinePlugin({
 	'process.env.DAEMON_VERSION': JSON.stringify(packageJSON.daemonVersion ?? '0.0.1'),
@@ -49,6 +50,12 @@ const config = {
 		}),
 		new webpack.IgnorePlugin({
 			resourceRegExp: /cpu-features/,
+		}),
+		new CopyPlugin({
+			patterns: [
+				{ from: 'src/local-ssh/starter.bat', to: 'local-ssh/starter.bat' },
+				{ from: 'src/local-ssh/starter.sh', to: 'local-ssh/starter.sh' },
+			],
 		}),
 		daemonVersion,
 	]
