@@ -12,7 +12,7 @@ const logLikeFormat = winston.format.combine(winston.format.timestamp(), {
         let { timestamp, message } = info;
         const level = info[Symbol.for('level')];
         const args = info[Symbol.for('splat')];
-        const strArgs = args.map((e: any) => util.format(e)).join(' ');
+        const strArgs = args ? args.map((e: any) => util.format(e)).join(' ') : '';
         if (message instanceof Error) {
             message = message.message + '\n' + message.stack;
         }
