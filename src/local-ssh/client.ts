@@ -49,6 +49,7 @@ export class LocalSSHClient {
         }
         this.options = options;
         this.logger = new Logger('info', options.logPath);
+        this.logger.info('client started with options: ', options);
         this.onExit();
         this.onException();
         this.startServer().then().catch(err => {
@@ -223,7 +224,7 @@ export class LocalSSHClient {
         }, 200, 10);
     }
 
-    async sendErrorReport( gitpodHost: string, userId: string, workspaceId: string | undefined, instanceId: string | undefined, err: Error | any, message: string) {
+    async sendErrorReport(gitpodHost: string, userId: string, workspaceId: string | undefined, instanceId: string | undefined, err: Error | any, message: string) {
         const request: Partial<SendErrorReportRequest> = {
             gitpodHost,
             userId,

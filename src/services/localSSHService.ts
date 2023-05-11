@@ -57,7 +57,7 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
 ### {{this}}
 Host *.{{../scopeName}}.lssh.{{this}}
     StrictHostKeyChecking no
-    ProxyCommand "{{../execPath}}" "{{../nodeLocation}}" "{{../jsLocation}}" --ms-enable-electron-run-as-node %h {{../port}} {{../logPath}}
+    ProxyCommand "{{../execPath}}" "{{../nodeLocation}}" "{{../jsLocation}}" --ms-enable-electron-run-as-node %h {{../port}} "{{../logPath}}"
 {{/each}}`);
         const newContent = render({ scopeName, hosts, jsLocation, port: extIpcPort, execPath: starter, nodeLocation: process.execPath, logPath: Configuration.getLocalSSHLogPath() });
 

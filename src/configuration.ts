@@ -36,9 +36,9 @@ function getLocalSshExtensionIpcPort() {
 
 function getLocalSSHLogFileName(): string {
     if (vscode.env.appName.includes('Insiders')) {
-        return 'gitpod-vscode-daemon-insiders.log';
+        return 'gitpod-vscode-lssh-insiders.log';
     }
-    return 'gitpod-vscode-daemon.log';
+    return 'gitpod-vscode-lssh.log';
 }
 
 function getLocalSSHLogPath(): string {
