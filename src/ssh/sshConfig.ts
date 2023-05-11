@@ -74,14 +74,14 @@ export default class SSHConfiguration {
         return new SSHConfiguration(config);
     }
 
-    static async includeLocalSSHConfig(scopeName: string, configPath: string): Promise<boolean> {
+    static async includeLocalSSHConfig(scopeName: string, configContent: string): Promise<boolean> {
         const render = Handlebars.compile(`## START GITPOD {{scopeName}}
 ### This section is managed by Gitpod. Any manual changes will be lost.
 
-Include "{{configPath}}"
+{{{configContent}}}
 
 ## END GITPOD {{scopeName}}`);
-        const newContent = render({ scopeName, configPath });
+        const newContent = render({ scopeName, configContent });
 
         const findAndReplaceScope = async (configPath: string) => {
             try {
