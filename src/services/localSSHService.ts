@@ -12,20 +12,21 @@ import SSHConfiguration from '../ssh/sshConfig';
 import { chmod } from 'fs/promises';
 
 export interface ILocalSSHService {
-
     isSupportLocalSSH: boolean;
+    initialized: Promise<void>;
 }
 
 export class LocalSSHService extends Disposable implements ILocalSSHService {
     public isSupportLocalSSH: boolean = false;
+    public initialized: Promise<void>;
     constructor(
         private readonly context: vscode.ExtensionContext,
         private readonly hostService: IHostService,
         private readonly logService: ILogService
     ) {
         super();
-        this.copyClientScript().then(locations => {
-            this.configureSettings(locations);
+        this.initialized = this.copyClientScript().then(async locations => {
+            await this.configureSettings(locations);
             this._register(vscode.workspace.onDidChangeConfiguration(async e => {
                 if (
                     e.affectsConfiguration('gitpod.lsshExtensionIpcPort') ||
@@ -50,9 +51,9 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
 
     private async copyClientScript() {
         const [js, sh, bat] = await Promise.all([
-            this.copyFileToGlobalStorage('out/local-ssh/client.js', 'gitpod-client.js'),
-            this.copyFileToGlobalStorage('out/local-ssh/starter.sh', 'gitpod-client-starter.sh'),
-            this.copyFileToGlobalStorage('out/local-ssh/starter.bat', 'gitpod-client-starter.bat'),
+            this.copyFileToGlobalStorage('out/local-ssh/client.js', 'lssh-client.js'),
+            this.copyFileToGlobalStorage('out/local-ssh/starter.sh', 'lssh-starter.sh'),
+            this.copyFileToGlobalStorage('out/local-ssh/starter.bat', 'lssh-starter.bat'),
         ]);
         await chmod(sh, 0o755);
         return { js, sh, bat };

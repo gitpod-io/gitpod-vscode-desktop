@@ -690,9 +690,12 @@ export class RemoteConnector extends Disposable {
 				this.logService.info(`Going to use ${this.usePublicApi ? 'public' : 'server'} API`);
 
 				let useLocalSSH = await this.experiments.getUseLocalSSHServer(params.gitpodHost);
-				if (this.localSSHService.isSupportLocalSSH) {
-					this.logService.error('Local SSH is not supported on this platform');
-					useLocalSSH = false;
+				if (useLocalSSH) {
+					await this.localSSHService.initialized;
+					if (!this.localSSHService.isSupportLocalSSH) {
+						this.logService.error('Local SSH is not supported on this platform');
+						useLocalSSH = false;
+					}
 				}
 				if (useLocalSSH) {
 					this.logService.info('Going to use lssh');
