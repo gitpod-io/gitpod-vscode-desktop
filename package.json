@@ -38,7 +38,6 @@
 		"onCommand:gitpod.syncProvider.remove",
 		"onCommand:gitpod.exportLogs",
 		"onCommand:gitpod.api.autoTunnel",
-		"onCommand:gitpod.showReleaseNotes",
 		"onCommand:gitpod.installLocalExtensions",
 		"onAuthenticationRequest:gitpod",
 		"onUri",
@@ -59,12 +58,6 @@
 						"type": "string",
 						"description": "Gitpod Service URL. Update this if you are using a Gitpod self-hosted installation.",
 						"default": "https://gitpod.io/",
-						"scope": "application"
-					},
-					"gitpod.showReleaseNotes": {
-						"type": "boolean",
-						"description": "Show the Gitpod Changelog whenever a new one comes out.",
-						"default": true,
 						"scope": "application"
 					},
 					"gitpod.remote.useLocalApp": {
@@ -113,11 +106,6 @@
 				"command": "gitpod.exportLogs",
 				"category": "Gitpod",
 				"title": "Export all logs"
-			},
-			{
-				"command": "gitpod.showReleaseNotes",
-				"category": "Gitpod",
-				"title": "Show Release Notes"
 			},
 			{
 				"command": "gitpod.installLocalExtensions",

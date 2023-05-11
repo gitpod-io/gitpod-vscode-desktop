@@ -15,10 +15,6 @@ function getGitpodHost() {
     return vscode.workspace.getConfiguration('gitpod').get<string>('host', 'https://gitpod.io/');
 }
 
-function getShowReleaseNotes() {
-    return vscode.workspace.getConfiguration('gitpod').get<boolean>('showReleaseNotes', true);
-}
-
 function getUseLocalApp(useLocalSSHServer?: boolean) {
     if (useLocalSSHServer) {
         return false;
@@ -57,7 +53,6 @@ function getDaemonLogPath(): string {
 
 export const Configuration = {
     getGitpodHost,
-    getShowReleaseNotes,
     getUseLocalApp,
     getLocalSSHServerPort,
     getLocalSshIpcPort,
