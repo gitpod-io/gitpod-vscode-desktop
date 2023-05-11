@@ -13,8 +13,8 @@ import { parsePrivateKey } from 'sshpk';
 import { ExtensionServiceDefinition, GetWorkspaceAuthInfoResponse, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest_Code, SendLocalSSHUserFlowStatusRequest_ConnType, SendLocalSSHUserFlowStatusRequest_Status } from '../proto/typescript/ipc/v1/ipc';
 import { PipeExtensions } from './patch/pipeExtension';
 import { Logger } from './logger';
-import { Client, createChannel, createClient } from 'nice-grpc';
-import { retry } from '../common/async';
+import { Client, ClientError, Status, createChannel, createClient } from 'nice-grpc';
+import { retryWithStop } from '../common/async';
 
 interface ClientOptions {
     host: string;
@@ -198,9 +198,13 @@ export class LocalSSHClient {
     }
 
     async retryGetWorkspaceInfo(username: string) {
-        return retry(async () => {
-            const workspaceInfo = await this.extensionIpc.getWorkspaceAuthInfo({ workspaceId: username }).catch(e => {
-                this.logger.error(e, 'failed to get workspace auth info');
+        return retryWithStop(async (stop) => {
+            return await this.extensionIpc.getWorkspaceAuthInfo({ workspaceId: username, gitpodHost: this.options.host }).catch(e => {
+                if (e instanceof ClientError) {
+                    if (e.code === Status.UNAVAILABLE && e.details.startsWith('workspace is not running')) {
+                        stop();
+                    }
+                }
                 /*
                 TODO not sure how to get gitpodhost here, probably unauthorized should always go to gitpod.io
                 this.localsshService.sendTelemetry({
@@ -213,9 +217,9 @@ export class LocalSSHClient {
                     extensionVersion: getRunningExtensionVersion(),
                     connType: SendLocalSSHUserFlowStatusRequest_ConnType.CONN_TYPE_UNSPECIFIED,
                 });*/
+                this.logger.error(e, 'failed to get workspace auth info for workspace: ' + username + ' host: ' + this.options.host);
                 throw e;
             });
-            return workspaceInfo;
         }, 200, 10);
     }
 
