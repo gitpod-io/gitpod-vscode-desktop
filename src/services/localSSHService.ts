@@ -4,12 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import fsp from 'fs/promises';
+import Handlebars from 'handlebars';
 import { Disposable } from '../common/dispose';
 import { ILogService } from './logService';
 import { Configuration } from '../configuration';
 import { IHostService } from './hostService';
 import SSHConfiguration from '../ssh/sshConfig';
-import { chmod } from 'fs/promises';
 
 export interface ILocalSSHService {
     isSupportLocalSSH: boolean;
@@ -46,7 +47,23 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
         const newExtIpcPort = Configuration.getLocalSshExtensionIpcPort();
         const appName = vscode.env.appName.includes('Insiders') ? 'insiders' : 'stable';
         const starter = process.platform === 'win32' ? locations.bat : locations.sh;
-        this.isSupportLocalSSH = await SSHConfiguration.configureLocalSSHSettings(appName, [this.hostService.gitpodHost], starter, locations.js, newExtIpcPort);
+        const sshConfigPath = await this.writeLocalSSHConfig(appName, [this.hostService.gitpodHost], starter, locations.js, newExtIpcPort);
+        this.isSupportLocalSSH = await SSHConfiguration.includeLocalSSHConfig(appName, sshConfigPath);
+    }
+
+    private async writeLocalSSHConfig(scopeName: string, hosts: string[], starter: string, jsLocation: string, extIpcPort: number) {
+        hosts = hosts.map(host => host.replace(/^[^:]+:\/\//, ''));
+        const render = Handlebars.compile(`{{#each hosts}}
+### {{this}}
+Host *.{{../scopeName}}.lssh.{{this}}
+    StrictHostKeyChecking no
+    ProxyCommand "{{../execPath}}" "{{../nodeLocation}}" "{{../jsLocation}}" --ms-enable-electron-run-as-node %h {{../port}} {{../logPath}}
+{{/each}}`);
+        const newContent = render({ scopeName, hosts, jsLocation, port: extIpcPort, execPath: starter, nodeLocation: process.execPath, logPath: Configuration.getLocalSSHLogPath() });
+
+        const configDestUri = vscode.Uri.joinPath(this.context.globalStorageUri, 'ssh_config');
+        await vscode.workspace.fs.writeFile(configDestUri, Buffer.from(newContent));
+        return configDestUri.fsPath;
     }
 
     private async copyClientScript() {
@@ -55,7 +72,7 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
             this.copyFileToGlobalStorage('out/local-ssh/starter.sh', 'lssh-starter.sh'),
             this.copyFileToGlobalStorage('out/local-ssh/starter.bat', 'lssh-starter.bat'),
         ]);
-        await chmod(sh, 0o755);
+        await fsp.chmod(sh, 0o755);
         return { js, sh, bat };
     }
 

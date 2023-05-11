@@ -74,20 +74,14 @@ export default class SSHConfiguration {
         return new SSHConfiguration(config);
     }
 
-    static async configureLocalSSHSettings(scopeName: string, hosts: string[], starter: string, jsLocation: string, extIpcPort: number) {
-        hosts = hosts.map(host => host.replace(/^[^:]+:\/\//, ''));
+    static async includeLocalSSHConfig(scopeName: string, configPath: string): Promise<boolean> {
         const render = Handlebars.compile(`## START GITPOD {{scopeName}}
 ### This section is managed by Gitpod. Any manual changes will be lost.
 
-{{#each hosts}}
-### {{this}}
-Host *.{{../scopeName}}.lssh.{{this}}
-    StrictHostKeyChecking no
-    ProxyCommand "{{../execPath}}" "{{../nodeLocation}}" "{{../jsLocation}}" --ms-enable-electron-run-as-node %h {{../port}}
-{{/each}}
+Include "{{configPath}}"
 
 ## END GITPOD {{scopeName}}`);
-        const newContent = render({ scopeName, hosts, jsLocation, port: extIpcPort, execPath: starter, nodeLocation: process.execPath });
+        const newContent = render({ scopeName, configPath });
 
         const findAndReplaceScope = async (configPath: string) => {
             try {
@@ -104,7 +98,7 @@ Host *.{{../scopeName}}.lssh.{{this}}
                 if (scopeRegex.test(content)) {
                     content = content.replace(scopeRegex, newContent);
                 } else {
-                    content = `${content}\n\n${newContent}`;
+                    content = `${content}\n\n${newContent}\n\n`;
                 }
                 await fs.promises.writeFile(configPath, content);
                 return true;
@@ -114,10 +108,10 @@ Host *.{{../scopeName}}.lssh.{{this}}
             }
         };
         const ok = await findAndReplaceScope(getSSHConfigPath());
-        if (!ok) {
-            return await findAndReplaceScope(systemSSHConfig);
+        if (ok) {
+            return true;
         }
-        return false;
+        return await findAndReplaceScope(systemSSHConfig);
     }
 
     constructor(private sshConfig: SSHConfig) {

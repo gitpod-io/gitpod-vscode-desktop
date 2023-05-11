@@ -19,6 +19,7 @@ import { retry } from '../common/async';
 interface ClientOptions {
     host: string;
     extIpcPort: number;
+    logPath: string;
 }
 
 function getClientOptions(): ClientOptions {
@@ -26,6 +27,7 @@ function getClientOptions(): ClientOptions {
     return {
         host: args[0],
         extIpcPort: Number.parseInt(args[1]),
+        logPath: args[2],
     };
 }
 
@@ -44,10 +46,9 @@ export class LocalSSHClient {
         const options = getClientOptions();
         if (!options) {
             process.exit(0);
-            return;
         }
         this.options = options;
-        this.logger = new Logger();
+        this.logger = new Logger('info', options.logPath);
         this.onExit();
         this.onException();
         this.startServer().then().catch(err => {
