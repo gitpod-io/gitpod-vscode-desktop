@@ -200,6 +200,7 @@ export interface GetWorkspaceAuthInfoResponse {
   ownerToken: string;
   gitpodHost: string;
   userId: string;
+  sshkey: string;
 }
 
 function createBaseSendErrorReportRequest(): SendErrorReportRequest {
@@ -613,7 +614,7 @@ export const GetWorkspaceAuthInfoRequest = {
 };
 
 function createBaseGetWorkspaceAuthInfoResponse(): GetWorkspaceAuthInfoResponse {
-  return { workspaceId: "", instanceId: "", workspaceHost: "", ownerToken: "", gitpodHost: "", userId: "" };
+  return { workspaceId: "", instanceId: "", workspaceHost: "", ownerToken: "", gitpodHost: "", userId: "", sshkey: "" };
 }
 
 export const GetWorkspaceAuthInfoResponse = {
@@ -635,6 +636,9 @@ export const GetWorkspaceAuthInfoResponse = {
     }
     if (message.userId !== "") {
       writer.uint32(50).string(message.userId);
+    }
+    if (message.sshkey !== "") {
+      writer.uint32(58).string(message.sshkey);
     }
     return writer;
   },
@@ -664,6 +668,9 @@ export const GetWorkspaceAuthInfoResponse = {
         case 6:
           message.userId = reader.string();
           break;
+        case 7:
+          message.sshkey = reader.string();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -680,6 +687,7 @@ export const GetWorkspaceAuthInfoResponse = {
       ownerToken: isSet(object.ownerToken) ? String(object.ownerToken) : "",
       gitpodHost: isSet(object.gitpodHost) ? String(object.gitpodHost) : "",
       userId: isSet(object.userId) ? String(object.userId) : "",
+      sshkey: isSet(object.sshkey) ? String(object.sshkey) : "",
     };
   },
 
@@ -691,6 +699,7 @@ export const GetWorkspaceAuthInfoResponse = {
     message.ownerToken !== undefined && (obj.ownerToken = message.ownerToken);
     message.gitpodHost !== undefined && (obj.gitpodHost = message.gitpodHost);
     message.userId !== undefined && (obj.userId = message.userId);
+    message.sshkey !== undefined && (obj.sshkey = message.sshkey);
     return obj;
   },
 
@@ -706,6 +715,7 @@ export const GetWorkspaceAuthInfoResponse = {
     message.ownerToken = object.ownerToken ?? "";
     message.gitpodHost = object.gitpodHost ?? "";
     message.userId = object.userId ?? "";
+    message.sshkey = object.sshkey ?? "";
     return message;
   },
 };

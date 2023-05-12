@@ -21,7 +21,6 @@ import { SessionService } from './services/sessionService';
 import { CommandManager } from './commandManager';
 import { SignInCommand } from './commands/account';
 import { ExportLogsCommand } from './commands/logs';
-import { ExtensionServiceServer } from './local-ssh/ipc/extension';
 import { Configuration } from './configuration';
 import { LocalSSHService } from './services/localSSHService';
 
@@ -91,9 +90,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		const remoteConnector = new RemoteConnector(context, sessionService, hostService, experiments, logger, telemetryService, notificationService, localSSHService);
 		context.subscriptions.push(remoteConnector);
-
-		const extensionIPCService = new ExtensionServiceServer(logger, sessionService, hostService, telemetryService, experiments);
-		context.subscriptions.push(extensionIPCService);
 
 		context.subscriptions.push(vscode.window.registerUriHandler({
 			handleUri(uri: vscode.Uri) {

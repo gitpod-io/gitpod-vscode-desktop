@@ -7,8 +7,7 @@ import { getDaemonVersion, getHostKey } from './common';
 import { SupervisorSSHTunnel } from './sshTunnel';
 import { SshClient } from '@microsoft/dev-tunnels-ssh-tcp';
 import { NodeStream, SshClientCredentials, SshClientSession, SshDisconnectReason, SshServerSession, SshSessionConfiguration } from '@microsoft/dev-tunnels-ssh';
-import { importKeyBytes } from '@microsoft/dev-tunnels-ssh-keys';
-import { parsePrivateKey } from 'sshpk';
+import { importKey, importKeyBytes } from '@microsoft/dev-tunnels-ssh-keys';
 import { ExtensionServiceDefinition, GetWorkspaceAuthInfoResponse, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest_Code, SendLocalSSHUserFlowStatusRequest_ConnType, SendLocalSSHUserFlowStatusRequest_Status } from '../proto/typescript/ipc/v1/ipc';
 import { Client, ClientError, Status, createChannel, createClient } from 'nice-grpc';
 import { retryWithStop } from '../common/async';
@@ -153,7 +152,7 @@ export class LocalSSHClient {
             session.onAuthenticating((e) => e.authenticationPromise = Promise.resolve({}));
             await session.connect(new NodeStream(connConfig.sock!));
             // we need to convert openssh to pkcs8 since dev-tunnels-ssh not support openssh
-            const credentials: SshClientCredentials = { username: connConfig.username, publicKeys: [await importKeyBytes(parsePrivateKey(connConfig.privateKey, 'openssh').toBuffer('pkcs8'))] };
+            const credentials: SshClientCredentials = { username: connConfig.username, publicKeys: [await importKey(workspaceInfo.sshkey)] };
             const ok = await session.authenticate(credentials);
             if (!ok) {
                 throw new Error('failed to authenticate tunnel ssh');

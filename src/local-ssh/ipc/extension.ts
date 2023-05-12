@@ -18,6 +18,12 @@ import { ITelemetryService, UserFlowTelemetry } from '../../services/telemetrySe
 import { ExperimentalSettings } from '../../experiments';
 import { Configuration } from '../../configuration';
 import { timeout } from '../../common/async';
+import { BrowserHeaders } from 'browser-headers';
+import { ControlServiceClient } from '@gitpod/supervisor-api-grpcweb/lib/control_pb_service';
+import { NodeHttpTransport } from '@improbable-eng/grpc-web-node-http-transport';
+import { CreateSSHKeyPairRequest } from '@gitpod/supervisor-api-grpcweb/lib/control_pb';
+import * as ssh2 from 'ssh2';
+import { ParsedKey } from 'ssh2-streams';
 
 const phaseMap: Record<WorkspaceInstanceStatus_Phase, WorkspaceInstancePhase | undefined> = {
     [WorkspaceInstanceStatus_Phase.CREATING]: 'pending',
@@ -32,7 +38,7 @@ const phaseMap: Record<WorkspaceInstanceStatus_Phase, WorkspaceInstancePhase | u
     [WorkspaceInstanceStatus_Phase.UNSPECIFIED]: undefined,
 };
 
-export class ExtensionServiceImpl implements ExtensionServiceImplementation {
+class ExtensionServiceImpl implements ExtensionServiceImplementation {
     constructor(
         private logService: ILogService,
         private sessionService: ISessionService,
@@ -43,9 +49,31 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
 
     }
 
+	private async getWorkspaceSSHKey(ownerToken:string,workspaceId: string, workspaceHost: string) {
+		const workspaceUrl = `https://${workspaceId}.${workspaceHost}`;
+		const metadata = new BrowserHeaders();
+		metadata.append('x-gitpod-owner-token', ownerToken);
+		const client = new ControlServiceClient(`${workspaceUrl}/_supervisor/v1`, { transport: NodeHttpTransport() });
+
+		const privateKey = await new Promise<string>((resolve, reject) => {
+			client.createSSHKeyPair(new CreateSSHKeyPairRequest(), metadata, (err, resp) => {
+				if (err) {
+					return reject(err);
+				}
+				resolve(resp!.toObject().privateKey);
+			});
+		});
+
+		const parsedResult = ssh2.utils.parseKey(privateKey);
+		if (parsedResult instanceof Error || !parsedResult) {
+			throw new Error('Error while parsing workspace SSH private key');
+		}
+
+		return (parsedResult as ParsedKey).getPrivatePEM();
+	}
+
     async getWorkspaceAuthInfo(request: GetWorkspaceAuthInfoRequest, _context: CallContext): Promise<GetWorkspaceAuthInfoResponse> {
         try {
-            await this.sessionService.didFirstLoad;
             const accessToken = this.sessionService.getGitpodToken();
             if (!accessToken) {
                 throw new ServerError(Status.INTERNAL, 'no access token found');
@@ -73,6 +101,9 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
             const url = new URL(ideUrl);
             const workspaceHost = url.host.substring(url.host.indexOf('.') + 1);
             const instanceId = (usePublicApi ? (workspace as Workspace).status?.instance?.instanceId : (workspace as WorkspaceInfo).latestInstance?.id) as string;
+
+            const sshkey = await this.getWorkspaceSSHKey(ownerToken,workspaceId,workspaceHost);
+
             return {
                 gitpodHost,
                 userId,
@@ -80,6 +111,7 @@ export class ExtensionServiceImpl implements ExtensionServiceImplementation {
                 instanceId,
                 workspaceHost,
                 ownerToken,
+                sshkey
             };
         } catch (e) {
             this.logService.error(e, 'failed to get workspace auth info');
@@ -142,9 +174,6 @@ export class ExtensionServiceServer extends Disposable {
         super();
         this.server = this.getServer();
         this.tryActive();
-        this.hostService.onDidChangeHost(() => {
-            this.tryActive();
-        });
     }
 
     private getServer(): Server {
@@ -169,6 +198,6 @@ export class ExtensionServiceServer extends Disposable {
     }
 
     public override dispose() {
-        this.server.shutdown();
+        this.server.forceShutdown();
     }
 }
