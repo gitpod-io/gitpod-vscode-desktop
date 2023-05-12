@@ -33,12 +33,12 @@ import { getAgentSock, SSHError, testSSHConnection } from './sshTestConnection';
 import { gatherIdentityFiles } from './ssh/identityFiles';
 import { isWindows } from './common/platform';
 import SSHDestination from './ssh/sshDestination';
-import { NoRunningInstanceError, NoSSHGatewayError, SSHConnectionParams, SSH_DEST_KEY } from './remote';
+import { NoRunningInstanceError, NoSSHGatewayError, SSHConnectionParams, SSH_DEST_KEY, getLocalSSHDomain } from './remote';
 import { ISessionService } from './services/sessionService';
 import { ILogService } from './services/logService';
 import { IHostService } from './services/hostService';
 import { Configuration } from './configuration';
-import { getLocalSSHUrl, getServiceURL } from './common/utils';
+import { getServiceURL } from './common/utils';
 import { ILocalSSHService } from './services/localSSHService';
 
 interface LocalAppConfig {
@@ -532,10 +532,8 @@ export class RemoteConnector extends Disposable {
 			);
 		}
 
-		const appName = vscode.env.appName.includes('Insiders') ? 'insiders' : 'stable';
-		const domain = appName + '.' + getLocalSSHUrl(gitpodHost);
-
-		let hostname = `${workspaceId}.${domain}`;
+		const domain = getLocalSSHDomain(gitpodHost);
+		const hostname = `${workspaceId}.${domain}`;
 
 		const user = debugWorkspace ? ('debug-' + workspaceId) : workspaceId;
 		this.logService.info('connecting with local ssh destination', { domain });

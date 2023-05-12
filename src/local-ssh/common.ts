@@ -14,8 +14,6 @@ export function getHostKeyFingerprint(): Buffer {
 	return Buffer.from(HOST_PUBLIC_FP, 'base64');
 }
 
-export const GitpodDefaultLocalhost = 'lssh.gitpod.io';
-
 export function getDaemonVersion() {
 	return process.env.DAEMON_VERSION ?? '0.0.1';
 }

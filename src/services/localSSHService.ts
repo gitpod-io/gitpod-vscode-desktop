@@ -5,12 +5,13 @@
 
 import * as vscode from 'vscode';
 import fsp from 'fs/promises';
-import Handlebars from 'handlebars';
 import { Disposable } from '../common/dispose';
 import { ILogService } from './logService';
 import { Configuration } from '../configuration';
 import { IHostService } from './hostService';
 import SSHConfiguration from '../ssh/sshConfig';
+import { isWindows } from '../common/platform';
+import { getLocalSSHDomain } from '../remote';
 
 export interface ILocalSSHService {
     isSupportLocalSSH: boolean;
@@ -26,51 +27,69 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
         private readonly logService: ILogService
     ) {
         super();
-        this.initialized = this.copyClientScript().then(async locations => {
-            await this.configureSettings(locations);
-            this._register(vscode.workspace.onDidChangeConfiguration(async e => {
-                if (
-                    e.affectsConfiguration('gitpod.lsshExtensionIpcPort') ||
-                    e.affectsConfiguration('gitpod.host') ||
-                    e.affectsConfiguration('remote.SSH.configFile')
-                ) {
-                    this.configureSettings(locations);
+
+        this.initialized = this.initialize();
+
+        this._register(vscode.workspace.onDidChangeConfiguration(async e => {
+            if (
+                e.affectsConfiguration('gitpod.lsshExtensionIpcPort') ||
+                e.affectsConfiguration('gitpod.host') ||
+                e.affectsConfiguration('remote.SSH.configFile')
+            ) {
+                if (e.affectsConfiguration('[javascript]') && e.affectsConfiguration('[markdown]')) {
+                    // Seems onDidChangeConfiguration fires many times while resolving the remote (once with all settings),
+                    // and because now we active the extension earlier with onResolveRemoteAuthority we get this false positive
+                    // event, so ignore it if more settings are affected at the same time.
+                    return;
                 }
-            }));
-        }).catch(err => {
-            this.logService.error(err, 'failed to copy local ssh client.js');
+                this.initialize();
+            }
+        }));
+    }
+
+    private async initialize() {
+        if (this.context.extensionMode !== vscode.ExtensionMode.Production) {
+            // TODO: add webpack config for client.js in development, for now copy manually
+            this.isSupportLocalSSH = true;
+            return;
+        }
+
+        try {
+            const locations = await this.copyProxyScript();
+            await this.configureSettings(locations);
+            this.isSupportLocalSSH = true;
+        } catch (e) {
+            this.logService.error(e, 'failed to copy local ssh client.js');
             this.isSupportLocalSSH = false;
-        });
+        }
     }
 
-    private async configureSettings(locations: { js: string; sh: string; bat: string }) {
-        const newExtIpcPort = Configuration.getLocalSshExtensionIpcPort();
-        const appName = vscode.env.appName.includes('Insiders') ? 'insiders' : 'stable';
-        const starter = process.platform === 'win32' ? locations.bat : locations.sh;
-        const configContent = await this.getLocalSSHConfig(appName, [this.hostService.gitpodHost], starter, locations.js, newExtIpcPort);
-        this.isSupportLocalSSH = await SSHConfiguration.includeLocalSSHConfig(appName, configContent);
+    private async configureSettings({ proxyScript, launcher }: { proxyScript: string; launcher: string }) {
+        const extIpcPort = Configuration.getLocalSshExtensionIpcPort();
+        const hostConfig = this.getHostSSHConfig(this.hostService.gitpodHost, launcher, proxyScript, extIpcPort);
+        await SSHConfiguration.ensureIncludeGitpodSSHConfig();
+        const gitpodConfig = await SSHConfiguration.loadGitpodSSHConfig();
+        gitpodConfig.addHostConfiguration(hostConfig);
+        await SSHConfiguration.saveGitpodSSHConfig(gitpodConfig);
     }
 
-    private async getLocalSSHConfig(scopeName: string, hosts: string[], starter: string, jsLocation: string, extIpcPort: number) {
-        hosts = hosts.map(host => host.replace(/^[^:]+:\/\//, ''));
-        const render = Handlebars.compile(`{{#each hosts}}
-### {{this}}
-Host *.{{../scopeName}}.lssh.{{this}}
-    StrictHostKeyChecking no
-    ProxyCommand "{{../execPath}}" "{{../nodeLocation}}" "{{../jsLocation}}" --ms-enable-electron-run-as-node %h {{../port}} "{{../logPath}}"
-{{/each}}`);
-        const newContent = render({ scopeName, hosts, jsLocation, port: extIpcPort, execPath: starter, nodeLocation: process.execPath, logPath: Configuration.getLocalSSHLogPath() });
-        return newContent;
+    private getHostSSHConfig(host: string, launcher: string, proxyScript: string, extIpcPort: number) {
+        return {
+            Host: '*.' + getLocalSSHDomain(host),
+            StrictHostKeyChecking: 'no',
+            ProxyCommand: `"${launcher}" "${process.execPath}" "${proxyScript}" --ms-enable-electron-run-as-node %h ${extIpcPort} "${Configuration.getLocalSSHLogPath()}"`
+        };
     }
 
-    private async copyClientScript() {
-        const [js, sh, bat] = await Promise.all([
-            this.copyFileToGlobalStorage('out/local-ssh/client.js', 'lssh-client.js'),
-            this.copyFileToGlobalStorage('out/local-ssh/starter.sh', 'lssh-starter.sh'),
-            this.copyFileToGlobalStorage('out/local-ssh/starter.bat', 'lssh-starter.bat'),
+    private async copyProxyScript() {
+        const [proxyScript, launcher] = await Promise.all([
+            this.copyFileToGlobalStorage('out/local-ssh/client.js', 'sshproxy/proxy.js'),
+            isWindows ? this.copyFileToGlobalStorage('out/local-ssh/proxylauncher.bat', 'sshproxy/proxylauncher.bat') : this.copyFileToGlobalStorage('out/local-ssh/proxylauncher.sh', 'sshproxy/proxylauncher.sh')
         ]);
-        await fsp.chmod(sh, 0o755);
-        return { js, sh, bat };
+        if (!isWindows) {
+            await fsp.chmod(launcher, 0o755);
+        }
+        return { proxyScript, launcher };
     }
 
     private async copyFileToGlobalStorage(filepath: string, destPath: string) {

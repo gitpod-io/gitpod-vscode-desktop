@@ -124,7 +124,3 @@ export function arrayEquals<T>(one: ReadonlyArray<T> | undefined, other: Readonl
 export function getServiceURL(gitpodHost: string): string {
 	return new URL(gitpodHost).toString().replace(/\/$/, '');
 }
-
-export function getLocalSSHUrl(gitpodHost: string): string {
-	return 'lssh.' + (new URL(gitpodHost)).hostname;
-}

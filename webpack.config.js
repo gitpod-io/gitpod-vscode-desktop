@@ -53,8 +53,8 @@ const config = {
 		}),
 		new CopyPlugin({
 			patterns: [
-				{ from: 'src/local-ssh/starter.bat', to: 'local-ssh/starter.bat' },
-				{ from: 'src/local-ssh/starter.sh', to: 'local-ssh/starter.sh' },
+				{ from: 'src/local-ssh/proxylauncher.bat', to: 'local-ssh/proxylauncher.bat' },
+				{ from: 'src/local-ssh/proxylauncher.sh', to: 'local-ssh/proxylauncher.sh' },
 			],
 		}),
 		daemonVersion,

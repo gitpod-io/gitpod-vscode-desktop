@@ -6,7 +6,6 @@
 import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
-import Handlebars from 'handlebars';
 import SSHConfig, { Line, Section, Directive } from 'ssh-config';
 import * as vscode from 'vscode';
 import { exists, isFile, untildify } from '../common/files';
@@ -14,6 +13,7 @@ import { isWindows } from '../common/platform';
 
 const systemSSHConfig = isWindows ? path.resolve(process.env.ALLUSERSPROFILE || 'C:\\ProgramData', 'ssh\\ssh_config') : '/etc/ssh/ssh_config';
 const defaultSSHConfigPath = path.resolve(os.homedir(), '.ssh/config');
+const gitpodSSHConfigPath = path.resolve(os.homedir(), '.ssh/gitpod/config');
 
 export function getSSHConfigPath() {
     const sshConfigPath = vscode.workspace.getConfiguration('remote.SSH').get<string>('configFile');
@@ -74,44 +74,82 @@ export default class SSHConfiguration {
         return new SSHConfiguration(config);
     }
 
-    static async includeLocalSSHConfig(scopeName: string, configContent: string): Promise<boolean> {
-        const render = Handlebars.compile(`## START GITPOD {{scopeName}}
-### This section is managed by Gitpod. Any manual changes will be lost.
-
-{{{configContent}}}
-
-## END GITPOD {{scopeName}}`);
-        const newContent = render({ scopeName, configContent });
-
-        const findAndReplaceScope = async (configPath: string) => {
-            try {
-                let content = '';
-                if (await exists(configPath)) {
-                    if (!(await isFile(configPath))) {
-                        return false;
-                    }
-                    content = (await fs.promises.readFile(configPath, 'utf8')).trim();
-                } else {
-                    await fs.promises.mkdir(path.dirname(configPath), { recursive: true });
-                }
-                const scopeRegex = new RegExp(`## START GITPOD ${scopeName}.*## END GITPOD ${scopeName}`, 's');
-                if (scopeRegex.test(content)) {
-                    content = content.replace(scopeRegex, newContent);
-                } else {
-                    content = `${content}\n\n${newContent}\n\n`;
-                }
-                await fs.promises.writeFile(configPath, content);
-                return true;
-            } catch (err) {
-                // ignore
-                return false;
-            }
-        };
-        const ok = await findAndReplaceScope(getSSHConfigPath());
-        if (ok) {
-            return true;
+    static async loadGitpodSSHConfig(): Promise<SSHConfiguration> {
+        if (!(await isFile(gitpodSSHConfigPath))) {
+            throw new Error(`Gitpod ssh config file ${gitpodSSHConfigPath} does not exist`);
         }
-        return await findAndReplaceScope(systemSSHConfig);
+
+        let content = (await fs.promises.readFile(gitpodSSHConfigPath, 'utf8')).trim();
+        const config = SSHConfig.parse(content);
+        return new SSHConfiguration(config);
+    }
+
+    static async saveGitpodSSHConfig(config: SSHConfiguration): Promise<void> {
+        if (!(await isFile(gitpodSSHConfigPath))) {
+            throw new Error(`Gitpod ssh config file ${gitpodSSHConfigPath} does not exist`);
+        }
+
+        try {
+            await fs.promises.writeFile(gitpodSSHConfigPath, config.toString());
+        } catch (e) {
+            throw new Error(`Could not write gitpod ssh config file ${gitpodSSHConfigPath}: ${e}`);
+        }
+    }
+
+    static async ensureIncludeGitpodSSHConfig(): Promise<void> {
+        const gitpodIncludeSection = `## START GITPOD INTEGRATION
+## This section is managed by Gitpod. Any manual changes will be lost.
+Include "gitpod/config"
+## END GITPOD INTEGRATION`;
+
+        const gitpodHeader = `### This file is managed by Gitpod. Any manual changes will be lost.`;
+
+        const configPath = getSSHConfigPath();
+        let content = '';
+        if (await exists(configPath)) {
+            try {
+                content = (await fs.promises.readFile(configPath, 'utf8')).trim();
+            } catch (e) {
+                throw new Error(`Could not read ssh config file at ${configPath}: ${e}`);
+            }
+        }
+
+        const scopeRegex = new RegExp(`START GITPOD INTEGRATION.+Include "gitpod/config".+END GITPOD INTEGRATION`, 's');
+        if (!scopeRegex.test(content)) {
+            content = `${content}\n\n${gitpodIncludeSection}\n\n`;
+
+            const configFileDir = path.dirname(configPath);
+            if (!(await exists(configFileDir))) {
+                try {
+                    await fs.promises.mkdir(configFileDir, { recursive: true });
+                } catch (e) {
+                    throw new Error(`Could not create ssh config folder ${configFileDir}: ${e}`);
+                }
+            }
+
+            try {
+                await fs.promises.writeFile(configPath, content);
+            } catch (e) {
+                throw new Error(`Could not write ssh config file ${configPath}: ${e}`);
+            }
+        }
+
+        const gitpodConfigFileDir = path.dirname(gitpodSSHConfigPath);
+        if (!(await exists(gitpodConfigFileDir))) {
+            try {
+                await fs.promises.mkdir(gitpodConfigFileDir, { recursive: true });
+            } catch (e) {
+                throw new Error(`Could not create gitpod ssh config folder ${gitpodConfigFileDir}: ${e}`);
+            }
+        }
+
+        if (!(await exists(gitpodSSHConfigPath))) {
+            try {
+                await fs.promises.writeFile(gitpodSSHConfigPath, gitpodHeader);
+            } catch (e) {
+                throw new Error(`Could not write gitpod ssh config file ${gitpodSSHConfigPath}: ${e}`);
+            }
+        }
     }
 
     constructor(private sshConfig: SSHConfig) {
@@ -136,5 +174,13 @@ export default class SSHConfiguration {
 
     getHostConfiguration(host: string): Record<string, string> {
         return this.sshConfig.compute(host);
+    }
+
+    addHostConfiguration(hostConfig: Record<string, string>) {
+        this.sshConfig.append(hostConfig);
+    }
+
+    toString() {
+        return this.sshConfig.toString();
     }
 }

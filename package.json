@@ -198,7 +198,6 @@
 		"@microsoft/dev-tunnels-ssh-tcp": "^3.11.2",
 		"@segment/analytics-node": "^1.0.0-beta.24",
 		"configcat-node": "^8.0.0",
-		"handlebars": "^4.7.7",
 		"js-yaml": "^4.1.0",
 		"long": "^5.2.1",
 		"nice-grpc": "^2.1.3",

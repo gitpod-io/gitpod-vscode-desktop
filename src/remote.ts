@@ -64,3 +64,8 @@ export async function showWsNotRunningDialog(workspaceId: string, gitpodHost: st
         }
     }
 }
+
+export function getLocalSSHDomain(gitpodHost: string): string {
+	const scope = vscode.env.appName.includes('Insiders') ? 'vsi' : 'vss';
+	return `${scope}.` + (new URL(gitpodHost)).hostname;
+}
