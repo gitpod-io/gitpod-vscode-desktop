@@ -83,7 +83,7 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
 
     private async copyProxyScript() {
         const [proxyScript, launcher] = await Promise.all([
-            this.copyFileToGlobalStorage('out/local-ssh/client.js', 'sshproxy/proxy.js'),
+            this.copyFileToGlobalStorage('out/local-ssh/proxy.js', 'sshproxy/proxy.js'),
             isWindows ? this.copyFileToGlobalStorage('out/local-ssh/proxylauncher.bat', 'sshproxy/proxylauncher.bat') : this.copyFileToGlobalStorage('out/local-ssh/proxylauncher.sh', 'sshproxy/proxylauncher.sh')
         ]);
         if (!isWindows) {
