@@ -11,7 +11,6 @@ import { NodeStream, SshClientCredentials, SshClientSession, SshDisconnectReason
 import { importKeyBytes } from '@microsoft/dev-tunnels-ssh-keys';
 import { parsePrivateKey } from 'sshpk';
 import { ExtensionServiceDefinition, GetWorkspaceAuthInfoResponse, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest_Code, SendLocalSSHUserFlowStatusRequest_ConnType, SendLocalSSHUserFlowStatusRequest_Status } from '../proto/typescript/ipc/v1/ipc';
-import { PipeExtensions } from './patch/pipeExtension';
 import { Logger } from './logger';
 import { Client, ClientError, Status, createChannel, createClient } from 'nice-grpc';
 import { retryWithStop } from '../common/async';
@@ -110,7 +109,7 @@ export class LocalSSHClient {
             });
             session.onClientAuthenticated(async () => {
                 try {
-                    await PipeExtensions.pipeSession(session, pipeSession);
+                    await session.pipe(pipeSession);
                 } catch (e) {
                     this.logger.error(e, 'pipe session ended with error');
                 } finally {
@@ -253,4 +252,3 @@ export class LocalSSHClient {
 }
 
 new LocalSSHClient();
-
