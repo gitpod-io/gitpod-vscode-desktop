@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ILogService } from '../services/logService';
 import { getDaemonVersion, getHostKey } from './common';
 import { SupervisorSSHTunnel } from './sshTunnel';
 import { SshClient } from '@microsoft/dev-tunnels-ssh-tcp';
@@ -11,7 +10,6 @@ import { NodeStream, SshClientCredentials, SshClientSession, SshDisconnectReason
 import { importKeyBytes } from '@microsoft/dev-tunnels-ssh-keys';
 import { parsePrivateKey } from 'sshpk';
 import { ExtensionServiceDefinition, GetWorkspaceAuthInfoResponse, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest_Code, SendLocalSSHUserFlowStatusRequest_ConnType, SendLocalSSHUserFlowStatusRequest_Status } from '../proto/typescript/ipc/v1/ipc';
-import { Logger } from './logger';
 import { Client, ClientError, Status, createChannel, createClient } from 'nice-grpc';
 import { retryWithStop } from '../common/async';
 
@@ -34,7 +32,6 @@ function getClientOptions(): ClientOptions {
 const FORCE_TUNNEL = true;
 
 export class LocalSSHClient {
-    private readonly logger!: ILogService;
     private readonly options!: ClientOptions;
 
     private extensionIpc!: Client<ExtensionServiceDefinition>;
@@ -47,19 +44,14 @@ export class LocalSSHClient {
             process.exit(0);
         }
         this.options = options;
-        this.logger = new Logger('info', options.logPath);
-        this.logger.info('client started with options: ', options);
         this.onExit();
         this.onException();
-        this.startServer().then().catch(err => {
-            this.logger.error(err);
-        });
+        this.startServer().then().catch(_err => { });
         this.extensionIpc = createClient(ExtensionServiceDefinition, createChannel('127.0.0.1:' + this.options.extIpcPort));
     }
 
     private onExit() {
-        const exitHandler = async (signal?: NodeJS.Signals) => {
-            this.logger.info('exiting signal: ', signal);
+        const exitHandler = async (_signal?: NodeJS.Signals) => {
             process.exit(0);
         };
         process.on('SIGINT', exitHandler);
@@ -67,22 +59,16 @@ export class LocalSSHClient {
     }
 
     private onException() {
-        process.on('uncaughtException', (err) => {
-            this.logger.error('uncaughtException', err);
-        });
-        process.on('unhandledRejection', (err) => {
-            this.logger.error('unhandledRejection', err as any);
-        });
+        process.on('uncaughtException', (_err) => { });
+        process.on('unhandledRejection', (_err) => { });
     }
     private async authenticateClient(username: string) {
         const workspaceInfo = await this.retryGetWorkspaceInfo(username);
         if (FORCE_TUNNEL) {
-            this.logger.info('force tunnel');
             return this.getTunnelSSHConfig(workspaceInfo);
         }
         const session = await this.tryDirectSSH(workspaceInfo);
         if (!session) {
-            this.logger.error('failed to connect with direct ssh, going to try tunnel');
             return this.getTunnelSSHConfig(workspaceInfo);
         }
         return session;
@@ -98,11 +84,9 @@ export class LocalSSHClient {
             let pipeSession: SshClientSession;
             session.onAuthenticating((e) => {
                 e.authenticationPromise = this.authenticateClient(e.username!).then(s => {
-                    this.logger.info('authenticate with ', e.username);
                     pipeSession = s;
                     return {};
-                }).catch(e => {
-                    this.logger.error(e, 'failed to authenticate client');
+                }).catch(_e => {
                     session.close(SshDisconnectReason.hostNotAllowedToConnect, 'auth failed or workspace is not running');
                     return null;
                 });
@@ -111,7 +95,7 @@ export class LocalSSHClient {
                 try {
                     await session.pipe(pipeSession);
                 } catch (e) {
-                    this.logger.error(e, 'pipe session ended with error');
+                    // ignore
                 } finally {
                     session.close(SshDisconnectReason.connectionLost, 'pipe session ended');
                 }
@@ -121,8 +105,7 @@ export class LocalSSHClient {
             });
             this.serverSession = session;
             session.connect(new NodeStream(process.stdin, process.stdout));
-        } catch (e) {
-            this.logger.error(e, 'failed to start local ssh gateway server, going to exit');
+        } catch (_e) {
             process.exit(0);
         }
     }
@@ -146,7 +129,6 @@ export class LocalSSHClient {
             }
             return session;
         } catch (e) {
-            this.logger.error(e, 'failed to connect with direct ssh');
             this.sendErrorReport(workspaceInfo.gitpodHost, workspaceInfo.userId, workspaceInfo.workspaceId, workspaceInfo.instanceId, e, 'failed to connect with direct ssh');
             this.extensionIpc.sendLocalSSHUserFlowStatus({
                 gitpodHost: workspaceInfo.gitpodHost,
@@ -164,7 +146,7 @@ export class LocalSSHClient {
 
     private async getTunnelSSHConfig(workspaceInfo: GetWorkspaceAuthInfoResponse): Promise<SshClientSession> {
         try {
-            const ssh = new SupervisorSSHTunnel(this.logger, workspaceInfo, this.extensionIpc);
+            const ssh = new SupervisorSSHTunnel(workspaceInfo, this.extensionIpc);
             const connConfig = await ssh.establishTunnel();
             const config = new SshSessionConfiguration();
             const session = new SshClientSession(config);
@@ -217,7 +199,6 @@ export class LocalSSHClient {
                     extensionVersion: getRunningExtensionVersion(),
                     connType: SendLocalSSHUserFlowStatusRequest_ConnType.CONN_TYPE_UNSPECIFIED,
                 });*/
-                this.logger.error(e, 'failed to get workspace auth info for workspace: ' + username + ' host: ' + this.options.host);
                 throw e;
             });
         }, 200, 10);
@@ -245,8 +226,8 @@ export class LocalSSHClient {
         }
         try {
             await this.extensionIpc.sendErrorReport(request);
-        } catch (e) {
-            this.logger.error(e, 'failed to send error report');
+        } catch (_e) {
+            // ignore
         }
     }
 }

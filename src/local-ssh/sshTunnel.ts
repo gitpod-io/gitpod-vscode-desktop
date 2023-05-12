@@ -11,7 +11,6 @@ import { CreateSSHKeyPairRequest, CreateSSHKeyPairResponse } from '@gitpod/super
 import { NodeHttpTransport } from '@improbable-eng/grpc-web-node-http-transport';
 import { grpc } from '@improbable-eng/grpc-web';
 import { BrowserHeaders } from 'browser-headers';
-import { ILogService } from '../services/logService';
 import { ExtensionServiceDefinition, GetWorkspaceAuthInfoResponse, SendLocalSSHUserFlowStatusRequest_Code, SendLocalSSHUserFlowStatusRequest_ConnType, SendLocalSSHUserFlowStatusRequest_Status } from '../proto/typescript/ipc/v1/ipc';
 import { Client } from 'nice-grpc';
 import { getDaemonVersion } from './common';
@@ -43,7 +42,6 @@ class SupervisorPortTunnelMessage extends ChannelOpenMessage {
 export class SupervisorSSHTunnel {
 
 	constructor(
-		private readonly logger: ILogService,
 		readonly workspaceInfo: GetWorkspaceAuthInfoResponse,
 		private extensionIpc: Client<ExtensionServiceDefinition>,
 	) { }
@@ -102,7 +100,6 @@ export class SupervisorSSHTunnel {
 				resolve(new WebSocketStream(socket as any));
 			};
 			socket.onerror = (e) => {
-				this.logger.error(e as any, 'failed to connect to server');
 				this.extensionIpc.sendLocalSSHUserFlowStatus({
 					gitpodHost: this.workspaceInfo.gitpodHost,
 					userId: this.workspaceInfo.userId,
