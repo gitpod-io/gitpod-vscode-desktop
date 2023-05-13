@@ -116,7 +116,7 @@ Include "gitpod/config"
 
         const scopeRegex = new RegExp(`START GITPOD INTEGRATION.+Include "gitpod/config".+END GITPOD INTEGRATION`, 's');
         if (!scopeRegex.test(content)) {
-            content = `${content}\n\n${gitpodIncludeSection}\n\n`;
+            content = `${gitpodIncludeSection}\n\n${content}`;
 
             const configFileDir = path.dirname(configPath);
             if (!(await exists(configFileDir))) {
@@ -176,7 +176,8 @@ Include "gitpod/config"
         return this.sshConfig.compute(host);
     }
 
-    addHostConfiguration(hostConfig: Record<string, string>) {
+    addHostConfiguration(hostConfig: { Host: string;[k: string]: string }) {
+        this.sshConfig.remove(hostConfig);
         this.sshConfig.append(hostConfig);
     }
 
