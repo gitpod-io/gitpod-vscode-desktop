@@ -3,54 +3,98 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { getDaemonVersion, getHostKey } from './common';
-import { SupervisorSSHTunnel } from './sshTunnel';
 import { SshClient } from '@microsoft/dev-tunnels-ssh-tcp';
-import { NodeStream, SshClientCredentials, SshClientSession, SshDisconnectReason, SshServerSession, SshSessionConfiguration } from '@microsoft/dev-tunnels-ssh';
+import { ChannelOpenMessage, NodeStream, SshClientCredentials, SshClientSession, SshDataWriter, SshDisconnectReason, SshServerSession, SshSessionConfiguration, SshStream, Stream, WebSocketStream } from '@microsoft/dev-tunnels-ssh';
 import { importKey, importKeyBytes } from '@microsoft/dev-tunnels-ssh-keys';
 import { ExtensionServiceDefinition, GetWorkspaceAuthInfoResponse, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest_Code, SendLocalSSHUserFlowStatusRequest_ConnType, SendLocalSSHUserFlowStatusRequest_Status } from '../proto/typescript/ipc/v1/ipc';
 import { Client, ClientError, Status, createChannel, createClient } from 'nice-grpc';
 import { retryWithStop } from '../common/async';
+import { TunnelPortRequest } from '@gitpod/supervisor-api-grpc/lib/port_pb';
+import { WebSocket } from 'ws';
+
+// This public key is safe to be public since we only use it to verify local-ssh connections.
+const HOST_KEY = 'LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ1QwcXg1eEJUVmc4TUVJbUUKZmN4RXRZN1dmQVVsM0JYQURBK2JYREsyaDZlaFJBTkNBQVJlQXo0RDVVZXpqZ0l1SXVOWXpVL3BCWDdlOXoxeApvZUN6UklqcGdCUHozS0dWRzZLYXV5TU5YUm95a21YSS9BNFpWaW9nd2Vjb0FUUjRUQ2FtWm1ScAotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg==';
+// const HOST_PUBLIC_FP = 'AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBF4DPgPlR7OOAi4i41jNT+kFft73PXGh4LNEiOmAE/PcoZUbopq7Iw1dGjKSZcj8DhlWKiDB5ygBNHhMJqZmZGk=';
+
+function getHostKey(): Buffer {
+    return Buffer.from(HOST_KEY, 'base64');
+}
+
+function getDaemonVersion() {
+    return process.env.DAEMON_VERSION ?? '0.0.1';
+}
 
 interface ClientOptions {
     host: string;
     extIpcPort: number;
-    logPath: string;
+    username: string;
 }
 
 function getClientOptions(): ClientOptions {
     const args = process.argv.slice(2);
     return {
         host: args[0],
-        extIpcPort: Number.parseInt(args[1]),
-        logPath: args[2],
+        extIpcPort: Number.parseInt(args[1], 10),
+        username: args[2],
     };
+}
+
+class NoRunningInstanceError extends Error {
+    constructor() {
+        super('Workspace not running.');
+        this.name = 'NoRunningInstanceError';
+    }
+}
+class FailedToGetAuthInfoError extends Error {
+    constructor() {
+        super('Cannot get workspace credentials.');
+        this.name = 'FailedToGetAuthInfoError';
+    }
+}
+class AuthenticationError extends Error {
+    constructor() {
+        super('Authentication failed.');
+        this.name = 'AuthenticationError';
+    }
+}
+
+class SupervisorPortTunnelMessage extends ChannelOpenMessage {
+    constructor(private clientId: string, private remotePort: number, channelType: string) {
+        super();
+        this.channelType = channelType;
+    }
+
+    override onWrite(writer: SshDataWriter): void {
+        super.onWrite(writer);
+        const req = new TunnelPortRequest();
+        req.setClientId(this.clientId);
+        req.setTargetPort(this.remotePort);
+        req.setPort(this.remotePort);
+
+        let bytes = req.serializeBinary();
+        writer.write(Buffer.from(bytes));
+    }
+
+    override toString() {
+        return `${super.toString()}`;
+    }
 }
 
 // TODO(local-ssh): Remove me after direct ssh works with @microsft/dev-tunnels-ssh
 const FORCE_TUNNEL = true;
 
-export class LocalSSHClient {
-    private readonly options!: ClientOptions;
+class WebSocketSSHProxy {
 
-    private extensionIpc!: Client<ExtensionServiceDefinition>;
-    private serverSession?: SshServerSession;
+    private extensionIpc: Client<ExtensionServiceDefinition>;
 
-    constructor(
-    ) {
-        const options = getClientOptions();
-        if (!options) {
-            process.exit(0);
-        }
-        this.options = options;
+    constructor(private options: ClientOptions) {
         this.onExit();
         this.onException();
-        this.startServer().then().catch(_err => { });
         this.extensionIpc = createClient(ExtensionServiceDefinition, createChannel('127.0.0.1:' + this.options.extIpcPort));
     }
 
     private onExit() {
-        const exitHandler = async (_signal?: NodeJS.Signals) => {
+        const exitHandler = (_signal?: NodeJS.Signals) => {
             process.exit(0);
         };
         process.on('SIGINT', exitHandler);
@@ -61,6 +105,39 @@ export class LocalSSHClient {
         process.on('uncaughtException', (_err) => { });
         process.on('unhandledRejection', (_err) => { });
     }
+
+    async start() {
+        // This is expected to never throw as key is harcoded
+        const keys = await importKeyBytes(getHostKey());
+        const config = new SshSessionConfiguration();
+        config.maxClientAuthenticationAttempts = 1;
+        const session = new SshServerSession(config);
+        session.credentials.publicKeys.push(keys);
+
+        let pipePromise: Promise<void> | undefined;
+        session.onAuthenticating((e) => {
+            e.authenticationPromise = this.authenticateClient(this.options.username)
+                .then(pipeSession => {
+                    pipePromise = session.pipe(pipeSession);
+                    return {};
+                }).catch(async error => {
+                    await session.close(SshDisconnectReason.byApplication, error.toString(), error instanceof Error ? error : undefined);
+                    return null;
+                });
+        });
+        try {
+            await session.connect(new NodeStream(process.stdin, process.stdout));
+
+            await pipePromise;
+        } catch (e) {
+            if (session.isClosed) {
+                return;
+            }
+
+            await session.close(SshDisconnectReason.byApplication, e.toString(), e instanceof Error ? e : undefined);
+        }
+    }
+
     private async authenticateClient(username: string) {
         const workspaceInfo = await this.retryGetWorkspaceInfo(username);
         if (FORCE_TUNNEL) {
@@ -71,42 +148,6 @@ export class LocalSSHClient {
             return this.getTunnelSSHConfig(workspaceInfo);
         }
         return session;
-    }
-
-    async startServer() {
-        try {
-            const keys = await importKeyBytes(getHostKey());
-            const config = new SshSessionConfiguration();
-            const session = new SshServerSession(config);
-            session.credentials.publicKeys.push(keys);
-
-            let pipeSession: SshClientSession;
-            session.onAuthenticating((e) => {
-                e.authenticationPromise = this.authenticateClient(e.username!).then(s => {
-                    pipeSession = s;
-                    return {};
-                }).catch(_e => {
-                    session.close(SshDisconnectReason.hostNotAllowedToConnect, 'auth failed or workspace is not running');
-                    return null;
-                });
-            });
-            session.onClientAuthenticated(async () => {
-                try {
-                    await session.pipe(pipeSession);
-                } catch (e) {
-                    // ignore
-                } finally {
-                    session.close(SshDisconnectReason.connectionLost, 'pipe session ended');
-                }
-            });
-            session.onClosed(() => {
-                process.exit(0);
-            });
-            this.serverSession = session;
-            session.connect(new NodeStream(process.stdin, process.stdout));
-        } catch (_e) {
-            process.exit(0);
-        }
     }
 
     private async tryDirectSSH(workspaceInfo: GetWorkspaceAuthInfoResponse): Promise<SshClientSession | undefined> {
@@ -124,7 +165,7 @@ export class LocalSSHClient {
             const credentials: SshClientCredentials = { username: connConfig.username, password: connConfig.password };
             const authenticated = await session.authenticate(credentials);
             if (!authenticated) {
-                throw new Error('failed to authenticate');
+                throw new AuthenticationError();
             }
             return session;
         } catch (e) {
@@ -145,17 +186,14 @@ export class LocalSSHClient {
 
     private async getTunnelSSHConfig(workspaceInfo: GetWorkspaceAuthInfoResponse): Promise<SshClientSession> {
         try {
-            const ssh = new SupervisorSSHTunnel(workspaceInfo, this.extensionIpc);
-            const connConfig = await ssh.establishTunnel();
+            const connConfig = await this.establishTunnel(workspaceInfo);
             const config = new SshSessionConfiguration();
             const session = new SshClientSession(config);
             session.onAuthenticating((e) => e.authenticationPromise = Promise.resolve({}));
-            await session.connect(new NodeStream(connConfig.sock!));
-            // we need to convert openssh to pkcs8 since dev-tunnels-ssh not support openssh
-            const credentials: SshClientCredentials = { username: connConfig.username, publicKeys: [await importKey(workspaceInfo.sshkey)] };
-            const ok = await session.authenticate(credentials);
+            await session.connect(new NodeStream(connConfig.sock));
+            const ok = await session.authenticate({ username: connConfig.username, publicKeys: [await importKey(workspaceInfo.sshkey)] });
             if (!ok) {
-                throw new Error('failed to authenticate tunnel ssh');
+                throw new AuthenticationError();
             }
             return session;
         } catch (e) {
@@ -174,33 +212,74 @@ export class LocalSSHClient {
         }
     }
 
-    shutdown() {
-        this.serverSession?.close(SshDisconnectReason.connectionLost, 'shutdown');
-    }
-
     async retryGetWorkspaceInfo(username: string) {
         return retryWithStop(async (stop) => {
-            return await this.extensionIpc.getWorkspaceAuthInfo({ workspaceId: username, gitpodHost: this.options.host }).catch(e => {
+            return this.extensionIpc.getWorkspaceAuthInfo({ workspaceId: username, gitpodHost: this.options.host }).catch(e => {
                 if (e instanceof ClientError) {
                     if (e.code === Status.UNAVAILABLE && e.details.startsWith('workspace is not running')) {
                         stop();
+                        throw new NoRunningInstanceError();
                     }
                 }
-                /*
-                TODO not sure how to get gitpodhost here, probably unauthorized should always go to gitpod.io
-                this.localsshService.sendTelemetry({
-                    status: SendLocalSSHUserFlowStatusRequest_Status.STATUS_FAILURE,
-                    workspaceId: clientUsername,
-                    instanceId: '',
-                    failureCode: SendLocalSSHUserFlowStatusRequest_Code.CODE_NO_WORKSPACE_AUTO_INFO,
-                    // TODO remove, and report to error reporting
-                    daemonVersion: getDaemonVersion(),
-                    extensionVersion: getRunningExtensionVersion(),
-                    connType: SendLocalSSHUserFlowStatusRequest_ConnType.CONN_TYPE_UNSPECIFIED,
-                });*/
-                throw e;
+                throw new FailedToGetAuthInfoError();
             });
         }, 200, 10);
+    }
+
+    async establishTunnel(workspaceInfo: GetWorkspaceAuthInfoResponse) {
+        const workspaceWSUrl = `wss://${workspaceInfo.workspaceId}.${workspaceInfo.workspaceHost}`;
+        const socket = new WebSocket(workspaceWSUrl + '/_supervisor/tunnel', undefined, {
+            headers: {
+                'x-gitpod-owner-token': workspaceInfo.ownerToken
+            }
+        });
+
+        socket.binaryType = 'arraybuffer';
+        const stream = await new Promise<Stream>((resolve, reject) => {
+            socket.onopen = () => {
+                resolve(new WebSocketStream(socket as any));
+            };
+            socket.onerror = (e) => {
+                this.extensionIpc.sendLocalSSHUserFlowStatus({
+                    gitpodHost: workspaceInfo.gitpodHost,
+                    userId: workspaceInfo.userId,
+                    status: SendLocalSSHUserFlowStatusRequest_Status.STATUS_FAILURE,
+                    workspaceId: workspaceInfo.workspaceId,
+                    instanceId: workspaceInfo.instanceId,
+                    failureCode: SendLocalSSHUserFlowStatusRequest_Code.CODE_TUNNEL_CANNOT_CREATE_WEBSOCKET,
+                    daemonVersion: getDaemonVersion(),
+                    connType: SendLocalSSHUserFlowStatusRequest_ConnType.CONN_TYPE_TUNNEL,
+                });
+                reject(e);
+            };
+        });
+
+        const config = new SshSessionConfiguration();
+        const session = new SshClientSession(config);
+        session.onAuthenticating((e) => e.authenticationPromise = Promise.resolve({}));
+        await session.connect(stream);
+
+        const credentials: SshClientCredentials = { username: 'gitpodlocal' };
+        const authenticated = await session.authenticate(credentials);
+        if (!authenticated) {
+            throw new AuthenticationError();
+        }
+        const clientID = 'tunnel_' + Math.random().toString(36).slice(2);
+        const msg = new SupervisorPortTunnelMessage(clientID, 23001, 'tunnel');
+        const channel = await session.openChannel(msg).catch(e => {
+            this.extensionIpc.sendLocalSSHUserFlowStatus({
+                gitpodHost: workspaceInfo.gitpodHost,
+                userId: workspaceInfo.userId,
+                status: SendLocalSSHUserFlowStatusRequest_Status.STATUS_FAILURE,
+                workspaceId: workspaceInfo.workspaceId,
+                instanceId: workspaceInfo.instanceId,
+                failureCode: SendLocalSSHUserFlowStatusRequest_Code.CODE_TUNNEL_FAILED_FORWARD_SSH_PORT,
+                daemonVersion: getDaemonVersion(),
+                connType: SendLocalSSHUserFlowStatusRequest_ConnType.CONN_TYPE_TUNNEL,
+            });
+            throw e;
+        });
+        return { sock: new SshStream(channel), username: 'gitpod' };
     }
 
     async sendErrorReport(gitpodHost: string, userId: string, workspaceId: string | undefined, instanceId: string | undefined, err: Error | any, message: string) {
@@ -225,10 +304,16 @@ export class LocalSSHClient {
         }
         try {
             await this.extensionIpc.sendErrorReport(request);
-        } catch (_e) {
+        } catch {
             // ignore
         }
     }
 }
 
-new LocalSSHClient();
+const options = getClientOptions();
+if (!options) {
+    process.exit(1);
+}
+
+const proxy = new WebSocketSSHProxy(options);
+proxy.start();

@@ -3,8 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { tmpdir } from 'os';
-import { join } from 'path';
 import * as vscode from 'vscode';
 
 // Use these functions instead of `vscode.workspace.getConfiguration` API
@@ -34,21 +32,9 @@ function getLocalSshExtensionIpcPort() {
     return vscode.workspace.getConfiguration('gitpod').get<number>('lsshExtensionIpcPort', defaultPort) || defaultPort;
 }
 
-function getLocalSSHLogFileName(): string {
-    if (vscode.env.appName.includes('Insiders')) {
-        return 'gitpod-vscode-lssh-insiders.log';
-    }
-    return 'gitpod-vscode-lssh.log';
-}
-
-function getLocalSSHLogPath(): string {
-    return join(tmpdir(), getLocalSSHLogFileName());
-}
-
 export const Configuration = {
     getGitpodHost,
     getShowReleaseNotes,
     getUseLocalApp,
     getLocalSshExtensionIpcPort,
-    getLocalSSHLogPath,
 };
