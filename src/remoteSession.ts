@@ -19,7 +19,7 @@ import { ScopeFeature } from './featureSupport';
 import { ISessionService } from './services/sessionService';
 import { IHostService } from './services/hostService';
 import { ILogService } from './services/logService';
-import { ExtensionServiceServer } from './local-ssh/ipc/extension';
+import { ExtensionServiceServer } from './local-ssh/ipc/extensionServiceServer';
 
 export class RemoteSession extends Disposable {
 
