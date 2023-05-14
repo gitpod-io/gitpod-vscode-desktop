@@ -185,11 +185,14 @@ export class ExtensionServiceServer extends Disposable {
 
     private async tryActive() {
         const port = Configuration.getLocalSshExtensionIpcPort();
-        this.logService.debug('going to try active extension ipc service server on port ' + port);
+        // TODO:
+        // commenting this as it pollutes extension logs
+        // verify port is used by our extension or show message to user
+        // this.logService.debug('going to try active extension ipc service server on port ' + port);
         this.server.listen('127.0.0.1:' + port).then(() => {
             this.logService.info('extension ipc service server started to listen');
-        }).catch(e => {
-            this.logService.debug(`extension ipc service server failed to listen`, e);
+        }).catch(_e => {
+            // this.logService.debug(`extension ipc service server failed to listen`, e);
             // TODO(lssh): listen to port and wait until disconnect and try again
             timeout(1000).then(() => {
                 this.tryActive();

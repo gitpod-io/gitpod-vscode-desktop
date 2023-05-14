@@ -316,4 +316,4 @@ if (!options) {
 }
 
 const proxy = new WebSocketSSHProxy(options);
-proxy.start();
+proxy.start().catch(() => { });
