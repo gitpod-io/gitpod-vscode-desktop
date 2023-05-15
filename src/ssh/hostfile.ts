@@ -35,7 +35,7 @@ export async function checkNewHostInHostkeys(host: string): Promise<boolean> {
 }
 
 export async function addHostToHostFile(host: string, hostKey: Buffer, type: string): Promise<void> {
-    if (!folderExists(PATH_SSH_USER_DIR)) {
+    if (!(await folderExists(PATH_SSH_USER_DIR))) {
         await fs.promises.mkdir(PATH_SSH_USER_DIR, 0o700);
     }
 

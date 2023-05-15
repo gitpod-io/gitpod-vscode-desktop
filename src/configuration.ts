@@ -3,8 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { tmpdir } from 'os';
-import { join } from 'path';
 import * as vscode from 'vscode';
 
 // Use these functions instead of `vscode.workspace.getConfiguration` API
@@ -22,40 +20,16 @@ function getUseLocalApp(useLocalSSHServer?: boolean) {
     return vscode.workspace.getConfiguration('gitpod').get<boolean>('remote.useLocalApp', false);
 }
 
-function getLocalSSHServerPort() {
-    // TODO(local-ssh): VSCodium?
-    // use `sudo lsof -i:<port>` to check if the port is already in use
-    let defaultPort = 42025;
+function getLocalSshExtensionIpcPort() {
+    let defaultPort = 43025;
     if (vscode.env.appName.includes('Insiders')) {
-        defaultPort = 42026;
+        defaultPort = 43026;
     }
-    return vscode.workspace.getConfiguration('gitpod').get<number>('lsshPort', defaultPort) || defaultPort;
-}
-
-function getLocalSshIpcPort() {
-    let defaultPort = 41025;
-    if (vscode.env.appName.includes('Insiders')) {
-        defaultPort = 41026;
-    }
-    return vscode.workspace.getConfiguration('gitpod').get<number>('lsshIpcPort', defaultPort) || defaultPort;
-}
-
-function getDaemonLogFileName(): string {
-    if (vscode.env.appName.includes('Insiders')) {
-        return 'gitpod-vscode-daemon-insiders.log';
-    }
-    return 'gitpod-vscode-daemon.log';
-}
-
-function getDaemonLogPath(): string {
-    return join(tmpdir(), getDaemonLogFileName());
+    return vscode.workspace.getConfiguration('gitpod').get<number>('lsshExtensionIpcPort', defaultPort) || defaultPort;
 }
 
 export const Configuration = {
     getGitpodHost,
     getUseLocalApp,
-    getLocalSSHServerPort,
-    getLocalSshIpcPort,
-    getDaemonLogPath,
-    getDaemonLogFileName,
+    getLocalSshExtensionIpcPort,
 };

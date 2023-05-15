@@ -20,9 +20,8 @@ import { SessionService } from './services/sessionService';
 import { CommandManager } from './commandManager';
 import { SignInCommand } from './commands/account';
 import { ExportLogsCommand } from './commands/logs';
-import { ensureDaemonStarted } from './daemonStarter';
-import { ExtensionServiceServer } from './local-ssh/ipc/extension';
 import { Configuration } from './configuration';
+import { LocalSSHService } from './services/localSSHService';
 
 // connect-web uses fetch api, so we need to polyfill it
 if (!global.fetch) {
@@ -73,6 +72,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		hostService = new HostService(context, notificationService, logger);
 		context.subscriptions.push(hostService);
 
+		const localSSHService = new LocalSSHService(context, hostService, logger);
+		context.subscriptions.push(localSSHService);
+
 		const sessionService = new SessionService(hostService, logger);
 		context.subscriptions.push(sessionService);
 
@@ -82,11 +84,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		const settingsSync = new SettingsSync(commandManager, logger, telemetryService, notificationService);
 		context.subscriptions.push(settingsSync);
 
-		const remoteConnector = new RemoteConnector(context, sessionService, hostService, experiments, logger, telemetryService, notificationService);
+		const remoteConnector = new RemoteConnector(context, sessionService, hostService, experiments, logger, telemetryService, notificationService, localSSHService);
 		context.subscriptions.push(remoteConnector);
-
-		const extensionIPCService = new ExtensionServiceServer(logger, sessionService, hostService, telemetryService, experiments);
-		context.subscriptions.push(extensionIPCService);
 
 		context.subscriptions.push(vscode.window.registerUriHandler({
 			handleUri(uri: vscode.Uri) {
@@ -102,8 +101,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		// Register global commands
 		commandManager.register(new SignInCommand(sessionService));
 		commandManager.register(new ExportLogsCommand(context.logUri, notificationService, telemetryService, logger, hostService));
-
-		ensureDaemonStarted(logger, telemetryService, 3).then(() => { }).catch(e => { logger?.error(e); });
 
 		if (!context.globalState.get<boolean>(FIRST_INSTALL_KEY, false)) {
 			context.globalState.update(FIRST_INSTALL_KEY, true);

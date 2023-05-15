@@ -19,6 +19,7 @@ import { ScopeFeature } from './featureSupport';
 import { ISessionService } from './services/sessionService';
 import { IHostService } from './services/hostService';
 import { ILogService } from './services/logService';
+import { ExtensionServiceServer } from './local-ssh/ipc/extensionServiceServer';
 
 export class RemoteSession extends Disposable {
 
@@ -26,6 +27,7 @@ export class RemoteSession extends Disposable {
 
 	private heartbeatManager: HeartbeatManager | undefined;
 	private workspaceState: WorkspaceState | undefined;
+	private extensionServiceServer: ExtensionServiceServer | undefined;
 
 	constructor(
 		private readonly remoteAuthority: string,
@@ -59,6 +61,11 @@ export class RemoteSession extends Disposable {
 		}
 
 		try {
+			const useLocalSSH = await this.experiments.getUseLocalSSHServer(this.connectionInfo.gitpodHost);
+			if (useLocalSSH) {
+				this.extensionServiceServer = new ExtensionServiceServer(this.logService, this.sessionService, this.hostService, this.telemetryService, this.experiments);
+			}
+
 			this.usePublicApi = await this.experiments.getUsePublicAPI(this.connectionInfo.gitpodHost);
 			this.logService.info(`Going to use ${this.usePublicApi ? 'public' : 'server'} API`);
 
@@ -253,6 +260,7 @@ export class RemoteSession extends Disposable {
 	public override async dispose(): Promise<void> {
 		await this.heartbeatManager?.dispose();
 		this.workspaceState?.dispose();
+		this.extensionServiceServer?.dispose();
 		super.dispose();
 	}
 }

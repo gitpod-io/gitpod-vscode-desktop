@@ -3,42 +3,57 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import winston from 'winston';
+import { WriteStream, createWriteStream } from 'fs';
+import { inspect } from 'util';
 import { ILogService } from '../services/logService';
 
-const DefaultLogFormatter = winston.format.combine(winston.format.timestamp(), winston.format.errors({ stack: true }), winston.format.simple());
+export class NopeLogger implements ILogService {
+    trace(_message: string, ..._args: any[]): void { }
+    debug(_message: string, ..._args: any[]): void { }
+    info(_message: string, ..._args: any[]): void { }
+    warn(_message: string, ..._args: any[]): void { }
+    error(_error: string | Error, ..._args: any[]): void { }
+    show(): void { }
+}
 
-export class Logger implements ILogService {
-    private logger: winston.Logger;
+export class DebugLogger implements ILogService {
+    private readonly stream?: WriteStream;
 
-    constructor(logLevel: 'debug' | 'info', logFile: string) {
-        this.logger = winston.createLogger({
-            level: logLevel,
-            defaultMeta: { pid: process.pid },
-            transports: [
-                new winston.transports.File({ format: DefaultLogFormatter, filename: logFile, options: { flags: 'a' }, maxsize: 1024 * 1024 * 10 /* 10M */, maxFiles: 1 }),
-            ],
-            exitOnError: false,
-        });
+    constructor() {
+        try {
+            // no need to consider target file for different platform
+            // since we use in only for debug local ssh proxy
+            this.stream = createWriteStream('/tmp/lssh.log');
+        } catch (_e) { }
+    }
+
+    private parseArgs(...args: any[]) {
+        return args.map(e => inspect(e)).join(' ');
     }
 
     trace(message: string, ...args: any[]): void {
-        this.logger.debug(message, ...args);
-    }
-    debug(message: string, ...args: any[]): void {
-        this.logger.debug(message, ...args);
-    }
-    info(message: string, ...args: any[]): void {
-        this.logger.info(message, ...args);
-    }
-    warn(message: string, ...args: any[]): void {
-        this.logger.warn(message, ...args);
-    }
-    error(error: string | Error, ...args: any[]): void {
-        this.logger.error(error as any, ...args);
+        this.stream?.write(`${new Date()}TRACE: ${message} ${this.parseArgs(...args)}\n`);
     }
 
-    show(): void {
-        // no-op
+    debug(message: string, ...args: any[]): void {
+        this.stream?.write(`${new Date()}DEBUG: ${message} ${this.parseArgs(...args)}\n`);
     }
+
+    info(message: string, ...args: any[]): void {
+        this.stream?.write(`${new Date()}INFO: ${message} ${this.parseArgs(...args)}\n`);
+    }
+
+    warn(message: string, ...args: any[]): void {
+        this.stream?.write(`${new Date()}WARN: ${message} ${this.parseArgs(...args)}\n`);
+    }
+
+    error(error: string | Error, ...args: any[]): void {
+        if (error instanceof Error) {
+            this.stream?.write(`${new Date()}ERROR: ${error.toString()}\n${error.stack}\n${this.parseArgs(...args)}\n`);
+        } else {
+            this.stream?.write(`${new Date()}ERROR: ${error.toString()} ${this.parseArgs(...args)}\n`);
+        }
+    }
+
+    show(): void { }
 }

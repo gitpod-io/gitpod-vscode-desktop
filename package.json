@@ -142,6 +142,7 @@
 		"proto-gen": "cd ./src/proto && buf lint && buf generate"
 	},
 	"devDependencies": {
+		"@bufbuild/buf": "^1.15.0-1",
 		"@types/google-protobuf": "^3.7.4",
 		"@types/js-yaml": "^4.0.5",
 		"@types/mocha": "^9.1.1",
@@ -149,7 +150,6 @@
 		"@types/ps-node": "^0.1.1",
 		"@types/semver": "^7.3.10",
 		"@types/ssh2": "^0.5.52",
-		"@types/sshpk": "^1.17.1",
 		"@types/tmp": "^0.2.1",
 		"@types/uuid": "8.0.0",
 		"@types/vscode": "1.74.0",
@@ -159,6 +159,7 @@
 		"@typescript-eslint/eslint-plugin": "^5.19.0",
 		"@typescript-eslint/parser": "^5.19.0",
 		"@vscode/vsce": "^2.18.0",
+		"copy-webpack-plugin": "^11.0.0",
 		"eslint": "^8.13.0",
 		"eslint-plugin-header": "3.1.1",
 		"eslint-plugin-jsdoc": "^19.1.0",
@@ -169,8 +170,7 @@
 		"ts-proto": "^1.140.0",
 		"typescript": "^4.6.3",
 		"webpack": "^5.42.0",
-		"webpack-cli": "^4.7.2",
-		"@bufbuild/buf": "^1.15.0-1"
+		"webpack-cli": "^4.7.2"
 	},
 	"dependencies": {
 		"@bufbuild/connect-node": "^0.8.4",
@@ -180,9 +180,9 @@
 		"@gitpod/supervisor-api-grpc": "0.1.5-main.6711",
 		"@grpc/grpc-js": "^1.8.8",
 		"@improbable-eng/grpc-web-node-http-transport": "^0.14.0",
-		"@microsoft/dev-tunnels-ssh": "^3.11.2",
-		"@microsoft/dev-tunnels-ssh-keys": "^3.11.2",
-		"@microsoft/dev-tunnels-ssh-tcp": "^3.11.2",
+		"@microsoft/dev-tunnels-ssh": "^3.11.8",
+		"@microsoft/dev-tunnels-ssh-keys": "^3.11.8",
+		"@microsoft/dev-tunnels-ssh-tcp": "^3.11.8",
 		"@segment/analytics-node": "^1.0.0-beta.24",
 		"configcat-node": "^8.0.0",
 		"js-yaml": "^4.1.0",
@@ -197,10 +197,8 @@
 		"semver": "^7.3.7",
 		"ssh-config": "^4.1.6",
 		"ssh2": "^1.10.0",
-		"sshpk": "^1.17.0",
 		"tmp": "^0.2.1",
 		"uuid": "8.1.0",
-		"winston": "^3.8.2",
 		"ws": "^8.13.0",
 		"yazl": "^2.5.1"
 	}

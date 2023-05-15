@@ -8,11 +8,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import SSHConfig, { Line, Section, Directive } from 'ssh-config';
 import * as vscode from 'vscode';
-import { isFile, untildify } from '../common/files';
+import { exists, isFile, untildify } from '../common/files';
 import { isWindows } from '../common/platform';
 
 const systemSSHConfig = isWindows ? path.resolve(process.env.ALLUSERSPROFILE || 'C:\\ProgramData', 'ssh\\ssh_config') : '/etc/ssh/ssh_config';
 const defaultSSHConfigPath = path.resolve(os.homedir(), '.ssh/config');
+const gitpodSSHConfigPath = path.resolve(os.homedir(), '.ssh/gitpod/config');
 
 export function getSSHConfigPath() {
     const sshConfigPath = vscode.workspace.getConfiguration('remote.SSH').get<string>('configFile');
@@ -73,6 +74,84 @@ export default class SSHConfiguration {
         return new SSHConfiguration(config);
     }
 
+    static async loadGitpodSSHConfig(): Promise<SSHConfiguration> {
+        if (!(await isFile(gitpodSSHConfigPath))) {
+            throw new Error(`Gitpod ssh config file ${gitpodSSHConfigPath} does not exist`);
+        }
+
+        let content = (await fs.promises.readFile(gitpodSSHConfigPath, 'utf8')).trim();
+        const config = SSHConfig.parse(content);
+        return new SSHConfiguration(config);
+    }
+
+    static async saveGitpodSSHConfig(config: SSHConfiguration): Promise<void> {
+        if (!(await isFile(gitpodSSHConfigPath))) {
+            throw new Error(`Gitpod ssh config file ${gitpodSSHConfigPath} does not exist`);
+        }
+
+        try {
+            await fs.promises.writeFile(gitpodSSHConfigPath, config.toString());
+        } catch (e) {
+            throw new Error(`Could not write gitpod ssh config file ${gitpodSSHConfigPath}: ${e}`);
+        }
+    }
+
+    static async ensureIncludeGitpodSSHConfig(): Promise<void> {
+        const gitpodIncludeSection = `## START GITPOD INTEGRATION
+## This section is managed by Gitpod. Any manual changes will be lost.
+Include "gitpod/config"
+## END GITPOD INTEGRATION`;
+
+        const gitpodHeader = `### This file is managed by Gitpod. Any manual changes will be lost.`;
+
+        const configPath = getSSHConfigPath();
+        let content = '';
+        if (await exists(configPath)) {
+            try {
+                content = (await fs.promises.readFile(configPath, 'utf8')).trim();
+            } catch (e) {
+                throw new Error(`Could not read ssh config file at ${configPath}: ${e}`);
+            }
+        }
+
+        const scopeRegex = new RegExp(`START GITPOD INTEGRATION.+Include "gitpod/config".+END GITPOD INTEGRATION`, 's');
+        if (!scopeRegex.test(content)) {
+            content = `${gitpodIncludeSection}\n\n${content}`;
+
+            const configFileDir = path.dirname(configPath);
+            if (!(await exists(configFileDir))) {
+                try {
+                    await fs.promises.mkdir(configFileDir, { recursive: true });
+                } catch (e) {
+                    throw new Error(`Could not create ssh config folder ${configFileDir}: ${e}`);
+                }
+            }
+
+            try {
+                await fs.promises.writeFile(configPath, content);
+            } catch (e) {
+                throw new Error(`Could not write ssh config file ${configPath}: ${e}`);
+            }
+        }
+
+        const gitpodConfigFileDir = path.dirname(gitpodSSHConfigPath);
+        if (!(await exists(gitpodConfigFileDir))) {
+            try {
+                await fs.promises.mkdir(gitpodConfigFileDir, { recursive: true });
+            } catch (e) {
+                throw new Error(`Could not create gitpod ssh config folder ${gitpodConfigFileDir}: ${e}`);
+            }
+        }
+
+        if (!(await exists(gitpodSSHConfigPath))) {
+            try {
+                await fs.promises.writeFile(gitpodSSHConfigPath, gitpodHeader);
+            } catch (e) {
+                throw new Error(`Could not write gitpod ssh config file ${gitpodSSHConfigPath}: ${e}`);
+            }
+        }
+    }
+
     constructor(private sshConfig: SSHConfig) {
         // Normalize config property names
         normalizeSSHConfig(sshConfig);
@@ -95,5 +174,14 @@ export default class SSHConfiguration {
 
     getHostConfiguration(host: string): Record<string, string> {
         return this.sshConfig.compute(host);
+    }
+
+    addHostConfiguration(hostConfig: { Host: string;[k: string]: string }) {
+        this.sshConfig.remove(hostConfig);
+        this.sshConfig.append(hostConfig);
+    }
+
+    toString() {
+        return this.sshConfig.toString();
     }
 }

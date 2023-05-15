@@ -5,6 +5,7 @@
 const path = require('path');
 const webpack = require('webpack');
 const packageJSON = require('./package.json')
+const CopyPlugin = require('copy-webpack-plugin');
 
 const daemonVersion = new webpack.DefinePlugin({
 	'process.env.DAEMON_VERSION': JSON.stringify(packageJSON.daemonVersion ?? '0.0.1'),
@@ -16,7 +17,7 @@ const config = {
 	target: 'node',
 	entry: {
 		extension: './src/extension.ts',
-		'local-ssh/daemon': './src/local-ssh/daemon.ts',
+		'local-ssh/proxy': './src/local-ssh/proxy.ts',
 	},
 	output: {
 		path: path.resolve(__dirname, 'out'),
@@ -49,6 +50,12 @@ const config = {
 		}),
 		new webpack.IgnorePlugin({
 			resourceRegExp: /cpu-features/,
+		}),
+		new CopyPlugin({
+			patterns: [
+				{ from: 'src/local-ssh/proxylauncher.bat', to: 'local-ssh/proxylauncher.bat' },
+				{ from: 'src/local-ssh/proxylauncher.sh', to: 'local-ssh/proxylauncher.sh' },
+			],
 		}),
 		daemonVersion,
 	]

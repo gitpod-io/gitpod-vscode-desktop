@@ -12,7 +12,6 @@ import { Command } from '../commandManager';
 import { ILogService } from '../services/logService';
 import { INotificationService } from '../services/notificationService';
 import { ITelemetryService, UserFlowTelemetry } from '../services/telemetryService';
-import { Configuration } from '../configuration';
 import { HostService } from '../services/hostService';
 
 interface IFile {
@@ -86,18 +85,7 @@ export class ExportLogsCommand implements Command {
 				return;
 			}
 
-			const daemonLogs: IFile[] = [];
-
-			const daemonPath = path.posix.join('./lssh', 'daemon.log');
-			const daemonLogContent = await vscode.workspace.fs.readFile(vscode.Uri.file(Configuration.getDaemonLogPath()));
-			if (daemonLogContent.byteLength > 0) {
-				daemonLogs.push({
-					path: daemonPath,
-					contents: Buffer.from(daemonLogContent)
-				});
-			}
-
-			return zip(saveUri.fsPath, remoteLogFiles.concat(localLogFiles).concat(daemonLogs));
+			return zip(saveUri.fsPath, remoteLogFiles.concat(localLogFiles));
 		});
 	}
 }
