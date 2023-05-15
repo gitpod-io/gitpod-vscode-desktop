@@ -245,7 +245,7 @@ class WebSocketSSHProxy {
                 }
                 throw new FailedToGetAuthInfoError();
             });
-        }, 200, 10);
+        }, 200, 50);
     }
 
     async establishTunnel(workspaceInfo: GetWorkspaceAuthInfoResponse) {
