@@ -27,10 +27,7 @@ export class ExperimentalSettings {
         private readonly hostService: IHostService,
         private readonly logger: ILogService
     ) {
-        const host = hostService.gitpodHost;
-
-        this.configcatClient = configcat.createClientWithLazyLoad(key, {
-            baseUrl: new URL('/configcat', host).href,
+        const configCatOptions = {
             logger: {
                 debug(): void { },
                 log(): void { },
@@ -40,7 +37,20 @@ export class ExperimentalSettings {
             },
             requestTimeoutMs: 1500,
             cacheTimeToLiveSeconds: 60
+        };
+
+        this.configcatClient = configcat.createClientWithLazyLoad(key, {
+            baseUrl: new URL('/configcat', hostService.gitpodHost).href,
+            ...configCatOptions
         });
+
+        hostService.onDidChangeHost(() => {
+            this.configcatClient = configcat.createClientWithLazyLoad(key, {
+                baseUrl: new URL('/configcat', hostService.gitpodHost).href,
+                ...configCatOptions
+            });
+        });
+
         this.extensionVersion = new semver.SemVer(extensionVersion);
     }
 
