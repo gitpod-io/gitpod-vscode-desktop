@@ -40,13 +40,13 @@ export class ExperimentalSettings {
         };
 
         this.configcatClient = configcat.createClientWithLazyLoad(key, {
-            baseUrl: new URL('/configcat', hostService.gitpodHost).href,
+            baseUrl: new URL('/configcat', this.hostService.gitpodHost).href,
             ...configCatOptions
         });
 
         hostService.onDidChangeHost(() => {
             this.configcatClient = configcat.createClientWithLazyLoad(key, {
-                baseUrl: new URL('/configcat', hostService.gitpodHost).href,
+                baseUrl: new URL('/configcat', this.hostService.gitpodHost).href,
                 ...configCatOptions
             });
         });
