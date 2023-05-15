@@ -9,6 +9,7 @@ import * as configcatcommon from 'configcat-common';
 import * as semver from 'semver';
 import { ISessionService } from './services/sessionService';
 import { ILogService } from './services/logService';
+import { IHostService } from './services/hostService';
 
 const EXPERTIMENTAL_SETTINGS = [
     'gitpod.remote.useLocalApp',
@@ -23,11 +24,10 @@ export class ExperimentalSettings {
         key: string,
         extensionVersion: string,
         private readonly sessionService: ISessionService,
-        private readonly context: vscode.ExtensionContext,
+        private readonly hostService: IHostService,
         private readonly logger: ILogService
     ) {
-        this.configcatClient = configcat.createClientWithLazyLoad(key, {
-            baseUrl: new URL('/configcat', this.context.extensionMode === vscode.ExtensionMode.Production ? 'https://gitpod.io' : 'https://gitpod-staging.com').href,
+        const configCatOptions = {
             logger: {
                 debug(): void { },
                 log(): void { },
@@ -37,7 +37,20 @@ export class ExperimentalSettings {
             },
             requestTimeoutMs: 1500,
             cacheTimeToLiveSeconds: 60
+        };
+
+        this.configcatClient = configcat.createClientWithLazyLoad(key, {
+            baseUrl: new URL('/configcat', this.hostService.gitpodHost).href,
+            ...configCatOptions
         });
+
+        hostService.onDidChangeHost(() => {
+            this.configcatClient = configcat.createClientWithLazyLoad(key, {
+                baseUrl: new URL('/configcat', this.hostService.gitpodHost).href,
+                ...configCatOptions
+            });
+        });
+
         this.extensionVersion = new semver.SemVer(extensionVersion);
     }
 
