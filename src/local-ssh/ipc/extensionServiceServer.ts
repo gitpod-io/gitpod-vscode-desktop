@@ -119,7 +119,7 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
         }
     }
 
-    // TODO remove from protocol, don't pass sensitive info back and forth, only once for auth, daemon should do telemtry directly
+    // TODO remove from protocol, don't pass sensitive info back and forth, only once for auth, daemon should do telemetry directly
     async sendLocalSSHUserFlowStatus(request: SendLocalSSHUserFlowStatusRequest, _context: CallContext): Promise<{}> {
         const flow: UserFlowTelemetry = {
             flow: 'ssh',
@@ -140,7 +140,7 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
         return {};
     }
 
-    // TODO remove from protocol, don't pass sensitive info back and forth, only once for auth, daemon should do telemtry directly
+    // TODO remove from protocol, don't pass sensitive info back and forth, only once for auth, daemon should do telemetry directly
     // local ssh daemon should be own component in reporting?
     async sendErrorReport(request: SendErrorReportRequest, _context: CallContext): Promise<{}> {
         const err = new Error(request.errorMessage);

@@ -148,7 +148,7 @@ export class RemoteConnector extends Disposable {
 				deadline = Date.now() + timeout + updateTimeout * 2;
 				await this.context.globalState.update(lockKey, <Lock>{ value, deadline, pid: process.pid });
 			}
-			// TODO(ak) env.globaState.onDidChange instead, see https://github.com/microsoft/vscode/issues/131182
+			// TODO(ak) env.globalState.onDidChange instead, see https://github.com/microsoft/vscode/issues/131182
 			await new Promise(resolve => setTimeout(resolve, updateTimeout));
 			currentLock = this.context.globalState.get<Lock>(lockKey);
 		}

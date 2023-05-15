@@ -23,8 +23,8 @@ export async function checkNewHostInHostkeys(host: string): Promise<boolean> {
             continue;
         }
 
-        const [hostEncripted_] = line.split(' ');
-        const [salt_, hostHash_] = hostEncripted_.substring(HASH_MAGIC.length).split(HASH_DELIM);
+        const [hostEncrypted_] = line.split(' ');
+        const [salt_, hostHash_] = hostEncrypted_.substring(HASH_MAGIC.length).split(HASH_DELIM);
         const hostHash = crypto.createHmac('sha1', Buffer.from(salt_, 'base64')).update(host).digest();
         if (hostHash.toString('base64') === hostHash_) {
             return false;

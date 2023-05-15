@@ -11,7 +11,7 @@ import { ISessionService } from './services/sessionService';
 import { ILogService } from './services/logService';
 import { IHostService } from './services/hostService';
 
-const EXPERTIMENTAL_SETTINGS = [
+const EXPERIMENTAL_SETTINGS = [
     'gitpod.remote.useLocalApp',
     // 'gitpod.remote.useLocalSSHServer',
 ];
@@ -75,7 +75,7 @@ export class ExperimentalSettings {
     ): Promise<T | undefined> {
         const config = vscode.workspace.getConfiguration('gitpod');
         const values = config.inspect<T>(key.substring('gitpod.'.length));
-        if (!values || !EXPERTIMENTAL_SETTINGS.includes(key)) {
+        if (!values || !EXPERIMENTAL_SETTINGS.includes(key)) {
             this.logger.error(`Cannot get invalid experimental setting '${key}'`);
             return values?.globalValue ?? values?.defaultValue;
         }
@@ -105,7 +105,7 @@ export class ExperimentalSettings {
     ): Promise<{ key: string; defaultValue?: T; globalValue?: T; experimentValue?: T } | undefined> {
         const config = vscode.workspace.getConfiguration('gitpod');
         const values = config.inspect<T>(key.substring('gitpod.'.length));
-        if (!values || !EXPERTIMENTAL_SETTINGS.includes(key)) {
+        if (!values || !EXPERIMENTAL_SETTINGS.includes(key)) {
             this.logger.error(`Cannot inspect invalid experimental setting '${key}'`);
             return values;
         }

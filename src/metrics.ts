@@ -278,7 +278,7 @@ export class MetricsReporter {
         register.resetMetrics();
         for (const m of metrics) {
             if (m.name === 'grpc_client_msg_sent_total' || m.name === 'grpc_client_msg_received_total') {
-                // Skip these as thy are filtered by ide metris
+                // Skip these as thy are filtered by ide metrics
                 continue;
             }
 

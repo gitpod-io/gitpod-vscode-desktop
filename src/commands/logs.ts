@@ -55,7 +55,7 @@ export class ExportLogsCommand implements Command {
 
 		let extRemoteLogsUri: vscode.Uri | undefined;
 		try {
-			// Invoke command from gitpot-remote extension
+			// Invoke command from gitpod-remote extension
 			extRemoteLogsUri = await vscode.commands.executeCommand('__gitpod.getGitpodRemoteLogsUri');
 		} catch {
 			// Ignore if not found

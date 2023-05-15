@@ -132,7 +132,7 @@ export class BaseTelemetryAppender implements ITelemetryAppender {
 			return;
 		}
 		this.isInstantiating = true;
-		// Call the client factory to get the client and then let it know it's instatntiated
+		// Call the client factory to get the client and then let it know it's instantiated
 		this._clientFactory().then(client => {
 			this._telemetryClient = client;
 			this._isInstantiated = true;
@@ -289,7 +289,7 @@ export class BaseTelemetryReporter extends Disposable {
 				if (!result) {
 					break;
 				}
-				// Anoynimize user file paths that do not need to be retained or cleaned up.
+				// Anonymize user file paths that do not need to be retained or cleaned up.
 				if (result[0] && !nodeModulesRegex.test(result[0]) && cleanUpIndexes.every(([x, y]) => result!.index < x || result!.index >= y)) {
 					updatedStack += stack.substring(lastIndex, result.index) + '<REDACTED: user-file-path>';
 					lastIndex = fileRegex.lastIndex;

@@ -125,7 +125,7 @@ class WebSocketSSHProxy {
             }
         });
 
-        // This is expected to never throw as key is harcoded
+        // This is expected to never throw as key is hardcoded
         const keys = await importKeyBytes(getHostKey());
         const config = new SshSessionConfiguration();
         config.maxClientAuthenticationAttempts = 1;
