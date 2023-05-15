@@ -27,7 +27,6 @@ function getDaemonVersion() {
 interface ClientOptions {
     host: string;
     extIpcPort: number;
-    username: string;
 }
 
 function getClientOptions(): ClientOptions {
@@ -35,7 +34,6 @@ function getClientOptions(): ClientOptions {
     return {
         host: args[0],
         extIpcPort: Number.parseInt(args[1], 10),
-        username: args[2],
     };
 }
 
@@ -116,7 +114,7 @@ class WebSocketSSHProxy {
 
         let pipePromise: Promise<void> | undefined;
         session.onAuthenticating((e) => {
-            e.authenticationPromise = this.authenticateClient(this.options.username)
+            e.authenticationPromise = this.authenticateClient(e.username ?? '')
                 .then(pipeSession => {
                     pipePromise = session.pipe(pipeSession);
                     return {};

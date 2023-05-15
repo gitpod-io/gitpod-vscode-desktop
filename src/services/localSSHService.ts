@@ -77,7 +77,7 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
         return {
             Host: '*.' + getLocalSSHDomain(host),
             StrictHostKeyChecking: 'no',
-            ProxyCommand: `"${launcher}" "${process.execPath}" "${proxyScript}" --ms-enable-electron-run-as-node %h ${extIpcPort} %r`
+            ProxyCommand: `"${launcher}" "${process.execPath}" "${proxyScript}" --ms-enable-electron-run-as-node %h ${extIpcPort}`
         };
     }
 
