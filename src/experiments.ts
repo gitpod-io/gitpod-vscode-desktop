@@ -23,11 +23,13 @@ export class ExperimentalSettings {
         key: string,
         extensionVersion: string,
         private readonly sessionService: ISessionService,
-        private readonly context: vscode.ExtensionContext,
         private readonly logger: ILogService
     ) {
+        const config = vscode.workspace.getConfiguration('gitpod');
+        const host = config.get<string>('host');
+
         this.configcatClient = configcat.createClientWithLazyLoad(key, {
-            baseUrl: new URL('/configcat', this.context.extensionMode === vscode.ExtensionMode.Production ? 'https://gitpod.io' : 'https://gitpod-staging.com').href,
+            baseUrl: new URL('/configcat', host).href,
             logger: {
                 debug(): void { },
                 log(): void { },
