@@ -130,7 +130,7 @@
 	},
 	"main": "./out/extension.js",
 	"segmentKey": "YErmvd89wPsrCuGcVnF2XAl846W9WIGl",
-	"configcatKey": "WBLaCPtkjkqKHlHedziE9g/LEAOCNkbuUKiqUZAcVg7dw",
+	"configcatKey": "gitpod",
 	"scripts": {
 		"vscode:prepublish": "webpack --mode production",
 		"webpack": "webpack --mode development",
