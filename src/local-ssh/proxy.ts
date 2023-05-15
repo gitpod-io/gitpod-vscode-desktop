@@ -12,6 +12,7 @@ import { retryWithStop } from '../common/async';
 import { TunnelPortRequest } from '@gitpod/supervisor-api-grpc/lib/port_pb';
 import { WebSocket } from 'ws';
 import * as stream from 'stream';
+import { ILogService } from '../services/logService';
 
 // This public key is safe to be public since we only use it to verify local-ssh connections.
 const HOST_KEY = 'LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ1QwcXg1eEJUVmc4TUVJbUUKZmN4RXRZN1dmQVVsM0JYQURBK2JYREsyaDZlaFJBTkNBQVJlQXo0RDVVZXpqZ0l1SXVOWXpVL3BCWDdlOXoxeApvZUN6UklqcGdCUHozS0dWRzZLYXV5TU5YUm95a21YSS9BNFpWaW9nd2Vjb0FUUjRUQ2FtWm1ScAotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg==';
@@ -86,7 +87,7 @@ class WebSocketSSHProxy {
 
     private extensionIpc: Client<ExtensionServiceDefinition>;
 
-    constructor(private options: ClientOptions) {
+    constructor(private logService: ILogService, private options: ClientOptions) {
         this.onExit();
         this.onException();
         this.extensionIpc = createClient(ExtensionServiceDefinition, createChannel('127.0.0.1:' + this.options.extIpcPort));
@@ -101,8 +102,12 @@ class WebSocketSSHProxy {
     }
 
     private onException() {
-        process.on('uncaughtException', (_err) => { });
-        process.on('unhandledRejection', (_err) => { });
+        process.on('uncaughtException', (err) => {
+            this.logService.error(err, 'uncaught exception');
+        });
+        process.on('unhandledRejection', (err) => {
+            this.logService.error(err as any, 'unhandled rejection');
+        });
     }
 
     async start() {
@@ -134,6 +139,7 @@ class WebSocketSSHProxy {
                     pipePromise = session.pipe(pipeSession);
                     return {};
                 }).catch(async error => {
+                    this.logService.error(error, 'failed to authenticate client with username: ' + e.username);
                     await session.close(SshDisconnectReason.byApplication, error.toString(), error instanceof Error ? error : undefined);
                     return null;
                 });
@@ -146,7 +152,7 @@ class WebSocketSSHProxy {
             if (session.isClosed) {
                 return;
             }
-
+            this.logService.error(e, 'failed to connect to client');
             await session.close(SshDisconnectReason.byApplication, e.toString(), e instanceof Error ? e : undefined);
         }
     }
@@ -182,6 +188,7 @@ class WebSocketSSHProxy {
             }
             return session;
         } catch (e) {
+            this.logService.error(e, 'failed to connect with direct ssh');
             this.sendErrorReport(workspaceInfo.gitpodHost, workspaceInfo.userId, workspaceInfo.workspaceId, workspaceInfo.instanceId, e, 'failed to connect with direct ssh');
             this.extensionIpc.sendLocalSSHUserFlowStatus({
                 gitpodHost: workspaceInfo.gitpodHost,
@@ -210,6 +217,7 @@ class WebSocketSSHProxy {
             }
             return session;
         } catch (e) {
+            this.logService.error(e, 'failed to connect with tunnel ssh');
             this.sendErrorReport(workspaceInfo.gitpodHost, workspaceInfo.userId, workspaceInfo.workspaceId, workspaceInfo.instanceId, e, 'failed to connect with tunnel ssh');
             this.extensionIpc.sendLocalSSHUserFlowStatus({
                 gitpodHost: workspaceInfo.gitpodHost,
@@ -228,6 +236,7 @@ class WebSocketSSHProxy {
     async retryGetWorkspaceInfo(username: string) {
         return retryWithStop(async (stop) => {
             return this.extensionIpc.getWorkspaceAuthInfo({ workspaceId: username, gitpodHost: this.options.host }).catch(e => {
+                this.logService.error(e, 'failed to get workspace info');
                 if (e instanceof ClientError) {
                     if (e.code === Status.UNAVAILABLE && e.details.startsWith('workspace is not running')) {
                         stop();
@@ -280,6 +289,7 @@ class WebSocketSSHProxy {
         const clientID = 'tunnel_' + Math.random().toString(36).slice(2);
         const msg = new SupervisorPortTunnelMessage(clientID, 23001, 'tunnel');
         const channel = await session.openChannel(msg).catch(e => {
+            this.logService.error(e, 'failed to open channel');
             this.extensionIpc.sendLocalSSHUserFlowStatus({
                 gitpodHost: workspaceInfo.gitpodHost,
                 userId: workspaceInfo.userId,
@@ -317,8 +327,8 @@ class WebSocketSSHProxy {
         }
         try {
             await this.extensionIpc.sendErrorReport(request);
-        } catch {
-            // ignore
+        } catch (e) {
+            this.logService.error(e, 'failed to send error report');
         }
     }
 }
@@ -328,5 +338,14 @@ if (!options) {
     process.exit(1);
 }
 
-const proxy = new WebSocketSSHProxy(options);
-proxy.start().catch(() => { });
+import { NopeLogger } from './logger';
+const logService = new NopeLogger();
+
+// DO NOT PUSH CHANGES BELOW TO PRODUCTION
+// import { DebugLogger } from './logger';
+// const logService = new DebugLogger();
+
+const proxy = new WebSocketSSHProxy(logService, options);
+proxy.start().catch((e) => {
+    logService.error(e, 'failed to start proxy');
+});
