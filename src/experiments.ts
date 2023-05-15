@@ -9,6 +9,7 @@ import * as configcatcommon from 'configcat-common';
 import * as semver from 'semver';
 import { ISessionService } from './services/sessionService';
 import { ILogService } from './services/logService';
+import { Configuration } from './configuration';
 
 const EXPERTIMENTAL_SETTINGS = [
     'gitpod.remote.useLocalApp',
@@ -25,8 +26,7 @@ export class ExperimentalSettings {
         private readonly sessionService: ISessionService,
         private readonly logger: ILogService
     ) {
-        const config = vscode.workspace.getConfiguration('gitpod');
-        const host = config.get<string>('host');
+        const host = Configuration.getGitpodHost();
 
         this.configcatClient = configcat.createClientWithLazyLoad(key, {
             baseUrl: new URL('/configcat', host).href,
