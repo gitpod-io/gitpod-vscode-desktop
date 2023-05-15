@@ -11,6 +11,7 @@ import { Client, ClientError, Status, createChannel, createClient } from 'nice-g
 import { retryWithStop } from '../common/async';
 import { TunnelPortRequest } from '@gitpod/supervisor-api-grpc/lib/port_pb';
 import { WebSocket } from 'ws';
+import * as stream from 'stream';
 
 // This public key is safe to be public since we only use it to verify local-ssh connections.
 const HOST_KEY = 'LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ1QwcXg1eEJUVmc4TUVJbUUKZmN4RXRZN1dmQVVsM0JYQURBK2JYREsyaDZlaFJBTkNBQVJlQXo0RDVVZXpqZ0l1SXVOWXpVL3BCWDdlOXoxeApvZUN6UklqcGdCUHozS0dWRzZLYXV5TU5YUm95a21YSS9BNFpWaW9nd2Vjb0FUUjRUQ2FtWm1ScAotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg==';
@@ -105,6 +106,20 @@ class WebSocketSSHProxy {
     }
 
     async start() {
+        // Create as Duplex from stdin and stdout as passing them separately to NodeStream
+        // will result in an unhandled exception as NodeStream does not properly add
+        // an error handler to the writable stream
+        const sshStream = stream.Duplex.from({ readable: process.stdin, writable: process.stdout });
+        sshStream.on('error', e => {
+            if ((e as any).code === 'EPIPE') {
+                // HACK:
+                // Seems there's a bug in the ssh library that could hang forever when the stream gets closed
+                // so the below `await pipePromise` will never return and the node process will never exit.
+                // So let's just force kill here
+                setTimeout(() => process.exit(0), 50);
+            }
+        });
+
         // This is expected to never throw as key is harcoded
         const keys = await importKeyBytes(getHostKey());
         const config = new SshSessionConfiguration();
@@ -124,7 +139,7 @@ class WebSocketSSHProxy {
                 });
         });
         try {
-            await session.connect(new NodeStream(process.stdin, process.stdout));
+            await session.connect(new NodeStream(sshStream));
 
             await pipePromise;
         } catch (e) {
