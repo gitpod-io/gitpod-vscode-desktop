@@ -684,6 +684,8 @@ export class RemoteConnector extends Disposable {
 				location: vscode.ProgressLocation.Notification
 			},
 			async () => {
+				// TODO it should be after connecting analytics event
+				// right it is impossible distinguish from gateway and local ssh flows
 				this.usePublicApi = await this.experiments.getUsePublicAPI(params.gitpodHost);
 				this.logService.info(`Going to use ${this.usePublicApi ? 'public' : 'server'} API`);
 

@@ -47,6 +47,7 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
         }));
     }
 
+    // TODO it seems that it can race, maybe queue and cancel previous?
     private async initialize() {
         if (this.context.extensionMode !== vscode.ExtensionMode.Production) {
             // TODO: add webpack config for client.js in development, for now copy manually
@@ -59,6 +60,7 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
             await this.configureSettings(locations);
             this.isSupportLocalSSH = true;
         } catch (e) {
+            // TODO report error to GCP error reporting
             this.logService.error(e, 'failed to copy local ssh client.js');
             this.isSupportLocalSSH = false;
         }

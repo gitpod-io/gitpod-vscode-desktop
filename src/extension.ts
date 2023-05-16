@@ -136,7 +136,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		logger?.info('Activation properties:', JSON.stringify(rawActivateProperties, undefined, 2));
 		telemetryService?.sendTelemetryEvent(gitpodHost, 'vscode_desktop_activate', {
 			...rawActivateProperties,
+			// TODO String(remoteName === "remote-ssh") and we should drop remoteName or make it boolean
 			remoteUri: String(!!rawActivateProperties.remoteUri)
+			// TODO whether it is local ssh? parse remote uri
 		});
 	}
 }

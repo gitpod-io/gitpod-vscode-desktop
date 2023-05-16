@@ -111,11 +111,15 @@ class WebSocketSSHProxy {
 
         let pipePromise: Promise<void> | undefined;
         session.onAuthenticating((e) => {
+            // TODO vscode_desktop_local_ssh connecting as status
             e.authenticationPromise = this.authenticateClient(e.username ?? '')
                 .then(pipeSession => {
+                    // TODO vscode_desktop_local_ssh connected as status
                     pipePromise = session.pipe(pipeSession);
                     return {};
                 }).catch(async error => {
+                    // TODO vscode_desktop_local_ssh failed as status with coarse grained code
+                    // TODO report an error to GCP only here
                     this.logService.error(error, 'failed to authenticate client with username: ' + e.username);
                     await session.close(SshDisconnectReason.byApplication, error.toString(), error instanceof Error ? error : undefined);
                     return null;
