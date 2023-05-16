@@ -78,7 +78,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		const sessionService = new SessionService(hostService, logger);
 		context.subscriptions.push(sessionService);
 
-		const experiments = new ExperimentalSettings('gitpod', packageJSON.version, sessionService, hostService,logger);
+		const experiments = new ExperimentalSettings(packageJSON.configcatKey, packageJSON.version, context, sessionService, hostService, logger);
 		context.subscriptions.push(experiments);
 
 		const settingsSync = new SettingsSync(commandManager, logger, telemetryService, notificationService);

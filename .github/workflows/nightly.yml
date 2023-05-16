@@ -23,7 +23,7 @@ jobs:
         run: |
           set -e
           setSegmentKey="setpath([\"segmentKey\"]; \"untrusted-dummy-key\")"
-          setConfigcatKey="setpath([\"configcatKey\"]; \"${{ secrets.CONFIGCAT_KEY }}\")"
+          setConfigcatKey="setpath([\"configcatKey\"]; \"gitpod\")"
           jqCommands="${setSegmentKey} | ${setConfigcatKey}"
           cat package.json | jq "${jqCommands}" > package.json.tmp
           mv package.json.tmp package.json

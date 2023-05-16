@@ -10,23 +10,27 @@ import * as semver from 'semver';
 import { ISessionService } from './services/sessionService';
 import { ILogService } from './services/logService';
 import { IHostService } from './services/hostService';
+import { Disposable } from './common/dispose';
 
 const EXPERIMENTAL_SETTINGS = [
     'gitpod.remote.useLocalApp',
     // 'gitpod.remote.useLocalSSHServer',
 ];
 
-export class ExperimentalSettings {
+export class ExperimentalSettings extends Disposable {
     private configcatClient: configcatcommon.IConfigCatClient;
     private extensionVersion: semver.SemVer;
 
     constructor(
         key: string,
         extensionVersion: string,
+        context: vscode.ExtensionContext,
         private readonly sessionService: ISessionService,
         private readonly hostService: IHostService,
         private readonly logger: ILogService
     ) {
+        super();
+
         const configCatOptions = {
             logger: {
                 debug(): void { },
@@ -39,17 +43,20 @@ export class ExperimentalSettings {
             cacheTimeToLiveSeconds: 60
         };
 
+        const gitpodHost = context.extensionMode === vscode.ExtensionMode.Production ? this.hostService.gitpodHost : 'https://gitpod-staging.com';
         this.configcatClient = configcat.createClientWithLazyLoad(key, {
-            baseUrl: new URL('/configcat', this.hostService.gitpodHost).href,
+            baseUrl: new URL('/configcat', gitpodHost).href,
             ...configCatOptions
         });
 
-        hostService.onDidChangeHost(() => {
+        this._register(hostService.onDidChangeHost(() => {
+            this.configcatClient.dispose();
+            const gitpodHost = context.extensionMode === vscode.ExtensionMode.Production ? this.hostService.gitpodHost : 'https://gitpod-staging.com';
             this.configcatClient = configcat.createClientWithLazyLoad(key, {
-                baseUrl: new URL('/configcat', this.hostService.gitpodHost).href,
+                baseUrl: new URL('/configcat', gitpodHost).href,
                 ...configCatOptions
             });
-        });
+        }));
 
         this.extensionVersion = new semver.SemVer(extensionVersion);
     }
@@ -125,7 +132,8 @@ export class ExperimentalSettings {
         return this.extensionVersion.minor % 2 === 1;
     }
 
-    dispose(): void {
+    override dispose(): void {
+        super.dispose();
         this.configcatClient.dispose();
     }
 
