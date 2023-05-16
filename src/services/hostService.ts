@@ -45,11 +45,11 @@ export class HostService extends Disposable implements IHostService {
         this._register(vscode.workspace.onDidChangeConfiguration(e => {
             if (e.affectsConfiguration('gitpod.host')) {
                 if (e.affectsConfiguration('[javascript]') && e.affectsConfiguration('[markdown]')) {
-					// Seems onDidChangeConfiguration fires many times while resolving the remote (once with all settings),
-					// and because now we active the extension earlier with onResolveRemoteAuthority we get this false positive
-					// event, so ignore it if more settings are affected at the same time.
-					return;
-				}
+                    // Seems onDidChangeConfiguration fires many times while resolving the remote (once with all settings),
+                    // and because now we active the extension earlier with onResolveRemoteAuthority we get this false positive
+                    // event, so ignore it if more settings are affected at the same time.
+                    return;
+                }
                 const newGitpodHost = Configuration.getGitpodHost();
                 if (new URL(this._gitpodHost).host !== new URL(newGitpodHost).host) {
                     this._gitpodHost = newGitpodHost;

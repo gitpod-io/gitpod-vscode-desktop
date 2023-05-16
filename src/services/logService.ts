@@ -10,5 +10,5 @@ export interface ILogService {
     warn(message: string, ...args: any[]): void;
     error(error: string | Error, ...args: any[]): void;
 
-    show():void;
+    show(): void;
 }
