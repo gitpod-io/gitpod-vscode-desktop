@@ -5,10 +5,55 @@ on:
     inputs:
       patchVersion:
         description: "Format: YYYYMMDDHH"
+  schedule:
+    - cron: "0 0 * * *" # every day at midnight
 
 jobs:
+  # from https://github.com/gitkraken/vscode-gitlens/blob/0fa0355132adb9c9e11ffe3f512c7d822fd2e67a/.github/workflows/cd-pre.yml#L9-L47
+  # Updates the pre-release branch if there are changes since the last pre-release build and makes sure that when there are no changes, the workflow exits early
+  check:
+    name: Check for updates
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      status: ${{ steps.earlyexit.outputs.status }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - id: earlyexit
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          if git rev-parse origin/pre >/dev/null 2>&1; then
+            preRef=$(git show-ref -s origin/pre)
+            headRef=$(git show-ref --head -s head)
+            echo "origin/pre"
+            echo $preRef
+            echo "HEAD"
+            echo $headRef
+            if [ "$preRef" = "$headRef" ]; then
+              echo "No changes since last pre-release build. Exiting."
+              echo "status=unchanged" >> $GITHUB_OUTPUT
+              exit 0
+            else
+              echo "Updating pre"
+              git push origin --delete pre
+              git checkout -b pre
+              git push origin pre
+            fi
+          else
+            echo "No pre branch. Creating."
+            git checkout -b pre
+            git push origin pre
+          fi
+          echo "status=changed" >> $GITHUB_OUTPUT
   nightly:
     runs-on: ubuntu-latest
+    needs: check
+    if: needs.check.outputs.status == 'changed'
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
