@@ -72,7 +72,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		hostService = new HostService(context, notificationService, logger);
 		context.subscriptions.push(hostService);
 
-		const localSSHService = new LocalSSHService(context, hostService, logger);
+		const localSSHService = new LocalSSHService(context, hostService, telemetryService, logger);
 		context.subscriptions.push(localSSHService);
 
 		const sessionService = new SessionService(hostService, logger);

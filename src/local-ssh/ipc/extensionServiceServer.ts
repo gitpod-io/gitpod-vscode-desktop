@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ExtensionServiceDefinition, ExtensionServiceImplementation, GetWorkspaceAuthInfoRequest, GetWorkspaceAuthInfoResponse, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest, SendLocalSSHUserFlowStatusRequest_Code, SendLocalSSHUserFlowStatusRequest_ConnType, SendLocalSSHUserFlowStatusRequest_Status } from '../../proto/typescript/ipc/v1/ipc';
+import { ExtensionServiceDefinition, ExtensionServiceImplementation, GetWorkspaceAuthInfoRequest, GetWorkspaceAuthInfoResponse, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest } from '../../proto/typescript/ipc/v1/ipc';
 import { Disposable } from '../../common/dispose';
 export { ExtensionServiceDefinition } from '../../proto/typescript/ipc/v1/ipc';
 import { withServerApi } from '../../internalApi';
@@ -49,28 +49,28 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
 
     }
 
-	private async getWorkspaceSSHKey(ownerToken:string,workspaceId: string, workspaceHost: string) {
-		const workspaceUrl = `https://${workspaceId}.${workspaceHost}`;
-		const metadata = new BrowserHeaders();
-		metadata.append('x-gitpod-owner-token', ownerToken);
-		const client = new ControlServiceClient(`${workspaceUrl}/_supervisor/v1`, { transport: NodeHttpTransport() });
+    private async getWorkspaceSSHKey(ownerToken: string, workspaceId: string, workspaceHost: string) {
+        const workspaceUrl = `https://${workspaceId}.${workspaceHost}`;
+        const metadata = new BrowserHeaders();
+        metadata.append('x-gitpod-owner-token', ownerToken);
+        const client = new ControlServiceClient(`${workspaceUrl}/_supervisor/v1`, { transport: NodeHttpTransport() });
 
-		const privateKey = await new Promise<string>((resolve, reject) => {
-			client.createSSHKeyPair(new CreateSSHKeyPairRequest(), metadata, (err, resp) => {
-				if (err) {
-					return reject(err);
-				}
-				resolve(resp!.toObject().privateKey);
-			});
-		});
+        const privateKey = await new Promise<string>((resolve, reject) => {
+            client.createSSHKeyPair(new CreateSSHKeyPairRequest(), metadata, (err, resp) => {
+                if (err) {
+                    return reject(err);
+                }
+                resolve(resp!.toObject().privateKey);
+            });
+        });
 
-		const parsedResult = ssh2.utils.parseKey(privateKey);
-		if (parsedResult instanceof Error || !parsedResult) {
-			throw new Error('Error while parsing workspace SSH private key');
-		}
+        const parsedResult = ssh2.utils.parseKey(privateKey);
+        if (parsedResult instanceof Error || !parsedResult) {
+            throw new Error('Error while parsing workspace SSH private key');
+        }
 
-		return (parsedResult as ParsedKey).getPrivatePEM();
-	}
+        return (parsedResult as ParsedKey).getPrivatePEM();
+    }
 
     async getWorkspaceAuthInfo(request: GetWorkspaceAuthInfoRequest, _context: CallContext): Promise<GetWorkspaceAuthInfoResponse> {
         try {
@@ -102,7 +102,7 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
             const workspaceHost = url.host.substring(url.host.indexOf('.') + 1);
             const instanceId = (usePublicApi ? (workspace as Workspace).status?.instance?.instanceId : (workspace as WorkspaceInfo).latestInstance?.id) as string;
 
-            const sshkey = await this.getWorkspaceSSHKey(ownerToken,workspaceId,workspaceHost);
+            const sshkey = await this.getWorkspaceSSHKey(ownerToken, workspaceId, workspaceHost);
 
             return {
                 gitpodHost,
@@ -121,22 +121,19 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
 
     // TODO remove from protocol, don't pass sensitive info back and forth, only once for auth, daemon should do telemetry directly
     async sendLocalSSHUserFlowStatus(request: SendLocalSSHUserFlowStatusRequest, _context: CallContext): Promise<{}> {
+        if (!request.flowStatus || request.flowStatus === '') {
+            return {};
+        }
         const flow: UserFlowTelemetry = {
-            flow: 'ssh',
-            kind: 'local-ssh',
-            connType: request.connType === SendLocalSSHUserFlowStatusRequest_ConnType.CONN_TYPE_SSH ? 'ssh' : 'tunnel',
+            flow: 'local_ssh',
             workspaceId: request.workspaceId,
             instanceId: request.instanceId,
             daemonVersion: request.daemonVersion,
             userId: request.userId,
             gitpodHost: request.gitpodHost,
-            // extensionVersion: request.extensionVersion,
+            failureCode: request.flowFailureCode,
         };
-        if (request.status !== SendLocalSSHUserFlowStatusRequest_Status.STATUS_SUCCESS && request.failureCode !== SendLocalSSHUserFlowStatusRequest_Code.CODE_UNSPECIFIED) {
-            flow.reasonCode = SendLocalSSHUserFlowStatusRequest_Code[request.failureCode];
-        }
-        const status = request.status === SendLocalSSHUserFlowStatusRequest_Status.STATUS_SUCCESS ? 'local-ssh-success' : 'local-ssh-failure';
-        this.telemetryService.sendUserFlowStatus(status, flow);
+        this.telemetryService.sendUserFlowStatus(request.flowStatus, flow);
         return {};
     }
 

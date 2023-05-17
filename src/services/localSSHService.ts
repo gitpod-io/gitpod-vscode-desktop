@@ -12,6 +12,7 @@ import { IHostService } from './hostService';
 import SSHConfiguration from '../ssh/sshConfig';
 import { isWindows } from '../common/platform';
 import { getLocalSSHDomain } from '../remote';
+import { ITelemetryService } from './telemetryService';
 
 export interface ILocalSSHService {
     isSupportLocalSSH: boolean;
@@ -24,6 +25,7 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
     constructor(
         private readonly context: vscode.ExtensionContext,
         private readonly hostService: IHostService,
+        private readonly telemetryService: ITelemetryService,
         private readonly logService: ILogService
     ) {
         super();
@@ -42,12 +44,14 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
                     // event, so ignore it if more settings are affected at the same time.
                     return;
                 }
-                this.initialize();
+                if (this.initialized) {
+                    await this.initialized;
+                }
+                this.initialized = this.initialize();
             }
         }));
     }
 
-    // TODO it seems that it can race, maybe queue and cancel previous?
     private async initialize() {
         if (this.context.extensionMode !== vscode.ExtensionMode.Production) {
             // TODO: add webpack config for client.js in development, for now copy manually
@@ -60,8 +64,11 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
             await this.configureSettings(locations);
             this.isSupportLocalSSH = true;
         } catch (e) {
-            // TODO report error to GCP error reporting
             this.logService.error(e, 'failed to copy local ssh client.js');
+            if (e.message) {
+                e.message = `Failed to copy local ssh client.js: ${e.message}`;
+            }
+            this.telemetryService.sendTelemetryException(this.hostService.gitpodHost, e);
             this.isSupportLocalSSH = false;
         }
     }

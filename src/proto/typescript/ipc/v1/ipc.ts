@@ -28,6 +28,8 @@ export interface SendLocalSSHUserFlowStatusRequest {
   connType: SendLocalSSHUserFlowStatusRequest_ConnType;
   gitpodHost: string;
   userId: string;
+  flowStatus: string;
+  flowFailureCode: string;
 }
 
 export enum SendLocalSSHUserFlowStatusRequest_ConnType {
@@ -391,6 +393,8 @@ function createBaseSendLocalSSHUserFlowStatusRequest(): SendLocalSSHUserFlowStat
     connType: 0,
     gitpodHost: "",
     userId: "",
+    flowStatus: "",
+    flowFailureCode: "",
   };
 }
 
@@ -419,6 +423,12 @@ export const SendLocalSSHUserFlowStatusRequest = {
     }
     if (message.userId !== "") {
       writer.uint32(90).string(message.userId);
+    }
+    if (message.flowStatus !== "") {
+      writer.uint32(98).string(message.flowStatus);
+    }
+    if (message.flowFailureCode !== "") {
+      writer.uint32(106).string(message.flowFailureCode);
     }
     return writer;
   },
@@ -454,6 +464,12 @@ export const SendLocalSSHUserFlowStatusRequest = {
         case 11:
           message.userId = reader.string();
           break;
+        case 12:
+          message.flowStatus = reader.string();
+          break;
+        case 13:
+          message.flowFailureCode = reader.string();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -472,6 +488,8 @@ export const SendLocalSSHUserFlowStatusRequest = {
       connType: isSet(object.connType) ? sendLocalSSHUserFlowStatusRequest_ConnTypeFromJSON(object.connType) : 0,
       gitpodHost: isSet(object.gitpodHost) ? String(object.gitpodHost) : "",
       userId: isSet(object.userId) ? String(object.userId) : "",
+      flowStatus: isSet(object.flowStatus) ? String(object.flowStatus) : "",
+      flowFailureCode: isSet(object.flowFailureCode) ? String(object.flowFailureCode) : "",
     };
   },
 
@@ -487,6 +505,8 @@ export const SendLocalSSHUserFlowStatusRequest = {
       (obj.connType = sendLocalSSHUserFlowStatusRequest_ConnTypeToJSON(message.connType));
     message.gitpodHost !== undefined && (obj.gitpodHost = message.gitpodHost);
     message.userId !== undefined && (obj.userId = message.userId);
+    message.flowStatus !== undefined && (obj.flowStatus = message.flowStatus);
+    message.flowFailureCode !== undefined && (obj.flowFailureCode = message.flowFailureCode);
     return obj;
   },
 
@@ -504,6 +524,8 @@ export const SendLocalSSHUserFlowStatusRequest = {
     message.connType = object.connType ?? 0;
     message.gitpodHost = object.gitpodHost ?? "";
     message.userId = object.userId ?? "";
+    message.flowStatus = object.flowStatus ?? "";
+    message.flowFailureCode = object.flowFailureCode ?? "";
     return message;
   },
 };
