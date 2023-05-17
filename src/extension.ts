@@ -14,7 +14,7 @@ import { RemoteConnector } from './remoteConnector';
 import { SettingsSync } from './settingsSync';
 import { TelemetryService } from './services/telemetryService';
 import { RemoteSession } from './remoteSession';
-import { SSHConnectionParams, getGitpodRemoteWindowConnectionInfo } from './remote';
+import { RemoteConnectionInfo, getGitpodRemoteWindowConnectionInfo } from './remote';
 import { HostService } from './services/hostService';
 import { SessionService } from './services/sessionService';
 import { CommandManager } from './commandManager';
@@ -44,7 +44,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	const extensionId = context.extension.id;
 	const packageJSON = context.extension.packageJSON;
 
-	let remoteConnectionInfo: { remoteAuthority: string; connectionInfo: SSHConnectionParams } | undefined;
+	let remoteConnectionInfo: RemoteConnectionInfo | undefined;
 	let success = false;
 	try {
 		logger = vscode.window.createOutputChannel('Gitpod', { log: true });
@@ -130,16 +130,18 @@ export async function activate(context: vscode.ExtensionContext) {
 			instanceId: remoteConnectionInfo?.connectionInfo.instanceId || '',
 			gitpodHost: remoteConnectionInfo?.connectionInfo.gitpodHost || '',
 			debugWorkspace: remoteConnectionInfo ? String(!!remoteConnectionInfo.connectionInfo.debugWorkspace) : '',
+			connType: remoteConnectionInfo?.connType || '',
 			success: String(success)
 		};
 		const gitpodHost = rawActivateProperties.gitpodHost || hostService?.gitpodHost || Configuration.getGitpodHost();
 		logger?.info('Activation properties:', JSON.stringify(rawActivateProperties, undefined, 2));
-		telemetryService?.sendTelemetryEvent(gitpodHost, 'vscode_desktop_activate', {
+		const properties: Record<string, string> = {
 			...rawActivateProperties,
-			// TODO String(remoteName === "remote-ssh") and we should drop remoteName or make it boolean
+			isRemoteSSH: String(vscode.env.remoteName === 'remote-ssh'),
 			remoteUri: String(!!rawActivateProperties.remoteUri)
-			// TODO whether it is local ssh? parse remote uri
-		});
+		};
+		delete properties.remoteName;
+		telemetryService?.sendTelemetryEvent(gitpodHost, 'vscode_desktop_activate', properties);
 	}
 }
 

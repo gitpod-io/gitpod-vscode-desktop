@@ -34,13 +34,28 @@ export class NoSSHGatewayError extends Error {
 
 export const SSH_DEST_KEY = 'ssh-dest:';
 
-export function getGitpodRemoteWindowConnectionInfo(context: vscode.ExtensionContext): { remoteAuthority: string; connectionInfo: SSHConnectionParams } | undefined {
+type SSHConnType = 'local-app' | 'local-ssh' | 'ssh-gateway';
+export interface RemoteConnectionInfo {
+    remoteAuthority: string;
+    connectionInfo: SSHConnectionParams;
+    connType: SSHConnType;
+}
+
+export function getGitpodRemoteWindowConnectionInfo(context: vscode.ExtensionContext): RemoteConnectionInfo | undefined {
     const remoteUri = vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.[0].uri;
     if (vscode.env.remoteName === 'ssh-remote' && context.extension.extensionKind === vscode.ExtensionKind.UI && remoteUri) {
         const [, sshDestStr] = remoteUri.authority.split('+');
+        const sshDestInfo = JSON.parse(Buffer.from(sshDestStr, 'hex').toString()) as { hostName: string; user?: string };
         const connectionInfo = context.globalState.get<SSHConnectionParams>(`${SSH_DEST_KEY}${sshDestStr}`);
         if (connectionInfo) {
-            return { remoteAuthority: remoteUri.authority, connectionInfo };
+            let connType: SSHConnType = 'local-app';
+            const domain = getLocalSSHDomain(connectionInfo.gitpodHost);
+            if (sshDestInfo.hostName.endsWith('.' + domain)) {
+                connType = 'local-ssh';
+            } else if (!sshDestInfo.hostName.includes('.')) {
+                connType = 'ssh-gateway';
+            }
+            return { remoteAuthority: remoteUri.authority, connectionInfo, connType };
         }
     }
 
@@ -66,6 +81,6 @@ export async function showWsNotRunningDialog(workspaceId: string, gitpodHost: st
 }
 
 export function getLocalSSHDomain(gitpodHost: string): string {
-	const scope = vscode.env.appName.includes('Insiders') ? 'vsi' : 'vss';
-	return `${scope}.` + (new URL(gitpodHost)).hostname;
+    const scope = vscode.env.appName.includes('Insiders') ? 'vsi' : 'vss';
+    return `${scope}.` + (new URL(gitpodHost)).hostname;
 }
