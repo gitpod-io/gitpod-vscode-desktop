@@ -53,12 +53,12 @@ export async function activate(context: vscode.ExtensionContext) {
 		const onDidChangeLogLevel = (logLevel: vscode.LogLevel) => {
 			logger!.info(`Log level: ${vscode.LogLevel[logLevel]}`);
 		};
-		context.subscriptions.push(logger!.onDidChangeLogLevel(onDidChangeLogLevel));
-		onDidChangeLogLevel(logger!.logLevel);
+		context.subscriptions.push(logger.onDidChangeLogLevel(onDidChangeLogLevel));
+		onDidChangeLogLevel(logger.logLevel);
 
 		logger.info(`${extensionId}/${packageJSON.version} (${os.release()} ${os.platform()} ${os.arch()}) vscode/${vscode.version} (${vscode.env.appName})`);
 
-		telemetryService = new TelemetryService(extensionId, packageJSON.version, packageJSON.segmentKey, logger!);
+		telemetryService = new TelemetryService(packageJSON.segmentKey, logger);
 
 		const notificationService = new NotificationService(telemetryService);
 
@@ -104,7 +104,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		if (!context.globalState.get<boolean>(FIRST_INSTALL_KEY, false)) {
 			context.globalState.update(FIRST_INSTALL_KEY, true);
-			telemetryService.sendTelemetryEvent(hostService.gitpodHost, 'gitpod_desktop_installation', { kind: 'install' });
+			telemetryService.sendTelemetryEvent('gitpod_desktop_installation', { gitpodHost: hostService.gitpodHost, kind: 'install' });
 		}
 
 		remoteConnectionInfo = getGitpodRemoteWindowConnectionInfo(context);
@@ -119,29 +119,22 @@ export async function activate(context: vscode.ExtensionContext) {
 		});
 
 		success = true;
-	} catch (e) {
-		telemetryService?.sendTelemetryException(hostService?.gitpodHost || Configuration.getGitpodHost(), e);
-		throw e;
 	} finally {
 		const rawActivateProperties = {
-			remoteName: vscode.env.remoteName || '',
+			gitpodHost: remoteConnectionInfo?.connectionInfo.gitpodHost || hostService?.gitpodHost || Configuration.getGitpodHost(),
+			isRemoteSSH: String(vscode.env.remoteName === 'remote-ssh'),
 			remoteUri: vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.[0].uri,
 			workspaceId: remoteConnectionInfo?.connectionInfo.workspaceId || '',
 			instanceId: remoteConnectionInfo?.connectionInfo.instanceId || '',
-			gitpodHost: remoteConnectionInfo?.connectionInfo.gitpodHost || '',
 			debugWorkspace: remoteConnectionInfo ? String(!!remoteConnectionInfo.connectionInfo.debugWorkspace) : '',
 			connType: remoteConnectionInfo?.connectionInfo.connType || '',
 			success: String(success)
 		};
-		const gitpodHost = rawActivateProperties.gitpodHost || hostService?.gitpodHost || Configuration.getGitpodHost();
 		logger?.info('Activation properties:', JSON.stringify(rawActivateProperties, undefined, 2));
-		const properties: Record<string, string> = {
+		telemetryService?.sendTelemetryEvent('vscode_desktop_activate', {
 			...rawActivateProperties,
-			isRemoteSSH: String(vscode.env.remoteName === 'remote-ssh'),
 			remoteUri: String(!!rawActivateProperties.remoteUri)
-		};
-		delete properties.remoteName;
-		telemetryService?.sendTelemetryEvent(gitpodHost, 'vscode_desktop_activate', properties);
+		});
 	}
 }
 

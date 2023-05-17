@@ -21,7 +21,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
 import { withServerApi } from './internalApi';
-import { ITelemetryService, UserFlowTelemetry } from './services/telemetryService';
+import { ITelemetryService, UserFlowTelemetryProperties } from './services/telemetryService';
 import { addHostToHostFile, checkNewHostInHostkeys } from './ssh/hostfile';
 import { ScopeFeature } from './featureSupport';
 import SSHConfiguration from './ssh/sshConfig';
@@ -600,7 +600,7 @@ export class RemoteConnector extends Disposable {
 		}
 	}
 
-	private async ensureRemoteSSHExtInstalled(flow: UserFlowTelemetry): Promise<boolean> {
+	private async ensureRemoteSSHExtInstalled(flow: UserFlowTelemetryProperties): Promise<boolean> {
 		const msVscodeRemoteExt = vscode.extensions.getExtension('ms-vscode-remote.remote-ssh');
 		if (msVscodeRemoteExt) {
 			return true;
@@ -622,7 +622,7 @@ export class RemoteConnector extends Disposable {
 		return true;
 	}
 
-	private async showSSHPasswordModal(password: string, flow: UserFlowTelemetry) {
+	private async showSSHPasswordModal(password: string, flow: UserFlowTelemetryProperties) {
 		const maskedPassword = '•'.repeat(password.length - 3) + password.substring(password.length - 3);
 
 		const sshKeysSupported = this.sessionService.getScopes().includes(ScopeFeature.SSHPublicKeys);
@@ -662,7 +662,7 @@ export class RemoteConnector extends Disposable {
 		}
 
 		const params: SSHConnectionParams = JSON.parse(uri.query);
-		const sshFlow: UserFlowTelemetry = { ...params, flow: 'ssh' };
+		const sshFlow: UserFlowTelemetryProperties = { ...params, flow: 'ssh' };
 		const isRemoteSSHExtInstalled = await this.ensureRemoteSSHExtInstalled(sshFlow);
 		if (!isRemoteSSHExtInstalled) {
 			return;
@@ -707,7 +707,7 @@ export class RemoteConnector extends Disposable {
 				let sshDestination: SSHDestination | undefined;
 				if (!forceUseLocalApp) {
 					const openSSHVersion = await getOpenSSHVersion();
-					const gatewayFlow: UserFlowTelemetry = { kind: useLocalSSH ? 'local-ssh' : 'gateway', openSSHVersion, userOverride, ...sshFlow };
+					const gatewayFlow: UserFlowTelemetryProperties = { kind: useLocalSSH ? 'local-ssh' : 'gateway', openSSHVersion, userOverride, ...sshFlow };
 					try {
 						this.telemetryService.sendUserFlowStatus('connecting', gatewayFlow);
 

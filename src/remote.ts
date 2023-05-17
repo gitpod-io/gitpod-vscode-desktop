@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { UserFlowTelemetry } from './services/telemetryService';
+import { UserFlowTelemetryProperties } from './services/telemetryService';
 import { INotificationService } from './services/notificationService';
 import { ILogService } from './services/logService';
 
@@ -48,7 +48,7 @@ export function getGitpodRemoteWindowConnectionInfo(context: vscode.ExtensionCon
     return undefined;
 }
 
-export async function showWsNotRunningDialog(workspaceId: string, gitpodHost: string, flow: UserFlowTelemetry, notificationService: INotificationService, logService: ILogService) {
+export async function showWsNotRunningDialog(workspaceId: string, gitpodHost: string, flow: UserFlowTelemetryProperties, notificationService: INotificationService, logService: ILogService) {
     const msg = `Workspace ${workspaceId} is not running. Please restart the workspace.`;
     logService.error(msg);
 
