@@ -32,8 +32,11 @@ interface ClientOptions {
 
 function getClientOptions(): ClientOptions {
     const args = process.argv.slice(2);
+    // %h is in the form of <ws_id>.vss.<gitpod_host>'
+    // add `https://` prefix since our gitpodHost is actually a url not host
+    const host = 'https://' + args[0].split('.').splice(2).join('.');
     return {
-        host: args[0],
+        host,
         extIpcPort: Number.parseInt(args[1], 10),
     };
 }
@@ -212,7 +215,6 @@ class WebSocketSSHProxy {
     async retryGetWorkspaceInfo(username: string) {
         return retryWithStop(async (stop) => {
             return this.extensionIpc.getWorkspaceAuthInfo({ workspaceId: username, gitpodHost: this.options.host }).catch(e => {
-                this.logService.error(e, 'failed to get workspace info');
                 if (e instanceof ClientError) {
                     if (e.code === Status.UNAVAILABLE && e.details.startsWith('workspace is not running')) {
                         stop();
@@ -226,9 +228,7 @@ class WebSocketSSHProxy {
 
     async sendUserStatusFlow(status: 'connected' | 'connecting' | 'failed') {
         // TODO: Use telemetryService in proxy after telemetryService does not depend on `vscode` lib and remove retry
-        return retry(async () => {
-            await this.extensionIpc.sendLocalSSHUserFlowStatus({ flowStatus: status, ...flow });
-        }, 200, 50).catch(e => {
+        return retry(() => this.extensionIpc.sendLocalSSHUserFlowStatus({ flowStatus: status, ...flow }), 200, 50).catch(e => {
             this.logService.error(e, `failed to send ${status} flow status`);
         });
     }
@@ -254,9 +254,7 @@ class WebSocketSSHProxy {
             request.errorMessage = message + ': ' + err.toString();
             request.errorStack = '';
         }
-        return retry(async () => {
-            await this.extensionIpc.sendErrorReport(request);
-        }, 200, 50).catch(e => {
+        return retry(() => this.extensionIpc.sendErrorReport(request), 200, 50).catch(e => {
             this.logService.error(e, 'failed to send error report');
         });
     }
