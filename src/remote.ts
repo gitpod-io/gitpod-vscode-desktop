@@ -52,7 +52,7 @@ export function getGitpodRemoteWindowConnectionInfo(context: vscode.ExtensionCon
             const domain = getLocalSSHDomain(connectionInfo.gitpodHost);
             if (sshDestInfo.hostName.endsWith('.' + domain)) {
                 connType = 'local-ssh';
-            } else if (!sshDestInfo.hostName.includes('.')) {
+            } else if (sshDestInfo.hostName.includes('.')) {
                 connType = 'ssh-gateway';
             }
             return { remoteAuthority: remoteUri.authority, connectionInfo, connType };
