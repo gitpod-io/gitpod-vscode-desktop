@@ -14,7 +14,7 @@ import { RemoteConnector } from './remoteConnector';
 import { SettingsSync } from './settingsSync';
 import { TelemetryService } from './services/telemetryService';
 import { RemoteSession } from './remoteSession';
-import { RemoteConnectionInfo, getGitpodRemoteWindowConnectionInfo } from './remote';
+import { SSHConnectionParams, getGitpodRemoteWindowConnectionInfo } from './remote';
 import { HostService } from './services/hostService';
 import { SessionService } from './services/sessionService';
 import { CommandManager } from './commandManager';
@@ -44,7 +44,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	const extensionId = context.extension.id;
 	const packageJSON = context.extension.packageJSON;
 
-	let remoteConnectionInfo: RemoteConnectionInfo | undefined;
+	let remoteConnectionInfo: { remoteAuthority: string; connectionInfo: SSHConnectionParams } | undefined;
 	let success = false;
 	try {
 		logger = vscode.window.createOutputChannel('Gitpod', { log: true });
@@ -130,7 +130,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			instanceId: remoteConnectionInfo?.connectionInfo.instanceId || '',
 			gitpodHost: remoteConnectionInfo?.connectionInfo.gitpodHost || '',
 			debugWorkspace: remoteConnectionInfo ? String(!!remoteConnectionInfo.connectionInfo.debugWorkspace) : '',
-			connType: remoteConnectionInfo?.connType || '',
+			connType: remoteConnectionInfo?.connectionInfo.connType || '',
 			success: String(success)
 		};
 		const gitpodHost = rawActivateProperties.gitpodHost || hostService?.gitpodHost || Configuration.getGitpodHost();
