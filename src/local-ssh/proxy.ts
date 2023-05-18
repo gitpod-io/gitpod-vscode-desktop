@@ -8,7 +8,7 @@ import { NodeStream, SshClientCredentials, SshClientSession, SshDisconnectReason
 import { importKey, importKeyBytes } from '@microsoft/dev-tunnels-ssh-keys';
 import { ExtensionServiceDefinition, GetWorkspaceAuthInfoResponse, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest } from '../proto/typescript/ipc/v1/ipc';
 import { Client, ClientError, Status, createChannel, createClient } from 'nice-grpc';
-import { retryWithStop } from '../common/async';
+import { retry, retryWithStop } from '../common/async';
 import { WebSocket } from 'ws';
 import * as stream from 'stream';
 import { ILogService } from '../services/logService';
@@ -115,14 +115,10 @@ class WebSocketSSHProxy {
         let pipePromise: Promise<void> | undefined;
         session.onAuthenticating(async (e) => {
             flow.workspaceId = e.username ?? '';
-            this.extensionIpc.sendLocalSSHUserFlowStatus({ flowStatus: 'connecting', ...flow }).catch(e => {
-                this.logService.error(e, 'failed to send connecting flow status');
-            });
+            this.sendUserStatusFlow('connecting');
             e.authenticationPromise = this.authenticateClient(e.username ?? '')
                 .then(async pipeSession => {
-                    this.extensionIpc.sendLocalSSHUserFlowStatus({ flowStatus: 'connected', ...flow }).then().catch(e => {
-                        this.logService.error(e, 'failed to send connected flow status');
-                    });
+                    this.sendUserStatusFlow('connected');
                     pipePromise = session.pipe(pipeSession);
                     return {};
                 }).catch(async err => {
@@ -130,9 +126,7 @@ class WebSocketSSHProxy {
                         flow.flowFailureCode = err.failureCode;
                     }
                     await Promise.allSettled([
-                        this.extensionIpc.sendLocalSSHUserFlowStatus({ flowStatus: 'failed', ...flow }).catch(e => {
-                            this.logService.error(e, 'failed to send failed flow status');
-                        }),
+                        this.sendUserStatusFlow('failed'),
                         this.sendErrorReport(flow, err, 'failed to authenticate proxy with username: ' + e.username ?? '')
                     ]);
                     this.logService.error(err, 'failed to authenticate proxy with username: ' + e.username ?? '');
@@ -230,7 +224,17 @@ class WebSocketSSHProxy {
         }, 200, 50);
     }
 
+    async sendUserStatusFlow(status: 'connected' | 'connecting' | 'failed') {
+        // TODO: Use telemetryService in proxy after telemetryService does not depend on `vscode` lib and remove retry
+        return retry(async () => {
+            await this.extensionIpc.sendLocalSSHUserFlowStatus({ flowStatus: status, ...flow });
+        }, 200, 50).catch(e => {
+            this.logService.error(e, `failed to send ${status} flow status`);
+        });
+    }
+
     async sendErrorReport(workspaceAuthInfo: Partial<GetWorkspaceAuthInfoResponse>, err: Error | any, message: string) {
+        // TODO: Use telemetryService in proxy after telemetryService does not depend on `vscode` lib and remove retry
         const request: Partial<SendErrorReportRequest> = {
             gitpodHost: workspaceAuthInfo.gitpodHost,
             userId: workspaceAuthInfo.userId,
@@ -250,11 +254,11 @@ class WebSocketSSHProxy {
             request.errorMessage = message + ': ' + err.toString();
             request.errorStack = '';
         }
-        try {
+        return retry(async () => {
             await this.extensionIpc.sendErrorReport(request);
-        } catch (e) {
+        }, 200, 50).catch(e => {
             this.logService.error(e, 'failed to send error report');
-        }
+        });
     }
 }
 
