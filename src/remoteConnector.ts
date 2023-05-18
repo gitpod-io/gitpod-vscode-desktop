@@ -684,14 +684,13 @@ export class RemoteConnector extends Disposable {
 				location: vscode.ProgressLocation.Notification
 			},
 			async () => {
-				// TODO(telemetry): it should be after connecting analytics event
-				// right it is impossible distinguish from gateway and local ssh flows
 				this.usePublicApi = await this.experiments.getUsePublicAPI(params.gitpodHost);
 				this.logService.info(`Going to use ${this.usePublicApi ? 'public' : 'server'} API`);
 
 				let useLocalSSH = await this.experiments.getUseLocalSSHServer(params.gitpodHost);
 				if (useLocalSSH) {
 					await this.localSSHService.initialized;
+					this.telemetryService.sendUserFlowStatus(this.localSSHService.isSupportLocalSSH ? 'success' : 'failure', { ...sshFlow, flow: 'local_ssh_config' });
 					if (!this.localSSHService.isSupportLocalSSH) {
 						this.logService.error('Local SSH is not supported on this platform');
 						useLocalSSH = false;
