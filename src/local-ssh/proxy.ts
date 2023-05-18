@@ -56,11 +56,18 @@ class FailedToProxyError extends Error {
 // TODO(local-ssh): Remove me after direct ssh works with @microsft/dev-tunnels-ssh
 const FORCE_TUNNEL = true;
 
+const flow: SSHUserFlowTelemetry = {
+    gitpodHost: '',
+    workspaceId: '',
+    daemonVersion: getDaemonVersion(),
+};
+
 class WebSocketSSHProxy {
 
     private extensionIpc: Client<ExtensionServiceDefinition>;
 
     constructor(private logService: ILogService, private options: ClientOptions) {
+        flow.gitpodHost = this.options.host;
         this.onExit();
         this.onException();
         this.extensionIpc = createClient(ExtensionServiceDefinition, createChannel('127.0.0.1:' + this.options.extIpcPort));
@@ -106,17 +113,12 @@ class WebSocketSSHProxy {
         session.credentials.publicKeys.push(keys);
 
         let pipePromise: Promise<void> | undefined;
-        const flow: SSHUserFlowTelemetry = {
-            gitpodHost: this.options.host,
-            workspaceId: '',
-            daemonVersion: getDaemonVersion(),
-        };
         session.onAuthenticating(async (e) => {
             flow.workspaceId = e.username ?? '';
             this.extensionIpc.sendLocalSSHUserFlowStatus({ flowStatus: 'connecting', ...flow }).catch(e => {
                 this.logService.error(e, 'failed to send connecting flow status');
             });
-            e.authenticationPromise = this.authenticateClient(e.username ?? '', flow)
+            e.authenticationPromise = this.authenticateClient(e.username ?? '')
                 .then(async pipeSession => {
                     this.extensionIpc.sendLocalSSHUserFlowStatus({ flowStatus: 'connected', ...flow }).then().catch(e => {
                         this.logService.error(e, 'failed to send connected flow status');
@@ -128,19 +130,18 @@ class WebSocketSSHProxy {
                         flow.flowFailureCode = err.failureCode;
                     }
                     await Promise.allSettled([
-                        this.extensionIpc.sendLocalSSHUserFlowStatus({ flowStatus: 'failed', ...flow, failureCode: err.failureCode }).catch(e => {
+                        this.extensionIpc.sendLocalSSHUserFlowStatus({ flowStatus: 'failed', ...flow }).catch(e => {
                             this.logService.error(e, 'failed to send failed flow status');
                         }),
-                        this.sendErrorReport(flow, err, 'failed to authenticate proxy with username: ' + e.username)
+                        this.sendErrorReport(flow, err, 'failed to authenticate proxy with username: ' + e.username ?? '')
                     ]);
-                    this.logService.error(err, 'failed to authenticate client with username: ' + e.username);
+                    this.logService.error(err, 'failed to authenticate proxy with username: ' + e.username ?? '');
                     await session.close(SshDisconnectReason.byApplication, err.toString(), err instanceof Error ? err : undefined);
                     return null;
                 });
         });
         try {
             await session.connect(new NodeStream(sshStream));
-
             await pipePromise;
         } catch (e) {
             if (session.isClosed) {
@@ -152,7 +153,7 @@ class WebSocketSSHProxy {
         }
     }
 
-    private async authenticateClient(username: string, flow: SSHUserFlowTelemetry) {
+    private async authenticateClient(username: string) {
         const workspaceInfo = await this.retryGetWorkspaceInfo(username);
         flow.instanceId = workspaceInfo.instanceId;
         flow.userId = workspaceInfo.userId;
@@ -233,8 +234,8 @@ class WebSocketSSHProxy {
         const request: Partial<SendErrorReportRequest> = {
             gitpodHost: workspaceAuthInfo.gitpodHost,
             userId: workspaceAuthInfo.userId,
-            workspaceId: workspaceAuthInfo.workspaceId ?? '',
-            instanceId: workspaceAuthInfo.instanceId ?? '',
+            workspaceId: workspaceAuthInfo.workspaceId,
+            instanceId: workspaceAuthInfo.instanceId,
             errorName: '',
             errorMessage: '',
             errorStack: '',
@@ -271,5 +272,6 @@ const logService = new NopeLogger();
 
 const proxy = new WebSocketSSHProxy(logService, options);
 proxy.start().catch((e) => {
+    proxy.sendErrorReport(flow, e, 'failed to start proxy');
     logService.error(e, 'failed to start proxy');
 });
