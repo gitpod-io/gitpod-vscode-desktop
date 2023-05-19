@@ -116,6 +116,11 @@
 				"command": "gitpod.signIn",
 				"category": "Gitpod",
 				"title": "Sign In"
+			},
+			{
+				"command": "gitpod.workspaces.refresh",
+				"title": "Refresh",
+				"icon": "$(refresh)"
 			}
 		],
 		"menus": {
@@ -125,8 +130,53 @@
 					"group": "remote_00_gitpod_navigation@01",
 					"when": "gitpod.inWorkspace == true"
 				}
+			],
+			"view/title": [
+				{
+					"command": "gitpod.workspaces.refresh",
+					"when": "view == gitpod-workspaces",
+					"group": "navigation"
+				}
+			],
+			"commandPalette": [
+				{
+					"command": "gitpod.workspaces.refresh",
+					"when": "false"
+				}
 			]
-		}
+		},
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "gitpod-view",
+					"title": "Gitpod",
+					"icon": "$(squirrel)"
+				}
+			]
+		},
+		"views": {
+			"gitpod-view": [
+				{
+					"id": "gitpod-login",
+					"name": "Login",
+					"icon": "$(squirrel)",
+					"when": "gitpod.authenticated != true"
+				},
+				{
+					"id": "gitpod-workspaces",
+					"name": "Workspaces",
+					"icon": "$(squirrel)",
+					"when": "gitpod.authenticated == true"
+				}
+			]
+		},
+		"viewsWelcome": [
+			{
+				"view": "gitpod-login",
+				"when": "gitpod.authenticated != true",
+				"contents": "You have not yet signed in with Gitpod\n[Sign in](command:gitpod.signIn)"
+			}
+		]
 	},
 	"main": "./out/extension.js",
 	"segmentKey": "YErmvd89wPsrCuGcVnF2XAl846W9WIGl",

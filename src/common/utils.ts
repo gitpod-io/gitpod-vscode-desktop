@@ -206,6 +206,30 @@ export function mixin(destination: any, source: any, overwrite: boolean = true):
 	return destination;
 }
 
+export function groupBy<T>(data: ReadonlyArray<T>, compare: (a: T, b: T) => number): T[][] {
+	const result: T[][] = [];
+	let currentGroup: T[] | undefined = undefined;
+	for (const element of data.slice(0).sort(compare)) {
+		if (!currentGroup || compare(currentGroup[0], element) !== 0) {
+			currentGroup = [element];
+			result.push(currentGroup);
+		} else {
+			currentGroup.push(element);
+		}
+	}
+	return result;
+}
+
+export function stringCompare(a: string, b: string): number {
+	if (a < b) {
+		return -1;
+	} else if (a > b) {
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
 export function getServiceURL(gitpodHost: string): string {
 	return new URL(gitpodHost).toString().replace(/\/$/, '');
 }

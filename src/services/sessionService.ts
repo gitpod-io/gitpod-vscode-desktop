@@ -54,6 +54,7 @@ export class SessionService extends Disposable implements ISessionService {
 
         this._register(vscode.authentication.onDidChangeSessions(e => this.handleOnDidChangeSessions(e)));
         this.firstLoadPromise = this.tryLoadSession(false);
+        this.firstLoadPromise.then(() => vscode.commands.executeCommand('setContext', 'gitpod.authenticated', this.isSignedIn()));
     }
 
     private async handleOnDidChangeSessions(e: vscode.AuthenticationSessionsChangeEvent) {
@@ -63,6 +64,7 @@ export class SessionService extends Disposable implements ISessionService {
         const oldSession = this.session;
         this.session = undefined as vscode.AuthenticationSession | undefined;
         await this.tryLoadSession(false);
+        vscode.commands.executeCommand('setContext', 'gitpod.authenticated', this.isSignedIn());
         // host changed, sign out, sign in
         const didChange = oldSession?.id !== this.session?.id;
         if (didChange) {
@@ -118,7 +120,7 @@ export class SessionService extends Disposable implements ISessionService {
             }
 
             const gitpodVersion = await this.hostService.getVersion();
-            const sessionScopes = ['function:getWorkspace', 'function:getOwnerToken', 'function:getLoggedInUser', 'resource:default'];
+            const sessionScopes = ['function:getWorkspaces', 'function:getWorkspace', 'function:getOwnerToken', 'function:getLoggedInUser', 'resource:default'];
             if (await isOauthInspectSupported(this.hostService.gitpodHost) || isFeatureSupported(gitpodVersion, 'SSHPublicKeys') /* && isFeatureSupported('', 'sendHeartBeat') */) {
                 sessionScopes.push('function:getSSHPublicKeys', 'function:sendHeartBeat');
             } else {

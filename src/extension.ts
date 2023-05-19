@@ -22,6 +22,7 @@ import { SignInCommand } from './commands/account';
 import { ExportLogsCommand } from './commands/logs';
 import { Configuration } from './configuration';
 import { LocalSSHService } from './services/localSSHService';
+import { WorkspacesView } from './workspacesView';
 
 // connect-web uses fetch api, so we need to polyfill it
 if (!global.fetch) {
@@ -101,6 +102,10 @@ export async function activate(context: vscode.ExtensionContext) {
 				}
 			}
 		}));
+
+		const workspacesView = new WorkspacesView(sessionService, commandManager);
+		context.subscriptions.push(vscode.window.createTreeView('gitpod-workspaces', { treeDataProvider: workspacesView }));
+		context.subscriptions.push(workspacesView);
 
 		// Register global commands
 		commandManager.register(new SignInCommand(sessionService));
