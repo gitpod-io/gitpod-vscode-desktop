@@ -64,6 +64,8 @@ message SendLocalSSHUserFlowStatusRequest {
     ConnType conn_type = 9;
     string gitpod_host = 10;
     string user_id = 11;
+    string flow_status = 12;
+    string flow_failure_code = 13;
 }
 
 message SendLocalSSHUserFlowStatusResponse {}

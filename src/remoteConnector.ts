@@ -690,6 +690,7 @@ export class RemoteConnector extends Disposable {
 				let useLocalSSH = await this.experiments.getUseLocalSSHServer(params.gitpodHost);
 				if (useLocalSSH) {
 					await this.localSSHService.initialized;
+					this.telemetryService.sendUserFlowStatus(this.localSSHService.isSupportLocalSSH ? 'success' : 'failure', { ...sshFlow, flow: 'local_ssh_config' });
 					if (!this.localSSHService.isSupportLocalSSH) {
 						this.logService.error('Local SSH is not supported on this platform');
 						useLocalSSH = false;
@@ -709,6 +710,7 @@ export class RemoteConnector extends Disposable {
 						this.telemetryService.sendUserFlowStatus('connecting', gatewayFlow);
 
 						const { destination, password } = useLocalSSH ? await this.getLocalSSHWorkspaceSSHDestination(params) : await this.getWorkspaceSSHDestination(params);
+						params.connType = useLocalSSH ? 'local-ssh' : 'ssh-gateway';
 
 						sshDestination = destination;
 
@@ -766,6 +768,7 @@ export class RemoteConnector extends Disposable {
 						this.telemetryService.sendUserFlowStatus('connecting', localAppFlow);
 
 						const localAppDestData = await this.getWorkspaceLocalAppSSHDestination(params);
+						params.connType = 'local-app';
 						sshDestination = localAppDestData.destination;
 						localAppSSHConfigPath = localAppDestData.localAppSSHConfigPath;
 

@@ -6,9 +6,9 @@
 import { SshClient } from '@microsoft/dev-tunnels-ssh-tcp';
 import { NodeStream, SshClientCredentials, SshClientSession, SshDisconnectReason, SshServerSession, SshSessionConfiguration, Stream, WebSocketStream } from '@microsoft/dev-tunnels-ssh';
 import { importKey, importKeyBytes } from '@microsoft/dev-tunnels-ssh-keys';
-import { ExtensionServiceDefinition, GetWorkspaceAuthInfoResponse, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest_Code, SendLocalSSHUserFlowStatusRequest_ConnType, SendLocalSSHUserFlowStatusRequest_Status } from '../proto/typescript/ipc/v1/ipc';
+import { ExtensionServiceDefinition, GetWorkspaceAuthInfoResponse, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest } from '../proto/typescript/ipc/v1/ipc';
 import { Client, ClientError, Status, createChannel, createClient } from 'nice-grpc';
-import { retryWithStop } from '../common/async';
+import { retry, retryWithStop } from '../common/async';
 import { WebSocket } from 'ws';
 import * as stream from 'stream';
 import { ILogService } from '../services/logService';
@@ -32,39 +32,45 @@ interface ClientOptions {
 
 function getClientOptions(): ClientOptions {
     const args = process.argv.slice(2);
+    // %h is in the form of <ws_id>.vss.<gitpod_host>'
+    // add `https://` prefix since our gitpodHost is actually a url not host
+    const host = 'https://' + args[0].split('.').splice(2).join('.');
     return {
-        host: args[0],
+        host,
         extIpcPort: Number.parseInt(args[1], 10),
     };
 }
 
-class NoRunningInstanceError extends Error {
-    constructor() {
-        super('Workspace not running.');
-        this.name = 'NoRunningInstanceError';
+
+type SSHUserFlowTelemetry = Partial<SendLocalSSHUserFlowStatusRequest>;
+
+type FailedToProxyCode = 'SSH.AuthenticationFailed' | 'TUNNEL.AuthenticateSSHKeyFailed' | 'NoRunningInstance' | 'FailedToGetAuthInfo';
+class FailedToProxyError extends Error {
+    constructor(public readonly failureCode: FailedToProxyCode) {
+        super('Failed to proxy connection: ' + failureCode);
+        this.name = 'FailedToProxyError';
     }
-}
-class FailedToGetAuthInfoError extends Error {
-    constructor() {
-        super('Cannot get workspace credentials.');
-        this.name = 'FailedToGetAuthInfoError';
-    }
-}
-class AuthenticationError extends Error {
-    constructor() {
-        super('Authentication failed.');
-        this.name = 'AuthenticationError';
+
+    override toString() {
+        return `${this.name}(${this.failureCode}) ${this.message}`;
     }
 }
 
 // TODO(local-ssh): Remove me after direct ssh works with @microsft/dev-tunnels-ssh
 const FORCE_TUNNEL = true;
 
+const flow: SSHUserFlowTelemetry = {
+    gitpodHost: '',
+    workspaceId: '',
+    daemonVersion: getDaemonVersion(),
+};
+
 class WebSocketSSHProxy {
 
     private extensionIpc: Client<ExtensionServiceDefinition>;
 
     constructor(private logService: ILogService, private options: ClientOptions) {
+        flow.gitpodHost = this.options.host;
         this.onExit();
         this.onException();
         this.extensionIpc = createClient(ExtensionServiceDefinition, createChannel('127.0.0.1:' + this.options.extIpcPort));
@@ -110,78 +116,73 @@ class WebSocketSSHProxy {
         session.credentials.publicKeys.push(keys);
 
         let pipePromise: Promise<void> | undefined;
-        session.onAuthenticating((e) => {
+        session.onAuthenticating(async (e) => {
+            flow.workspaceId = e.username ?? '';
+            this.sendUserStatusFlow('connecting');
             e.authenticationPromise = this.authenticateClient(e.username ?? '')
-                .then(pipeSession => {
+                .then(async pipeSession => {
+                    this.sendUserStatusFlow('connected');
                     pipePromise = session.pipe(pipeSession);
                     return {};
-                }).catch(async error => {
-                    this.logService.error(error, 'failed to authenticate client with username: ' + e.username);
-                    await session.close(SshDisconnectReason.byApplication, error.toString(), error instanceof Error ? error : undefined);
+                }).catch(async err => {
+                    if (err instanceof FailedToProxyError) {
+                        flow.flowFailureCode = err.failureCode;
+                    }
+                    await Promise.allSettled([
+                        this.sendUserStatusFlow('failed'),
+                        this.sendErrorReport(flow, err, 'failed to authenticate proxy with username: ' + e.username ?? '')
+                    ]);
+                    this.logService.error(err, 'failed to authenticate proxy with username: ' + e.username ?? '');
+                    await session.close(SshDisconnectReason.byApplication, err.toString(), err instanceof Error ? err : undefined);
                     return null;
                 });
         });
         try {
             await session.connect(new NodeStream(sshStream));
-
             await pipePromise;
         } catch (e) {
             if (session.isClosed) {
                 return;
             }
             this.logService.error(e, 'failed to connect to client');
+            await this.sendErrorReport(flow, e, 'failed to connect to client');
             await session.close(SshDisconnectReason.byApplication, e.toString(), e instanceof Error ? e : undefined);
         }
     }
 
     private async authenticateClient(username: string) {
         const workspaceInfo = await this.retryGetWorkspaceInfo(username);
+        flow.instanceId = workspaceInfo.instanceId;
+        flow.userId = workspaceInfo.userId;
+
         if (FORCE_TUNNEL) {
             return this.getTunnelSSHConfig(workspaceInfo);
         }
-
-		try {
-			const session = await this.tryDirectSSH(workspaceInfo);
-			return session;
-		} catch (e) {
-			this.logService.error('failed to connect with direct ssh, going to try tunnel');
-			return this.getTunnelSSHConfig(workspaceInfo);
-		}
+        try {
+            return await this.tryDirectSSH(workspaceInfo);
+        } catch (e) {
+            this.sendErrorReport(workspaceInfo, e, 'try direct ssh failed');
+            return this.getTunnelSSHConfig(workspaceInfo);
+        }
     }
 
     private async tryDirectSSH(workspaceInfo: GetWorkspaceAuthInfoResponse): Promise<SshClientSession> {
-        try {
-            const connConfig = {
-                host: `${workspaceInfo.workspaceId}.ssh.${workspaceInfo.workspaceHost}`,
-                port: 22,
-                username: workspaceInfo.workspaceId,
-                password: workspaceInfo.ownerToken,
-            };
-            const config = new SshSessionConfiguration();
-            const client = new SshClient(config);
-            const session = await client.openSession(connConfig.host, connConfig.port);
-            session.onAuthenticating((e) => e.authenticationPromise = Promise.resolve({}));
-            const credentials: SshClientCredentials = { username: connConfig.username, password: connConfig.password };
-            const authenticated = await session.authenticate(credentials);
-            if (!authenticated) {
-                throw new AuthenticationError();
-            }
-            return session;
-        } catch (e) {
-            this.logService.error(e, 'failed to connect with direct ssh');
-            this.sendErrorReport(workspaceInfo.gitpodHost, workspaceInfo.userId, workspaceInfo.workspaceId, workspaceInfo.instanceId, e, 'failed to connect with direct ssh');
-            this.extensionIpc.sendLocalSSHUserFlowStatus({
-                gitpodHost: workspaceInfo.gitpodHost,
-                userId: workspaceInfo.userId,
-                status: SendLocalSSHUserFlowStatusRequest_Status.STATUS_FAILURE,
-                workspaceId: workspaceInfo.workspaceId,
-                instanceId: workspaceInfo.instanceId,
-                failureCode: SendLocalSSHUserFlowStatusRequest_Code.CODE_SSH_CANNOT_CONNECT,
-                daemonVersion: getDaemonVersion(),
-                connType: SendLocalSSHUserFlowStatusRequest_ConnType.CONN_TYPE_SSH,
-            });
-            throw e;
+        const connConfig = {
+            host: `${workspaceInfo.workspaceId}.ssh.${workspaceInfo.workspaceHost}`,
+            port: 22,
+            username: workspaceInfo.workspaceId,
+            password: workspaceInfo.ownerToken,
+        };
+        const config = new SshSessionConfiguration();
+        const client = new SshClient(config);
+        const session = await client.openSession(connConfig.host, connConfig.port);
+        session.onAuthenticating((e) => e.authenticationPromise = Promise.resolve({}));
+        const credentials: SshClientCredentials = { username: connConfig.username, password: connConfig.password };
+        const authenticated = await session.authenticate(credentials);
+        if (!authenticated) {
+            throw new FailedToProxyError('SSH.AuthenticationFailed');
         }
+        return session;
     }
 
     private async getTunnelSSHConfig(workspaceInfo: GetWorkspaceAuthInfoResponse): Promise<SshClientSession> {
@@ -196,70 +197,49 @@ class WebSocketSSHProxy {
         const stream = await new Promise<Stream>((resolve, reject) => {
             socket.onopen = () => resolve(new WebSocketStream(socket as any));
             socket.onerror = (e) => reject(e);
-        }).catch(e => {
-            this.extensionIpc.sendLocalSSHUserFlowStatus({
-                gitpodHost: workspaceInfo.gitpodHost,
-                userId: workspaceInfo.userId,
-                status: SendLocalSSHUserFlowStatusRequest_Status.STATUS_FAILURE,
-                workspaceId: workspaceInfo.workspaceId,
-                instanceId: workspaceInfo.instanceId,
-                failureCode: SendLocalSSHUserFlowStatusRequest_Code.CODE_TUNNEL_CANNOT_CREATE_WEBSOCKET,
-                daemonVersion: getDaemonVersion(),
-                connType: SendLocalSSHUserFlowStatusRequest_ConnType.CONN_TYPE_TUNNEL,
-            });
-            throw e;
         });
 
-        try {
-            const config = new SshSessionConfiguration();
-            const session = new SshClientSession(config);
-            session.onAuthenticating((e) => e.authenticationPromise = Promise.resolve({}));
+        const config = new SshSessionConfiguration();
+        const session = new SshClientSession(config);
+        session.onAuthenticating((e) => e.authenticationPromise = Promise.resolve({}));
 
-            await session.connect(stream);
+        await session.connect(stream);
 
-            const ok = await session.authenticate({ username: 'gitpod', publicKeys: [await importKey(workspaceInfo.sshkey)] });
-            if (!ok) {
-                throw new AuthenticationError();
-            }
-            return session;
-        } catch (e) {
-            this.logService.error(e, 'failed to connect with tunnel ssh');
-            this.sendErrorReport(workspaceInfo.gitpodHost, workspaceInfo.userId, workspaceInfo.workspaceId, workspaceInfo.instanceId, e, 'failed to connect with tunnel ssh');
-            this.extensionIpc.sendLocalSSHUserFlowStatus({
-                gitpodHost: workspaceInfo.gitpodHost,
-                userId: workspaceInfo.userId,
-                status: SendLocalSSHUserFlowStatusRequest_Status.STATUS_FAILURE,
-                workspaceId: workspaceInfo.workspaceId,
-                instanceId: workspaceInfo.instanceId,
-                failureCode: SendLocalSSHUserFlowStatusRequest_Code.CODE_TUNNEL_NO_ESTABLISHED_CONNECTION,
-                daemonVersion: getDaemonVersion(),
-                connType: SendLocalSSHUserFlowStatusRequest_ConnType.CONN_TYPE_TUNNEL,
-            });
-            throw e;
+        const ok = await session.authenticate({ username: 'gitpod', publicKeys: [await importKey(workspaceInfo.sshkey)] });
+        if (!ok) {
+            throw new FailedToProxyError('TUNNEL.AuthenticateSSHKeyFailed');
         }
+        return session;
     }
 
     async retryGetWorkspaceInfo(username: string) {
         return retryWithStop(async (stop) => {
             return this.extensionIpc.getWorkspaceAuthInfo({ workspaceId: username, gitpodHost: this.options.host }).catch(e => {
-                this.logService.error(e, 'failed to get workspace info');
                 if (e instanceof ClientError) {
                     if (e.code === Status.UNAVAILABLE && e.details.startsWith('workspace is not running')) {
                         stop();
-                        throw new NoRunningInstanceError();
+                        throw new FailedToProxyError('NoRunningInstance');
                     }
                 }
-                throw new FailedToGetAuthInfoError();
+                throw new FailedToProxyError('FailedToGetAuthInfo');
             });
         }, 200, 50);
     }
 
-    async sendErrorReport(gitpodHost: string, userId: string, workspaceId: string | undefined, instanceId: string | undefined, err: Error | any, message: string) {
+    async sendUserStatusFlow(status: 'connected' | 'connecting' | 'failed') {
+        // TODO: Use telemetryService in proxy after telemetryService does not depend on `vscode` lib and remove retry
+        return retry(() => this.extensionIpc.sendLocalSSHUserFlowStatus({ flowStatus: status, ...flow }), 200, 50).catch(e => {
+            this.logService.error(e, `failed to send ${status} flow status`);
+        });
+    }
+
+    async sendErrorReport(workspaceAuthInfo: Partial<GetWorkspaceAuthInfoResponse>, err: Error | any, message: string) {
+        // TODO: Use telemetryService in proxy after telemetryService does not depend on `vscode` lib and remove retry
         const request: Partial<SendErrorReportRequest> = {
-            gitpodHost,
-            userId,
-            workspaceId: workspaceId ?? '',
-            instanceId: instanceId ?? '',
+            gitpodHost: workspaceAuthInfo.gitpodHost,
+            userId: workspaceAuthInfo.userId,
+            workspaceId: workspaceAuthInfo.workspaceId,
+            instanceId: workspaceAuthInfo.instanceId,
             errorName: '',
             errorMessage: '',
             errorStack: '',
@@ -274,11 +254,9 @@ class WebSocketSSHProxy {
             request.errorMessage = message + ': ' + err.toString();
             request.errorStack = '';
         }
-        try {
-            await this.extensionIpc.sendErrorReport(request);
-        } catch (e) {
+        return retry(() => this.extensionIpc.sendErrorReport(request), 200, 50).catch(e => {
             this.logService.error(e, 'failed to send error report');
-        }
+        });
     }
 }
 
@@ -296,5 +274,6 @@ const logService = new NopeLogger();
 
 const proxy = new WebSocketSSHProxy(logService, options);
 proxy.start().catch((e) => {
+    proxy.sendErrorReport(flow, e, 'failed to start proxy');
     logService.error(e, 'failed to start proxy');
 });

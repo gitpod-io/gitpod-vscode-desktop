@@ -13,6 +13,7 @@ export interface SSHConnectionParams {
     instanceId: string;
     gitpodHost: string;
     debugWorkspace?: boolean;
+    connType?: 'local-app' | 'local-ssh' | 'ssh-gateway';
 }
 
 export interface WorkspaceRestartInfo {
@@ -66,6 +67,6 @@ export async function showWsNotRunningDialog(workspaceId: string, gitpodHost: st
 }
 
 export function getLocalSSHDomain(gitpodHost: string): string {
-	const scope = vscode.env.appName.includes('Insiders') ? 'vsi' : 'vss';
-	return `${scope}.` + (new URL(gitpodHost)).hostname;
+    const scope = vscode.env.appName.includes('Insiders') ? 'vsi' : 'vss';
+    return `${scope}.` + (new URL(gitpodHost)).hostname;
 }
