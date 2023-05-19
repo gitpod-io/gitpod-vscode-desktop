@@ -19,6 +19,7 @@ import { ISessionService } from './services/sessionService';
 import { IHostService } from './services/hostService';
 import { ILogService } from './services/logService';
 import { ExtensionServiceServer } from './local-ssh/ipc/extensionServiceServer';
+import { eventToPromise } from './common/event';
 
 export class RemoteSession extends Disposable {
 
@@ -65,7 +66,7 @@ export class RemoteSession extends Disposable {
 		try {
 			const useLocalSSH = await this.experiments.getUseLocalSSHProxy();
 			if (useLocalSSH) {
-				this.extensionServiceServer = new ExtensionServiceServer(this.logService, this.sessionService, this.hostService, this.telemetryService, this.experiments);
+				this.extensionServiceServer = new ExtensionServiceServer(this.logService, this.sessionService, this.hostService, this.telemetryService);
 			}
 
 			this.usePublicApi = await this.experiments.getUsePublicAPI(this.connectionInfo.gitpodHost);
@@ -75,11 +76,16 @@ export class RemoteSession extends Disposable {
 			if (this.usePublicApi) {
 				this.workspaceState = new WorkspaceState(this.connectionInfo.workspaceId, this.sessionService, this.logService);
 				await this.workspaceState.initialize();
-				if (!this.workspaceState.instanceId || !this.workspaceState.isWorkspaceRunning) {
-					throw new NoRunningInstanceError(this.connectionInfo.workspaceId, this.workspaceState.phase);
+				if (!this.workspaceState.instanceId || this.workspaceState.isWorkspaceStopping) {
+					// TODO: if stopping tell user to await until stopped to start again
+					throw new NoRunningInstanceError(this.connectionInfo.workspaceId, 'stopping');
 				}
-
-				this._register(this.workspaceState.onWorkspaceWillStop(async () => {
+				if (this.workspaceState.isWorkspaceStopped) {
+					// Start workspace automatically
+					await this.sessionService.getAPI().startWorkspace(this.connectionInfo.workspaceId);
+					await eventToPromise(this.workspaceState.onWorkspaceRunning);
+				}
+				this._register(this.workspaceState.onWorkspaceStopped(() => {
 					vscode.commands.executeCommand('workbench.action.remote.close');
 				}));
 				instanceId = this.workspaceState.instanceId;

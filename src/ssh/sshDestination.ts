@@ -56,4 +56,15 @@ export default class SSHDestination {
         }
         return Buffer.from(JSON.stringify(obj), 'utf8').toString('hex');
     }
+
+    fromRemoteSSHString(encoded: string) {
+        try {
+            const data = JSON.parse(Buffer.from(encoded, 'hex').toString());
+            return new SSHDestination(data.hostName, data.user, data.port);
+        } catch {
+        }
+
+        // If above fails then it's the plain host
+        return new SSHDestination(encoded);
+    }
 }
