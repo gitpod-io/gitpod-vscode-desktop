@@ -31,11 +31,15 @@ export interface ISessionService {
 }
 
 const sessionScopes = [
+    'function:getWorkspaces',
     'function:getWorkspace',
-    'function:getOwnerToken',
-    'function:getLoggedInUser',
+    'function:startWorkspace',
+    'function:stopWorkspace',
+    'function:deleteWorkspace',
     'function:getSSHPublicKeys',
     'function:sendHeartBeat',
+    'function:getOwnerToken',
+    'function:getLoggedInUser',
     'resource:default'
 ];
 
@@ -62,6 +66,7 @@ export class SessionService extends Disposable implements ISessionService {
 
         this._register(vscode.authentication.onDidChangeSessions(e => this.handleOnDidChangeSessions(e)));
         this.firstLoadPromise = this.tryLoadSession(false);
+        this.firstLoadPromise.then(() => vscode.commands.executeCommand('setContext', 'gitpod.authenticated', this.isSignedIn()));
     }
 
     private async handleOnDidChangeSessions(e: vscode.AuthenticationSessionsChangeEvent) {
@@ -71,6 +76,7 @@ export class SessionService extends Disposable implements ISessionService {
         const oldSession = this.session;
         this.session = undefined as vscode.AuthenticationSession | undefined;
         await this.tryLoadSession(false);
+        vscode.commands.executeCommand('setContext', 'gitpod.authenticated', this.isSignedIn());
         // host changed, sign out, sign in
         const didChange = oldSession?.id !== this.session?.id;
         if (didChange) {

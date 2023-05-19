@@ -8,7 +8,7 @@ import { createPromiseClient, Interceptor, PromiseClient } from '@bufbuild/conne
 import { WorkspacesService } from '@gitpod/public-api/lib/gitpod/experimental/v1/workspaces_connectweb';
 import { IDEClientService } from '@gitpod/public-api/lib/gitpod/experimental/v1/ide_client_connectweb';
 import { UserService } from '@gitpod/public-api/lib/gitpod/experimental/v1/user_connectweb';
-import { Workspace } from '@gitpod/public-api/lib/gitpod/experimental/v1/workspaces_pb';
+import { Workspace, WorkspaceInstanceStatus_Phase } from '@gitpod/public-api/lib/gitpod/experimental/v1/workspaces_pb';
 import { SSHKey, User } from '@gitpod/public-api/lib/gitpod/experimental/v1/user_pb';
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
@@ -34,8 +34,11 @@ function isTelemetryEnabled(): boolean {
 }
 
 export interface IGitpodAPI {
+    listWorkspaces(): Promise<Workspace[]>;
     getWorkspace(workspaceId: string): Promise<Workspace>;
     startWorkspace(workspaceId: string): Promise<Workspace>;
+    stopWorkspace(workspaceId: string): Promise<Workspace>;
+    deleteWorkspace(workspaceId: string): Promise<void>;
     getOwnerToken(workspaceId: string): Promise<string>;
     getSSHKeys(): Promise<SSHKey[]>;
     sendHeartbeat(workspaceId: string): Promise<void>;
@@ -93,6 +96,12 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
             this.metricsReporter.startReporting();
         }
     }
+
+    async listWorkspaces(): Promise<Workspace[]> {
+        const response = await this.workspaceService.listWorkspaces({});
+        return response.result;
+    }
+
     async getWorkspace(workspaceId: string): Promise<Workspace> {
         const response = await this.workspaceService.getWorkspace({ workspaceId });
         return response.result!;
@@ -101,6 +110,15 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
     async startWorkspace(workspaceId: string): Promise<Workspace> {
         const response = await this.workspaceService.startWorkspace({ workspaceId });
         return response.result!;
+    }
+
+    async stopWorkspace(workspaceId: string): Promise<Workspace> {
+        const response = await this.workspaceService.stopWorkspace({ workspaceId });
+        return response.result!;
+    }
+
+    async deleteWorkspace(workspaceId: string): Promise<void> {
+        await this.workspaceService.deleteWorkspace({ workspaceId });
     }
 
     async getOwnerToken(workspaceId: string): Promise<string> {
@@ -202,4 +220,42 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
         this.workspaceStatusStreamMap.clear();
         this.metricsReporter.stopReporting();
     }
+}
+
+export interface WorkspaceData {
+    provider: string;
+    owner: string;
+    repo: string;
+    id: string;
+    contextUrl: string;
+    workspaceUrl: string;
+    phase: WorkspaceInstanceStatus_Phase;
+}
+
+export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace): WorkspaceData;
+export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace[]): WorkspaceData[];
+export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace | Workspace[]) {
+    const toWorkspaceData = (ws: Workspace) => {
+        const url = new URL(ws.context!.contextUrl);
+        const provider = url.host.replace(/\..+?$/, ''); // remove '.com', etc
+        const matches = url.pathname.match(/[^/]+/g)!; // match /owner/repo
+        const owner = matches[0];
+        const repo = matches[1];
+        return {
+            provider,
+            owner,
+            repo,
+            id: ws.workspaceId,
+            contextUrl: ws.context!.contextUrl,
+            workspaceUrl: ws.status!.instance!.status!.url,
+            phase: ws.status?.instance?.status?.phase
+        };
+    };
+
+    if (Array.isArray(rawWorkspaces)) {
+        rawWorkspaces = rawWorkspaces.filter(ws => ws.context?.details.case === 'git');
+        return rawWorkspaces.map(toWorkspaceData);
+    }
+
+    return toWorkspaceData(rawWorkspaces);
 }

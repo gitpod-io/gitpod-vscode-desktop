@@ -5,17 +5,12 @@
 
 import { ExtensionServiceDefinition, ExtensionServiceImplementation, GetWorkspaceAuthInfoRequest, GetWorkspaceAuthInfoResponse, PingRequest, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest } from '../../proto/typescript/ipc/v1/ipc';
 import { Disposable } from '../../common/dispose';
-export { ExtensionServiceDefinition } from '../../proto/typescript/ipc/v1/ipc';
-import { withServerApi } from '../../internalApi';
-import { Workspace, WorkspaceInstanceStatus_Phase } from '@gitpod/public-api/lib/gitpod/experimental/v1';
-import { WorkspaceInfo, WorkspaceInstancePhase } from '@gitpod/gitpod-protocol';
 import { ILogService } from '../../services/logService';
 import { ISessionService } from '../../services/sessionService';
 import { CallContext, ServerError, Status } from 'nice-grpc-common';
 import { IHostService } from '../../services/hostService';
 import { Server, createChannel, createClient, createServer } from 'nice-grpc';
 import { ITelemetryService, UserFlowTelemetryProperties } from '../../common/telemetry';
-import { ExperimentalSettings } from '../../experiments';
 import { Configuration } from '../../configuration';
 import { timeout } from '../../common/async';
 import { BrowserHeaders } from 'browser-headers';
@@ -25,38 +20,24 @@ import { CreateSSHKeyPairRequest } from '@gitpod/supervisor-api-grpcweb/lib/cont
 import * as ssh2 from 'ssh2';
 import { ParsedKey } from 'ssh2-streams';
 import { isPortUsed } from '../../common/ports';
-
-const phaseMap: Record<WorkspaceInstanceStatus_Phase, WorkspaceInstancePhase | undefined> = {
-    [WorkspaceInstanceStatus_Phase.CREATING]: 'pending',
-    [WorkspaceInstanceStatus_Phase.IMAGEBUILD]: 'building',
-    [WorkspaceInstanceStatus_Phase.INITIALIZING]: 'initializing',
-    [WorkspaceInstanceStatus_Phase.INTERRUPTED]: 'interrupted',
-    [WorkspaceInstanceStatus_Phase.PENDING]: 'stopping',
-    [WorkspaceInstanceStatus_Phase.PREPARING]: 'stopped',
-    [WorkspaceInstanceStatus_Phase.RUNNING]: 'running',
-    [WorkspaceInstanceStatus_Phase.STOPPED]: 'stopped',
-    [WorkspaceInstanceStatus_Phase.STOPPING]: 'stopping',
-    [WorkspaceInstanceStatus_Phase.UNSPECIFIED]: undefined,
-};
+import { WorkspaceState } from '../../workspaceState';
+import { eventToPromise } from '../../common/utils';
 
 class ExtensionServiceImpl implements ExtensionServiceImplementation {
     constructor(
         private logService: ILogService,
         private sessionService: ISessionService,
         private hostService: IHostService,
-        private experiments: ExperimentalSettings,
         private telemetryService: ITelemetryService
     ) {
-
     }
 
     private async getWorkspaceSSHKey(ownerToken: string, workspaceId: string, workspaceHost: string) {
         const workspaceUrl = `https://${workspaceId}.${workspaceHost}`;
-        const metadata = new BrowserHeaders();
-        metadata.append('x-gitpod-owner-token', ownerToken);
-        const client = new ControlServiceClient(`${workspaceUrl}/_supervisor/v1`, { transport: NodeHttpTransport() });
-
         const privateKey = await new Promise<string>((resolve, reject) => {
+            const metadata = new BrowserHeaders();
+            metadata.append('x-gitpod-owner-token', ownerToken);
+            const client = new ControlServiceClient(`${workspaceUrl}/_supervisor/v1`, { transport: NodeHttpTransport() });
             client.createSSHKeyPair(new CreateSSHKeyPairRequest(), metadata, (err, resp) => {
                 if (err) {
                     return reject(err);
@@ -74,6 +55,7 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
     }
 
     async getWorkspaceAuthInfo(request: GetWorkspaceAuthInfoRequest, _context: CallContext): Promise<GetWorkspaceAuthInfoResponse> {
+        let wsState: WorkspaceState | undefined;
         try {
             if (new URL(this.hostService.gitpodHost).host !== new URL(request.gitpodHost).host) {
                 this.logService.error(`gitpod host mismatch, actual: ${this.hostService.gitpodHost} target: ${request.gitpodHost}`);
@@ -87,23 +69,34 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
             const workspaceId = request.workspaceId;
             // TODO(lssh): Get auth info according to `request.gitpodHost`
             const gitpodHost = this.hostService.gitpodHost;
-            const usePublicApi = await this.experiments.getUsePublicAPI(gitpodHost);
-            const [workspace, ownerToken] = await withServerApi(accessToken, gitpodHost, svc => Promise.all([
-                usePublicApi ? this.sessionService.getAPI().getWorkspace(workspaceId) : svc.server.getWorkspace(workspaceId),
-                usePublicApi ? this.sessionService.getAPI().getOwnerToken(workspaceId) : svc.server.getOwnerToken(workspaceId),
-            ]), this.logService);
 
-            const phase = usePublicApi ? phaseMap[(workspace as Workspace).status?.instance?.status?.phase ?? WorkspaceInstanceStatus_Phase.UNSPECIFIED] : (workspace as WorkspaceInfo).latestInstance?.status.phase;
+            wsState = new WorkspaceState(workspaceId, this.sessionService, this.logService);
+            await wsState.initialize();
 
-            const ideUrl = usePublicApi ? (workspace as Workspace).status?.instance?.status?.url : (workspace as WorkspaceInfo).latestInstance?.ideUrl;
-            if (!ideUrl) {
-                throw new ServerError(Status.DATA_LOSS, 'no ide url found');
+            // Check up to 5s if the workspace state has changed in case it's restarting
+            for (let i = 0; i < 5; i++) {
+                if (!wsState.isWorkspaceStopping && !wsState.isWorkspaceStopped) {
+                    break;
+                }
+                await timeout(1000);
             }
-            const url = new URL(ideUrl);
-            const workspaceHost = url.host.substring(url.host.indexOf('.') + 1);
-            const instanceId = (usePublicApi ? (workspace as Workspace).status?.instance?.instanceId : (workspace as WorkspaceInfo).latestInstance?.id) as string;
 
-            const sshkey = phase === 'running' ? (await this.getWorkspaceSSHKey(ownerToken, workspaceId, workspaceHost)) : '';
+            if (wsState.isWorkspaceStopping || wsState.isWorkspaceStopped) {
+                throw new ServerError(Status.UNAVAILABLE, 'workspace is not running, current phase: ' + 'stopped');
+            }
+
+            if (!wsState.isWorkspaceRunning) {
+                // Await until workspace is running
+                await eventToPromise(wsState.onWorkspaceRunning);
+            }
+
+            const ownerToken = await this.sessionService.getAPI().getOwnerToken(workspaceId);
+
+            const instanceId = wsState.instanceId!;
+            const url = new URL(wsState.workspaceUrl!);
+            const workspaceHost = url.host.substring(url.host.indexOf('.') + 1);
+
+            const sshkey = await this.getWorkspaceSSHKey(ownerToken, workspaceId, workspaceHost);
 
             return {
                 gitpodHost,
@@ -113,7 +106,7 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
                 workspaceHost,
                 ownerToken,
                 sshkey,
-                phase: phase ?? 'unknown',
+                phase: 'running',
             };
         } catch (e) {
             this.logService.error(e, 'failed to get workspace auth info');
@@ -121,6 +114,8 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
                 throw e;
             }
             throw new ServerError(Status.UNAVAILABLE, e.toString());
+        } finally {
+            wsState?.dispose();
         }
     }
 
@@ -175,7 +170,6 @@ export class ExtensionServiceServer extends Disposable {
         private readonly sessionService: ISessionService,
         private readonly hostService: IHostService,
         private readonly telemetryService: ITelemetryService,
-        private experiments: ExperimentalSettings,
     ) {
         super();
         this.server = this.getServer();
@@ -184,7 +178,7 @@ export class ExtensionServiceServer extends Disposable {
 
     private getServer(): Server {
         const server = createServer();
-        const serviceImpl = new ExtensionServiceImpl(this.logService, this.sessionService, this.hostService, this.experiments, this.telemetryService);
+        const serviceImpl = new ExtensionServiceImpl(this.logService, this.sessionService, this.hostService, this.telemetryService);
         server.add(ExtensionServiceDefinition, serviceImpl);
         return server;
     }
