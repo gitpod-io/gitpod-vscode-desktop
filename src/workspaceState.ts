@@ -13,20 +13,49 @@ import { filterEvent } from './common/utils';
 
 export class WorkspaceState extends Disposable {
     private workspaceState: WorkspaceStatus | undefined;
+    private _contextUrl: string | undefined;
 
     private _onWorkspaceStateChanged = this._register(new vscode.EventEmitter<void>());
     readonly onWorkspaceStateChanged = this._onWorkspaceStateChanged.event;
 
-    readonly onWorkspaceStopped = filterEvent(this.onWorkspaceStateChanged, () => this.workspaceState?.instance?.status?.phase === WorkspaceInstanceStatus_Phase.STOPPING); // assuming stopping state is never skipped
+    readonly onWorkspaceRunning = filterEvent(this.onWorkspaceStateChanged, () => this.isWorkspaceRunning);
+    readonly onWorkspaceStopped = filterEvent(this.onWorkspaceStateChanged, () => this.isWorkspaceStopping); // assuming stopping state is never skipped
+
+    public get isWorkspaceStopping() {
+        const phase = this.workspaceState?.instance?.status?.phase;
+        return phase === WorkspaceInstanceStatus_Phase.STOPPING;
+    }
+
+    public get isWorkspaceStopped() {
+        const phase = this.workspaceState?.instance?.status?.phase;
+        return phase === WorkspaceInstanceStatus_Phase.STOPPED;
+    }
+
+    public get isWorkspaceRunning() {
+        const phase = this.workspaceState?.instance?.status?.phase;
+        return phase === WorkspaceInstanceStatus_Phase.RUNNING;
+    }
+
+    public get workspaceUrl() {
+        return this.workspaceState?.instance?.status?.url;
+    }
+
+    public get instanceId() {
+        return this.workspaceState?.instance?.instanceId;
+    }
+
+    public get contextUrl() {
+        return this._contextUrl;
+    }
 
     constructor(
         readonly workspaceId: string,
         private readonly sessionService: ISessionService,
-        private readonly logger: ILogService,
+        private readonly logService: ILogService,
     ) {
         super();
 
-        this.logger.trace(`WorkspaceState manager for workspace ${workspaceId} started`);
+        this.logService.trace(`WorkspaceState manager for workspace ${workspaceId} started`);
 
         const { onStatusChanged, dispose } = this.sessionService.getAPI().workspaceStatusStreaming(workspaceId);
         this._register(onStatusChanged(u => this.checkWorkspaceState(this.toWorkspaceStatus(u))));
@@ -35,23 +64,8 @@ export class WorkspaceState extends Disposable {
 
     public async initialize() {
         const ws = await this.sessionService.getAPI().getWorkspace(this.workspaceId);
-        if (!this.workspaceState) {
-            this.workspaceState = ws?.status;
-        }
-    }
-
-    public isWorkspaceStopped() {
-        const phase = this.workspaceState?.instance?.status?.phase;
-        return phase === WorkspaceInstanceStatus_Phase.STOPPED || phase === WorkspaceInstanceStatus_Phase.STOPPING;
-    }
-
-    public isWorkspaceRunning() {
-        const phase = this.workspaceState?.instance?.status?.phase;
-        return phase === WorkspaceInstanceStatus_Phase.RUNNING;
-    }
-
-    public workspaceUrl() {
-        return this.workspaceState?.instance?.status?.url;
+        this._contextUrl = ws.context?.contextUrl;
+        this.workspaceState ??= ws?.status;
     }
 
     private async checkWorkspaceState(workspaceState: WorkspaceStatus | undefined) {

@@ -8,28 +8,32 @@ import { Disposable } from './common/dispose';
 import { ISessionService } from './services/sessionService';
 import { groupBy, stringCompare } from './common/utils';
 import { CommandManager } from './commandManager';
+import { WorkspaceInstanceStatus_Phase } from '@gitpod/public-api/lib/gitpod/experimental/v1/workspaces_pb';
+import { rawWorkspaceToWorkspaceData } from './publicApi';
+import { IHostService } from './services/hostService';
 
-class RepoOwner {
+class RepoOwnerTreeItem {
     constructor(
         public readonly owner: string,
         public readonly provider: string,
-        public readonly workspaces: WorkspaceItem[],
+        public readonly workspaces: WorkspaceTreeItem[],
     ) {
     }
 }
 
-class WorkspaceItem {
+class WorkspaceTreeItem {
     constructor(
         public readonly provider: string,
         public readonly owner: string,
         public readonly repo: string,
         public readonly id: string,
-        public readonly contextUrl: string
+        public readonly contextUrl: string,
+        public readonly isRunning: boolean
     ) {
     }
 }
 
-type DataTreeItem = RepoOwner | WorkspaceItem;
+type DataTreeItem = RepoOwnerTreeItem | WorkspaceTreeItem;
 
 export class WorkspacesView extends Disposable implements vscode.TreeDataProvider<DataTreeItem> {
 
@@ -37,16 +41,19 @@ export class WorkspacesView extends Disposable implements vscode.TreeDataProvide
     public readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
     constructor(
-        private readonly sessionService: ISessionService,
         readonly commandManager: CommandManager,
+        private readonly sessionService: ISessionService,
+        private readonly hostService: IHostService,
     ) {
         super();
 
         commandManager.register({ id: 'gitpod.workspaces.refresh', execute: () => this.refresh() });
+
+        this._register(this.hostService.onDidChangeHost(() => this.refresh()));
     }
 
     getTreeItem(element: DataTreeItem): vscode.TreeItem {
-        if (element instanceof RepoOwner) {
+        if (element instanceof RepoOwnerTreeItem) {
             const treeItem = new vscode.TreeItem(`${element.provider}/${element.owner}`);
             treeItem.collapsibleState = element.workspaces.length ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None;
             treeItem.contextValue = 'gitpod-workspaces.repo-owner';
@@ -56,33 +63,28 @@ export class WorkspacesView extends Disposable implements vscode.TreeDataProvide
         const treeItem = new vscode.TreeItem(`${element.owner}/${element.repo}`);
         treeItem.description = element.id;
         treeItem.collapsibleState = vscode.TreeItemCollapsibleState.None;
-        treeItem.iconPath = new vscode.ThemeIcon('vm');
-        treeItem.contextValue = 'gitpod-workspaces.workspace';
+        treeItem.iconPath = new vscode.ThemeIcon(element.isRunning ? 'vm-running' : 'vm-outline');
+        treeItem.contextValue = 'gitpod-workspaces.workspace' + (element.isRunning ? '.running' : '');
         return treeItem;
     }
 
     async getChildren(element?: DataTreeItem): Promise<DataTreeItem[]> {
         if (!element) {
             let rawWorkspaces = await this.sessionService.getAPI().listWorkspaces();
-            rawWorkspaces = rawWorkspaces.filter(ws => ws.context?.details.case === 'git');
-            const workspaces = rawWorkspaces.map(ws => {
-                const url = new URL(ws.context!.contextUrl);
-                const provider = url.host.replace(/\..+?$/, ''); // remove '.com', etc
-                const matches = url.pathname.match(/[^/]+/g)!; // match /owner/repo
-                const owner = matches[0];
-                const repo = matches[1];
-                return new WorkspaceItem(
-                    provider,
-                    owner,
-                    repo,
-                    ws.workspaceId,
-                    ws.context!.contextUrl
+            const workspaces = rawWorkspaceToWorkspaceData(rawWorkspaces).map(ws => {
+                return new WorkspaceTreeItem(
+                    ws.provider,
+                    ws.owner,
+                    ws.repo,
+                    ws.id,
+                    ws.contextUrl,
+                    ws.phase === WorkspaceInstanceStatus_Phase.RUNNING
                 );
             });
             const groupedWorkspaces = groupBy(workspaces, (a, b) => { return stringCompare(a.provider, b.provider) || stringCompare(a.owner, b.owner); });
-            return groupedWorkspaces.map(wsGroup => new RepoOwner(wsGroup[0].owner, wsGroup[0].provider, wsGroup));
+            return groupedWorkspaces.map(wsGroup => new RepoOwnerTreeItem(wsGroup[0].owner, wsGroup[0].provider, wsGroup));
         }
-        if (element instanceof RepoOwner) {
+        if (element instanceof RepoOwnerTreeItem) {
             return element.workspaces;
         }
         return [];

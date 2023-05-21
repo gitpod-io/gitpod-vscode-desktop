@@ -147,7 +147,7 @@ export class HeartbeatManager extends Disposable {
         let heartbeatSucceed = false;
         try {
             if (this.workspaceState) {
-                if (this.workspaceState.isWorkspaceRunning()) {
+                if (this.workspaceState.isWorkspaceRunning) {
                     if (!wasClosed) {
                         await this.sessionService.getAPI().sendHeartbeat(this.connectionInfo.workspaceId);
                         this.logService.trace(`Send heartbeat, triggered by ${this.lastActivityEvent} event`);
@@ -228,7 +228,7 @@ export class HeartbeatManager extends Disposable {
         super.dispose();
         this.stopIDEHeartbeatTelemetry();
         this.stopHeartbeat();
-        if (this.workspaceState?.isWorkspaceRunning() ?? this.isWorkspaceRunning) {
+        if (this.workspaceState?.isWorkspaceRunning ?? this.isWorkspaceRunning) {
             this.sendIDEHeartbeatTelemetry();
             await this.sendHeartBeat(true);
         }

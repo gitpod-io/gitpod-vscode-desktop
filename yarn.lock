@@ -147,10 +147,10 @@
     "@improbable-eng/grpc-web" "0.14.0"
     google-protobuf "^3.19.1"
 
-"@gitpod/public-api@^0.1.5-main.6530":
-  version "0.1.5-main.6530"
-  resolved "https://registry.yarnpkg.com/@gitpod/public-api/-/public-api-0.1.5-main.6530.tgz#715eea09fb916c4c3d066ef277907f87feea5cca"
-  integrity sha512-dEccJwbIUHIx3lYsMX7knIs5j110sXK9Kt1SVZzR2gzpK8voI8efggC7TJuEzHVNZNgvr88HsxKp5BfSwTB7hQ==
+"@gitpod/public-api@main-gha":
+  version "0.1.5-main-gha.10448"
+  resolved "https://registry.yarnpkg.com/@gitpod/public-api/-/public-api-0.1.5-main-gha.10448.tgz#8bb96493abbdc3e3453c900f152837aa0dc98404"
+  integrity sha512-7/4MWhzXaWLeKaCMU20dDYse+NdPbo/q7g747Nzgw/qHyByXR8rRMx0TOLWwmcSygd00arO+pPZZKfZnSCDDeA==
   dependencies:
     "@bufbuild/connect-web" "^0.2.1"
     "@bufbuild/protobuf" "^0.1.1"

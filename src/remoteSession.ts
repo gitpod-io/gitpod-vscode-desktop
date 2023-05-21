@@ -15,11 +15,11 @@ import { ITelemetryService, UserFlowTelemetryProperties } from './services/telem
 import { INotificationService } from './services/notificationService';
 import { retry } from './common/async';
 import { withServerApi } from './internalApi';
-import { ScopeFeature } from './featureSupport';
 import { ISessionService } from './services/sessionService';
 import { IHostService } from './services/hostService';
 import { ILogService } from './services/logService';
 import { ExtensionServiceServer } from './local-ssh/ipc/extensionServiceServer';
+import { eventToPromise } from './common/utils';
 
 export class RemoteSession extends Disposable {
 
@@ -63,43 +63,49 @@ export class RemoteSession extends Disposable {
 		try {
 			const useLocalSSH = await this.experiments.getUseLocalSSHProxy();
 			if (useLocalSSH) {
-				this.extensionServiceServer = new ExtensionServiceServer(this.logService, this.sessionService, this.hostService, this.telemetryService, this.experiments);
+				this.extensionServiceServer = new ExtensionServiceServer(this.logService, this.sessionService, this.hostService, this.telemetryService);
 			}
 
 			this.usePublicApi = await this.experiments.getUsePublicAPI(this.connectionInfo.gitpodHost);
 			this.logService.info(`Going to use ${this.usePublicApi ? 'public' : 'server'} API`);
 
-			const workspaceInfo = await withServerApi(this.sessionService.getGitpodToken(), this.connectionInfo.gitpodHost, service => service.server.getWorkspace(this.connectionInfo.workspaceId), this.logService);
-			if (!workspaceInfo.latestInstance || workspaceInfo.latestInstance?.status?.phase === 'stopping' || workspaceInfo.latestInstance?.status?.phase === 'stopped') {
-				throw new NoRunningInstanceError(this.connectionInfo.workspaceId, workspaceInfo.latestInstance?.status?.phase);
+			let instanceId: string;
+			if (this.usePublicApi) {
+				this.workspaceState = new WorkspaceState(this.connectionInfo.workspaceId, this.sessionService, this.logService);
+				await this.workspaceState.initialize();
+				if (!this.workspaceState.instanceId || this.workspaceState.isWorkspaceStopping) {
+					// TODO: if stopping tell user to await until stopped to start again
+					throw new NoRunningInstanceError(this.connectionInfo.workspaceId, 'stopping');
+				}
+				if (this.workspaceState.isWorkspaceStopped) {
+					// Start workspace automatically
+					await this.sessionService.getAPI().startWorkspace(this.connectionInfo.workspaceId);
+					await eventToPromise(this.workspaceState.onWorkspaceRunning);
+				}
+				this._register(this.workspaceState.onWorkspaceStopped(() => {
+					const remoteFlow: UserFlowTelemetryProperties = { ...this.connectionInfo, userId: this.sessionService.getUserId(), flow: 'remote_window', phase: 'stopped' };
+					showWsNotRunningDialog(this.connectionInfo.workspaceId, this.connectionInfo.gitpodHost, remoteFlow, this.notificationService, this.logService);
+				}));
+				instanceId = this.workspaceState.instanceId;
+			} else {
+				const workspaceInfo = await withServerApi(this.sessionService.getGitpodToken(), this.connectionInfo.gitpodHost, service => service.server.getWorkspace(this.connectionInfo.workspaceId), this.logService);
+				if (!workspaceInfo.latestInstance || workspaceInfo.latestInstance?.status?.phase === 'stopping' || workspaceInfo.latestInstance?.status?.phase === 'stopped') {
+					throw new NoRunningInstanceError(this.connectionInfo.workspaceId, workspaceInfo.latestInstance?.status?.phase);
+				}
+				instanceId = workspaceInfo.latestInstance.id;
 			}
-			if (workspaceInfo.latestInstance.id !== this.connectionInfo.instanceId) {
-				this.logService.info(`Updating workspace ${this.connectionInfo.workspaceId} latest instance id ${this.connectionInfo.instanceId} => ${workspaceInfo.latestInstance.id}`);
-				this.connectionInfo.instanceId = workspaceInfo.latestInstance.id;
+
+			if (instanceId !== this.connectionInfo.instanceId) {
+				this.logService.info(`Updating workspace ${this.connectionInfo.workspaceId} latest instance id ${this.connectionInfo.instanceId} => ${instanceId}`);
+				this.connectionInfo.instanceId = instanceId;
 			}
 
 			const [, sshDestStr] = this.remoteAuthority.split('+');
 			await this.context.globalState.update(`${SSH_DEST_KEY}${sshDestStr}`, { ...this.connectionInfo } as SSHConnectionParams);
 
-			const gitpodVersion = await this.hostService.getVersion();
+			this.heartbeatManager = new HeartbeatManager(this.connectionInfo, this.workspaceState, this.sessionService, this.logService, this.telemetryService);
 
-			if (this.usePublicApi) {
-				this.workspaceState = new WorkspaceState(this.connectionInfo.workspaceId, this.sessionService, this.logService);
-				await this.workspaceState.initialize();
-				this._register(this.workspaceState.onWorkspaceStopped(async () => {
-					const remoteFlow: UserFlowTelemetryProperties = { ...this.connectionInfo, userId: this.sessionService.getUserId(), flow: 'remote_window', phase: 'stopped' };
-					showWsNotRunningDialog(this.connectionInfo.workspaceId, this.connectionInfo.gitpodHost, remoteFlow, this.notificationService, this.logService);
-				}));
-			}
-
-			const heartbeatSupported = this.sessionService.getScopes().includes(ScopeFeature.LocalHeartbeat);
-			if (heartbeatSupported) {
-				this.heartbeatManager = new HeartbeatManager(this.connectionInfo, this.workspaceState, this.sessionService, this.logService, this.telemetryService);
-			} else {
-				this.logService.error(`Local heartbeat not supported in ${this.connectionInfo.gitpodHost}, using version ${gitpodVersion.raw}`);
-			}
-
-			const syncExtFlow = { ...this.connectionInfo, gitpodVersion: gitpodVersion.raw, userId: this.sessionService.getUserId(), flow: 'sync_local_extensions' };
+			const syncExtFlow = { ...this.connectionInfo, userId: this.sessionService.getUserId(), flow: 'sync_local_extensions' };
 			this.initializeRemoteExtensions({ ...syncExtFlow, quiet: true, flowId: uuid() });
 			this.context.subscriptions.push(vscode.commands.registerCommand('gitpod.installLocalExtensions', () => {
 				this.initializeRemoteExtensions({ ...syncExtFlow, quiet: false, flowId: uuid() });

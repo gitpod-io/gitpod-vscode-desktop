@@ -23,6 +23,7 @@ import { ExportLogsCommand } from './commands/logs';
 import { Configuration } from './configuration';
 import { LocalSSHService } from './services/localSSHService';
 import { WorkspacesView } from './workspacesView';
+import { ConnectInCurrentWindowCommand, ConnectInNewWindowCommand, DeleteEnvironmentCommand, OpenInBrowserCommand, StopCurrentEnvironmentCommand, StopEnvironmentCommand } from './commands/workspaces';
 
 // connect-web uses fetch api, so we need to polyfill it
 if (!global.fetch) {
@@ -103,20 +104,28 @@ export async function activate(context: vscode.ExtensionContext) {
 			}
 		}));
 
-		const workspacesView = new WorkspacesView(sessionService, commandManager);
+		const workspacesView = new WorkspacesView(commandManager, sessionService, hostService);
 		context.subscriptions.push(vscode.window.createTreeView('gitpod-workspaces', { treeDataProvider: workspacesView }));
 		context.subscriptions.push(workspacesView);
+
+		remoteConnectionInfo = getGitpodRemoteWindowConnectionInfo(context);
 
 		// Register global commands
 		commandManager.register(new SignInCommand(sessionService));
 		commandManager.register(new ExportLogsCommand(context.logUri, notificationService, telemetryService, logger, hostService));
+		commandManager.register(new ConnectInNewWindowCommand(context, sessionService, hostService));
+		commandManager.register(new ConnectInCurrentWindowCommand(context, sessionService, hostService));
+		commandManager.register(new StopEnvironmentCommand(sessionService));
+		commandManager.register(new StopCurrentEnvironmentCommand(remoteConnectionInfo?.connectionInfo, sessionService));
+		commandManager.register(new OpenInBrowserCommand(sessionService));
+		commandManager.register(new DeleteEnvironmentCommand(sessionService));
+
 
 		if (!context.globalState.get<boolean>(FIRST_INSTALL_KEY, false)) {
 			context.globalState.update(FIRST_INSTALL_KEY, true);
 			telemetryService.sendTelemetryEvent('gitpod_desktop_installation', { gitpodHost: hostService.gitpodHost, kind: 'install' });
 		}
 
-		remoteConnectionInfo = getGitpodRemoteWindowConnectionInfo(context);
 		// Because auth provider implementation is in the same extension, we need to wait for it to activate first
 		sessionService.didFirstLoad.then(async () => {
 			if (remoteConnectionInfo) {

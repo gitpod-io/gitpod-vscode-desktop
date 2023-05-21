@@ -16,11 +16,6 @@ export interface SSHConnectionParams {
     connType?: 'local-app' | 'local-ssh' | 'ssh-gateway';
 }
 
-export interface WorkspaceRestartInfo {
-    workspaceId: string;
-    gitpodHost: string;
-}
-
 export class NoRunningInstanceError extends Error {
     constructor(readonly workspaceId: string, readonly phase?: string) {
         super(`Failed to connect to ${workspaceId} Gitpod workspace, workspace not running: ${phase}`);

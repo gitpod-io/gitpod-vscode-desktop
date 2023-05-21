@@ -109,7 +109,8 @@
 			},
 			{
 				"command": "gitpod.installLocalExtensions",
-				"title": "Gitpod: Install Local Extensions...",
+				"title": "Install Local Extensions...",
+				"category": "Gitpod",
 				"enablement": "gitpod.inWorkspace == true"
 			},
 			{
@@ -119,8 +120,43 @@
 			},
 			{
 				"command": "gitpod.workspaces.refresh",
+				"category": "Gitpod",
 				"title": "Refresh",
 				"icon": "$(refresh)"
+			},
+			{
+				"command": "gitpod.workspaces.connectInNewWindow",
+				"category": "Gitpod",
+				"title": "Connnect to Workspace...",
+				"icon": "$(plug)"
+			},
+			{
+				"command": "gitpod.workspaces.connectInCurrentWindow",
+				"category": "Gitpod",
+				"title": "Connnect to Workspace in current window",
+				"icon": "$(plug)"
+			},
+			{
+				"command": "gitpod.workspaces.stopEnvironment",
+				"category": "Gitpod",
+				"title": "Stop Workspace...",
+				"icon": "$(primitive-square)"
+			},
+			{
+				"command": "gitpod.workspaces.stopCurrentEnvironment",
+				"category": "Gitpod",
+				"title": "Stop Current Workspace",
+				"icon": "$(primitive-square)"
+			},
+			{
+				"command": "gitpod.workspaces.openInBrowser",
+				"category": "Gitpod",
+				"title": "Open in Browser"
+			},
+			{
+				"command": "gitpod.workspaces.deleteEnvironment",
+				"category": "Gitpod",
+				"title": "Delete Workspace..."
 			}
 		],
 		"menus": {
@@ -138,10 +174,75 @@
 					"group": "navigation"
 				}
 			],
+			"view/item/context": [
+				{
+					"command": "gitpod.workspaces.connectInNewWindow",
+					"when": "viewItem =~ /^gitpod-workspaces.workspace/",
+					"group": "inline@1"
+				},
+				{
+					"command": "gitpod.workspaces.stopEnvironment",
+					"when": "viewItem =~ /^gitpod-workspaces.workspace.running$/",
+					"group": "inline@2"
+				},
+				{
+					"command": "gitpod.workspaces.connectInCurrentWindow",
+					"when": "viewItem =~ /^gitpod-workspaces.workspace/",
+					"group": "navigation@1"
+				},
+				{
+					"command": "gitpod.workspaces.connectInNewWindow",
+					"when": "viewItem =~ /^gitpod-workspaces.workspace/",
+					"group": "navigation@2"
+				},
+				{
+					"command": "gitpod.workspaces.stopEnvironment",
+					"when": "viewItem =~ /^gitpod-workspaces.workspace.running$/",
+					"group": "navigation@3"
+				},
+				{
+					"command": "gitpod.workspaces.openInBrowser",
+					"when": "viewItem =~ /^gitpod-workspaces.workspace/",
+					"group": "navigation@4"
+				},
+				{
+					"command": "gitpod.workspaces.deleteEnvironment",
+					"when": "viewItem =~ /^gitpod-workspaces.workspace/",
+					"group": "destruction@1"
+				}
+			],
 			"commandPalette": [
 				{
 					"command": "gitpod.workspaces.refresh",
 					"when": "false"
+				},
+				{
+					"command": "gitpod.workspaces.refresh",
+					"when": "gitpod.authenticated == true"
+				},
+				{
+					"command": "gitpod.workspaces.connectInNewWindow",
+					"when": "gitpod.authenticated == true"
+				},
+				{
+					"command": "gitpod.workspaces.connectInCurrentWindow",
+					"when": "gitpod.authenticated == true"
+				},
+				{
+					"command": "gitpod.workspaces.stopEnvironment",
+					"when": "gitpod.authenticated == true"
+				},
+				{
+					"command": "gitpod.workspaces.stopCurrentEnvironment",
+					"when": "gitpod.authenticated == true && gitpod.inWorkspace == true"
+				},
+				{
+					"command": "gitpod.workspaces.openInBrowser",
+					"when": "gitpod.authenticated == true"
+				},
+				{
+					"command": "gitpod.workspaces.deleteEnvironment",
+					"when": "gitpod.authenticated == true"
 				}
 			]
 		},
@@ -227,7 +328,7 @@
 		"@bufbuild/connect-node": "^0.8.4",
 		"@gitpod/gitpod-protocol": "main",
 		"@gitpod/local-app-api-grpcweb": "main",
-		"@gitpod/public-api": "^0.1.5-main.6530",
+		"@gitpod/public-api": "main-gha",
 		"@gitpod/supervisor-api-grpc": "0.1.5-main.6711",
 		"@grpc/grpc-js": "^1.8.8",
 		"@improbable-eng/grpc-web-node-http-transport": "^0.14.0",
