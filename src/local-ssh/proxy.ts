@@ -7,8 +7,8 @@ import { SshClient } from '@microsoft/dev-tunnels-ssh-tcp';
 import { NodeStream, SshClientCredentials, SshClientSession, SshDisconnectReason, SshServerSession, SshSessionConfiguration, Stream, WebSocketStream } from '@microsoft/dev-tunnels-ssh';
 import { importKey, importKeyBytes } from '@microsoft/dev-tunnels-ssh-keys';
 import { ExtensionServiceDefinition, GetWorkspaceAuthInfoResponse, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest } from '../proto/typescript/ipc/v1/ipc';
-import { Client, ClientError, Status, createChannel, createClient } from 'nice-grpc';
-import { retry, retryWithStop } from '../common/async';
+import { Client, createChannel, createClient } from 'nice-grpc';
+import { retry } from '../common/async';
 import { WebSocket } from 'ws';
 import * as stream from 'stream';
 import { ILogService } from '../services/logService';
@@ -46,8 +46,9 @@ type SSHUserFlowTelemetry = Partial<SendLocalSSHUserFlowStatusRequest>;
 
 type FailedToProxyCode = 'SSH.AuthenticationFailed' | 'TUNNEL.AuthenticateSSHKeyFailed' | 'NoRunningInstance' | 'FailedToGetAuthInfo';
 class FailedToProxyError extends Error {
-    constructor(public readonly failureCode: FailedToProxyCode) {
-        super('Failed to proxy connection: ' + failureCode);
+    constructor(public readonly failureCode: FailedToProxyCode, originError?: Error) {
+        const msg = 'Failed to proxy connection: ' + failureCode
+        super(originError ? (msg + ': ' + originError.toString()) : msg );
         this.name = 'FailedToProxyError';
     }
 
@@ -154,6 +155,9 @@ class WebSocketSSHProxy {
         const workspaceInfo = await this.retryGetWorkspaceInfo(username);
         flow.instanceId = workspaceInfo.instanceId;
         flow.userId = workspaceInfo.userId;
+        if (workspaceInfo.phase !== 'running') {
+            throw new FailedToProxyError('NoRunningInstance')
+        }
 
         if (FORCE_TUNNEL) {
             return this.getTunnelSSHConfig(workspaceInfo);
@@ -213,15 +217,9 @@ class WebSocketSSHProxy {
     }
 
     async retryGetWorkspaceInfo(username: string) {
-        return retryWithStop(async (stop) => {
+        return retry(async () => {
             return this.extensionIpc.getWorkspaceAuthInfo({ workspaceId: username, gitpodHost: this.options.host }).catch(e => {
-                if (e instanceof ClientError) {
-                    if (e.code === Status.UNAVAILABLE && e.details.startsWith('workspace is not running')) {
-                        stop();
-                        throw new FailedToProxyError('NoRunningInstance');
-                    }
-                }
-                throw new FailedToProxyError('FailedToGetAuthInfo');
+                throw new FailedToProxyError('FailedToGetAuthInfo', e);
             });
         }, 200, 50);
     }

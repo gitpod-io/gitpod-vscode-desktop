@@ -203,6 +203,7 @@ export interface GetWorkspaceAuthInfoResponse {
   gitpodHost: string;
   userId: string;
   sshkey: string;
+  phase: string;
 }
 
 function createBaseSendErrorReportRequest(): SendErrorReportRequest {
@@ -636,7 +637,16 @@ export const GetWorkspaceAuthInfoRequest = {
 };
 
 function createBaseGetWorkspaceAuthInfoResponse(): GetWorkspaceAuthInfoResponse {
-  return { workspaceId: "", instanceId: "", workspaceHost: "", ownerToken: "", gitpodHost: "", userId: "", sshkey: "" };
+  return {
+    workspaceId: "",
+    instanceId: "",
+    workspaceHost: "",
+    ownerToken: "",
+    gitpodHost: "",
+    userId: "",
+    sshkey: "",
+    phase: "",
+  };
 }
 
 export const GetWorkspaceAuthInfoResponse = {
@@ -661,6 +671,9 @@ export const GetWorkspaceAuthInfoResponse = {
     }
     if (message.sshkey !== "") {
       writer.uint32(58).string(message.sshkey);
+    }
+    if (message.phase !== "") {
+      writer.uint32(66).string(message.phase);
     }
     return writer;
   },
@@ -693,6 +706,9 @@ export const GetWorkspaceAuthInfoResponse = {
         case 7:
           message.sshkey = reader.string();
           break;
+        case 8:
+          message.phase = reader.string();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -710,6 +726,7 @@ export const GetWorkspaceAuthInfoResponse = {
       gitpodHost: isSet(object.gitpodHost) ? String(object.gitpodHost) : "",
       userId: isSet(object.userId) ? String(object.userId) : "",
       sshkey: isSet(object.sshkey) ? String(object.sshkey) : "",
+      phase: isSet(object.phase) ? String(object.phase) : "",
     };
   },
 
@@ -722,6 +739,7 @@ export const GetWorkspaceAuthInfoResponse = {
     message.gitpodHost !== undefined && (obj.gitpodHost = message.gitpodHost);
     message.userId !== undefined && (obj.userId = message.userId);
     message.sshkey !== undefined && (obj.sshkey = message.sshkey);
+    message.phase !== undefined && (obj.phase = message.phase);
     return obj;
   },
 
@@ -738,6 +756,7 @@ export const GetWorkspaceAuthInfoResponse = {
     message.gitpodHost = object.gitpodHost ?? "";
     message.userId = object.userId ?? "";
     message.sshkey = object.sshkey ?? "";
+    message.phase = object.phase ?? "";
     return message;
   },
 };

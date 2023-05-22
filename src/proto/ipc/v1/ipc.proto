@@ -83,4 +83,5 @@ message GetWorkspaceAuthInfoResponse {
     string gitpod_host = 5;
     string user_id = 6;
     string sshkey = 7;
+    string phase = 8;
 }
