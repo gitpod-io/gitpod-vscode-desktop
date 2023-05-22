@@ -133,9 +133,10 @@
 	"configcatKey": "gitpod",
 	"scripts": {
 		"vscode:prepublish": "webpack --mode production",
-		"webpack": "webpack --mode development",
-		"compile": "tsc -b",
-		"watch": "tsc -b -w",
+		"compile-proxy": "webpack --mode development",
+		"watch-proxy": "webpack watch --mode development",
+		"compile-ext": "tsc -b",
+		"watch-ext": "tsc -b -w",
 		"package": "vsce package --yarn",
 		"lint": "eslint . --ext .ts",
 		"test": "mocha -u tdd",

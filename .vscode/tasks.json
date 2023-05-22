@@ -3,7 +3,8 @@
 	"tasks": [
 		{
 			"type": "npm",
-			"script": "watch",
+			"script": "watch-ext",
+			"label": "watch-ext",
 			"problemMatcher": "$tsc-watch",
 			"isBackground": true,
 			"presentation": {
@@ -13,6 +14,61 @@
 				"kind": "build",
 				"isDefault": true
 			}
-		}
+		},
+		{
+			"type": "npm",
+			"script": "watch-proxy",
+			"label": "watch-proxy",
+			"problemMatcher": {
+				"owner": "typescript",
+				// "applyTo": "closedDocuments",
+				"source": "ts",
+				"fileLocation": "absolute",
+				"severity": "error",
+				"pattern": [
+					{
+						"regexp": "\\[tsl\\] (ERROR|WARNING) in (.*)?\\((\\d+),(\\d+)\\)",
+						"severity": 1,
+						"file": 2,
+						"line": 3,
+						"column": 4
+					},
+					{
+						"regexp": "\\s*TS(\\d+):\\s*(.*)$",
+						"code": 1,
+						"message": 2
+					}
+				],
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": {
+						"regexp": "[Cc]ompiling.*?|[Cc]ompil(ation|er) .*?starting"
+					},
+					"endsPattern": {
+						"regexp": "[Cc]ompiled (.*?successfully|with .*?(error|warning))|[Cc]ompil(ation|er) .*?finished"
+					}
+				}
+			},
+			"isBackground": true,
+			"presentation": {
+				"reveal": "never"
+			},
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
+		},
+		{
+			"label": "watch",
+			"dependsOn": [
+				"watch-ext",
+				"watch-proxy"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"problemMatcher": []
+		},
 	]
 }

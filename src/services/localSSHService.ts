@@ -53,12 +53,6 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
     }
 
     private async initialize() {
-        if (this.context.extensionMode !== vscode.ExtensionMode.Production) {
-            // TODO: add webpack config for client.js in development, for now copy manually
-            this.isSupportLocalSSH = true;
-            return;
-        }
-
         try {
             const locations = await this.copyProxyScript();
             await this.configureSettings(locations);
