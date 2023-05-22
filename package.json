@@ -137,13 +137,13 @@
 				"icon": "$(plug)"
 			},
 			{
-				"command": "gitpod.workspaces.stopEnvironment",
+				"command": "gitpod.workspaces.stopWorkspace",
 				"category": "Gitpod",
 				"title": "Stop Workspace...",
 				"icon": "$(primitive-square)"
 			},
 			{
-				"command": "gitpod.workspaces.stopCurrentEnvironment",
+				"command": "gitpod.workspaces.stopCurrentWorkspace",
 				"category": "Gitpod",
 				"title": "Stop Current Workspace",
 				"icon": "$(primitive-square)"
@@ -154,7 +154,7 @@
 				"title": "Open in Browser"
 			},
 			{
-				"command": "gitpod.workspaces.deleteEnvironment",
+				"command": "gitpod.workspaces.deleteWorkspace",
 				"category": "Gitpod",
 				"title": "Delete Workspace..."
 			}
@@ -181,7 +181,7 @@
 					"group": "inline@1"
 				},
 				{
-					"command": "gitpod.workspaces.stopEnvironment",
+					"command": "gitpod.workspaces.stopWorkspace",
 					"when": "viewItem =~ /^gitpod-workspaces.workspace.running$/",
 					"group": "inline@2"
 				},
@@ -196,7 +196,7 @@
 					"group": "navigation@2"
 				},
 				{
-					"command": "gitpod.workspaces.stopEnvironment",
+					"command": "gitpod.workspaces.stopWorkspace",
 					"when": "viewItem =~ /^gitpod-workspaces.workspace.running$/",
 					"group": "navigation@3"
 				},
@@ -206,7 +206,7 @@
 					"group": "navigation@4"
 				},
 				{
-					"command": "gitpod.workspaces.deleteEnvironment",
+					"command": "gitpod.workspaces.deleteWorkspace",
 					"when": "viewItem =~ /^gitpod-workspaces.workspace/",
 					"group": "destruction@1"
 				}
@@ -229,11 +229,11 @@
 					"when": "gitpod.authenticated == true"
 				},
 				{
-					"command": "gitpod.workspaces.stopEnvironment",
+					"command": "gitpod.workspaces.stopWorkspace",
 					"when": "gitpod.authenticated == true"
 				},
 				{
-					"command": "gitpod.workspaces.stopCurrentEnvironment",
+					"command": "gitpod.workspaces.stopCurrentWorkspace",
 					"when": "gitpod.authenticated == true && gitpod.inWorkspace == true"
 				},
 				{
@@ -241,7 +241,7 @@
 					"when": "gitpod.authenticated == true"
 				},
 				{
-					"command": "gitpod.workspaces.deleteEnvironment",
+					"command": "gitpod.workspaces.deleteWorkspace",
 					"when": "gitpod.authenticated == true"
 				}
 			]

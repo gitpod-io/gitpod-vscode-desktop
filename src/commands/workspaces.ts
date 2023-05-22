@@ -99,8 +99,8 @@ export class ConnectInCurrentWindowCommand implements Command {
 	}
 }
 
-export class StopEnvironmentCommand implements Command {
-	readonly id = 'gitpod.workspaces.stopEnvironment';
+export class StopWorkspaceCommand implements Command {
+	readonly id = 'gitpod.workspaces.stopWorkspace';
 
 	constructor(private readonly sessionService: ISessionService) { }
 
@@ -118,8 +118,8 @@ export class StopEnvironmentCommand implements Command {
 	}
 }
 
-export class StopCurrentEnvironmentCommand implements Command {
-	readonly id = 'gitpod.workspaces.stopCurrentEnvironment';
+export class StopCurrentWorkspaceCommand implements Command {
+	readonly id = 'gitpod.workspaces.stopCurrentWorkspace';
 
 	constructor(private readonly connectionInfo: SSHConnectionParams | undefined, private readonly sessionService: ISessionService) { }
 
@@ -152,8 +152,8 @@ export class OpenInBrowserCommand implements Command {
 	}
 }
 
-export class DeleteEnvironmentCommand implements Command {
-	readonly id = 'gitpod.workspaces.deleteEnvironment';
+export class DeleteWorkspaceCommand implements Command {
+	readonly id = 'gitpod.workspaces.deleteWorkspace';
 
 	constructor(private readonly sessionService: ISessionService) { }
 
