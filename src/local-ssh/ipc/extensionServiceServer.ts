@@ -29,7 +29,7 @@ const phaseMap: Record<WorkspaceInstanceStatus_Phase, WorkspaceInstancePhase | u
     [WorkspaceInstanceStatus_Phase.CREATING]: 'pending',
     [WorkspaceInstanceStatus_Phase.IMAGEBUILD]: 'building',
     [WorkspaceInstanceStatus_Phase.INITIALIZING]: 'initializing',
-    [WorkspaceInstanceStatus_Phase.INTERRUPTED]: 'running',
+    [WorkspaceInstanceStatus_Phase.INTERRUPTED]: 'interrupted',
     [WorkspaceInstanceStatus_Phase.PENDING]: 'stopping',
     [WorkspaceInstanceStatus_Phase.PREPARING]: 'stopped',
     [WorkspaceInstanceStatus_Phase.RUNNING]: 'running',
@@ -89,10 +89,6 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
             ]), this.logService);
 
             const phase = usePublicApi ? phaseMap[(workspace as Workspace).status?.instance?.status?.phase ?? WorkspaceInstanceStatus_Phase.UNSPECIFIED] : (workspace as WorkspaceInfo).latestInstance?.status.phase;
-            if (phase !== 'running') {
-                // TODO(lssh): notification?
-                throw new ServerError(Status.UNAVAILABLE, 'workspace is not running, current phase: ' + phase);
-            }
 
             const ideUrl = usePublicApi ? (workspace as Workspace).status?.instance?.status?.url : (workspace as WorkspaceInfo).latestInstance?.ideUrl;
             if (!ideUrl) {
@@ -102,7 +98,7 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
             const workspaceHost = url.host.substring(url.host.indexOf('.') + 1);
             const instanceId = (usePublicApi ? (workspace as Workspace).status?.instance?.instanceId : (workspace as WorkspaceInfo).latestInstance?.id) as string;
 
-            const sshkey = await this.getWorkspaceSSHKey(ownerToken, workspaceId, workspaceHost);
+            const sshkey = phase === 'running' ? (await this.getWorkspaceSSHKey(ownerToken, workspaceId, workspaceHost)) : '';
 
             return {
                 gitpodHost,
@@ -111,7 +107,8 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
                 instanceId,
                 workspaceHost,
                 ownerToken,
-                sshkey
+                sshkey,
+                phase: phase ?? 'unknown',
             };
         } catch (e) {
             this.logService.error(e, 'failed to get workspace auth info');
