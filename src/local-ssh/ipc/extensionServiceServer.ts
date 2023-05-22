@@ -98,7 +98,7 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
             const workspaceHost = url.host.substring(url.host.indexOf('.') + 1);
             const instanceId = (usePublicApi ? (workspace as Workspace).status?.instance?.instanceId : (workspace as WorkspaceInfo).latestInstance?.id) as string;
 
-            const sshkey = await this.getWorkspaceSSHKey(ownerToken, workspaceId, workspaceHost);
+            const sshkey = phase === 'running' ? await this.getWorkspaceSSHKey(ownerToken, workspaceId, workspaceHost) : '';
 
             return {
                 gitpodHost,
