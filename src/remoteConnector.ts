@@ -687,7 +687,7 @@ export class RemoteConnector extends Disposable {
 				this.usePublicApi = await this.experiments.getUsePublicAPI(params.gitpodHost);
 				this.logService.info(`Going to use ${this.usePublicApi ? 'public' : 'server'} API`);
 
-				let useLocalSSH = await this.experiments.getUseLocalSSHServer(params.gitpodHost);
+				let useLocalSSH = await this.experiments.getUseLocalSSHProxy(params.gitpodHost);
 				if (useLocalSSH) {
 					await this.localSSHService.initialized;
 					this.telemetryService.sendUserFlowStatus(this.localSSHService.isSupportLocalSSH ? 'success' : 'failure', { ...sshFlow, flow: 'local_ssh_config' });
@@ -828,7 +828,7 @@ export class RemoteConnector extends Disposable {
 
 	public async autoTunnelCommand(gitpodHost: string, instanceId: string, enabled: boolean) {
 		if (this.sessionService.isSignedIn()) {
-			const forceUseLocalApp = Configuration.getUseLocalApp(await this.experiments.getUseLocalSSHServer(gitpodHost));
+			const forceUseLocalApp = Configuration.getUseLocalApp(await this.experiments.getUseLocalSSHProxy(gitpodHost));
 			if (!forceUseLocalApp) {
 				const authority = vscode.Uri.parse(gitpodHost).authority;
 				const configKey = `config/${authority}`;
