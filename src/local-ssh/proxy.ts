@@ -155,7 +155,7 @@ class WebSocketSSHProxy {
         const workspaceInfo = await this.retryGetWorkspaceInfo(username);
         flow.instanceId = workspaceInfo.instanceId;
         flow.userId = workspaceInfo.userId;
-        if (workspaceInfo.phase !== 'running') {
+        if (workspaceInfo.phase && workspaceInfo.phase !== '' && workspaceInfo.phase !== 'running') {
             throw new FailedToProxyError('NoRunningInstance')
         }
 
