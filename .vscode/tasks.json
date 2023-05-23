@@ -42,7 +42,7 @@
 				"background": {
 					"activeOnStart": true,
 					"beginsPattern": {
-						"regexp": "[Cc]ompiling.*?|[Cc]ompil(ation|er) .*?starting"
+						"regexp": "[Cc]ompiling.*?|[Cc]ompil(ation|er) .*?starting|.* \\[built\\] .*"
 					},
 					"endsPattern": {
 						"regexp": "[Cc]ompiled (.*?successfully|with .*?(error|warning))|[Cc]ompil(ation|er) .*?finished"
