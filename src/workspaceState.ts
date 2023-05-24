@@ -49,7 +49,7 @@ export class WorkspaceState extends Disposable {
     }
 
     constructor(
-        readonly workspaceId: string,
+        public readonly workspaceId: string,
         private readonly sessionService: ISessionService,
         private readonly logService: ILogService,
     ) {

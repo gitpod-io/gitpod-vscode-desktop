@@ -63,10 +63,13 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
 
             wsState = new WorkspaceState(workspaceId, this.sessionService, this.logService);
             await wsState.initialize();
-            if (wsState.isWorkspaceStopping || wsState.isWorkspaceStopped) {
-                // TODO: Here we should await other remote windows tell the server this workspace is going to be restarted
-                // For now as a quick workaorund just wait 3s
-                await timeout(5000);
+
+            // Check up to 5s if the workspace state has changed in case it's restarting
+            for (let i = 0; i < 5; i++) {
+                if (!wsState.isWorkspaceStopping && !wsState.isWorkspaceStopped) {
+                    break;
+                }
+                await timeout(1000);
             }
 
             if (wsState.isWorkspaceStopping || wsState.isWorkspaceStopped) {
