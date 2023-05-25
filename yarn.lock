@@ -1343,12 +1343,28 @@ configcat-common@^6.0.0:
   resolved "https://registry.yarnpkg.com/configcat-common/-/configcat-common-6.0.0.tgz#ccdb9bdafcb6a89144cac17faaab60ac960fed2a"
   integrity sha512-C/lCeTKiFk9kPElRF3f4zIkvVCLKgPJuzrKbIMHCru89mvfH5t4//hZ9TW8wPJOAje6xB6ZALutDiIxggwUvWA==
 
+configcat-common@^7.0.1:
+  version "7.0.1"
+  resolved "https://registry.yarnpkg.com/configcat-common/-/configcat-common-7.0.1.tgz#2c239cc7c63c2138e0b4361e5201015b1bfd7120"
+  integrity sha512-9SxX4/6NzK1l+2iDWLyr/0tsli/eKzSJhBIepptF+GPy/7CprnA0coQz8fF8Gx1IF3wBZsJg0vRaC3LtNa0vRg==
+  dependencies:
+    tslib "^2.4.1"
+
 configcat-node@^8.0.0:
   version "8.0.0"
   resolved "https://registry.yarnpkg.com/configcat-node/-/configcat-node-8.0.0.tgz#6a7d2072a848552971d91e2e44c424bfda606d21"
   integrity sha512-4n4yLMpXWEiB4vmj0HuV3ArgImOEHgT+ZhP+y6N6zdwP1Z4KhQHA3btbDtZbqNw1meaVzhQMjRnpV+k/3Zr8XQ==
   dependencies:
     configcat-common "^6.0.0"
+    tunnel "0.0.6"
+
+configcat-node@^9.1.1:
+  version "9.1.1"
+  resolved "https://registry.yarnpkg.com/configcat-node/-/configcat-node-9.1.1.tgz#60812d25a7fa57c830ee28a502644697d3813482"
+  integrity sha512-uoXZUztNrTxi3oKYEvOaExssUiJSJ+3rf1I+l2/81WQaZ6vuL8sRfCNtvVXWZhtgiABQfFk1L/uqljZw51B4og==
+  dependencies:
+    configcat-common "^7.0.1"
+    tslib "^2.4.1"
     tunnel "0.0.6"
 
 connected-domain@^1.0.0:

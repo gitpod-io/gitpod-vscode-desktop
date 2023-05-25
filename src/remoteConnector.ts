@@ -687,10 +687,12 @@ export class RemoteConnector extends Disposable {
 				this.usePublicApi = await this.experiments.getUsePublicAPI(params.gitpodHost);
 				this.logService.info(`Going to use ${this.usePublicApi ? 'public' : 'server'} API`);
 
-				let useLocalSSH = await this.experiments.getUseLocalSSHProxy(params.gitpodHost);
+				let useLocalSSH = await this.experiments.getUseLocalSSHProxy();
 				if (useLocalSSH) {
+					// we need to update the remote ssh config first, since another call is too late for local-ssh
+					await this.updateRemoteSSHConfig(true, undefined);
+					this.localSSHService.flow = sshFlow;
 					await this.localSSHService.initialized;
-					this.telemetryService.sendUserFlowStatus(this.localSSHService.isSupportLocalSSH ? 'success' : 'failure', { ...sshFlow, flow: 'local_ssh_config' });
 					if (!this.localSSHService.isSupportLocalSSH) {
 						this.logService.error('Local SSH is not supported on this platform');
 						useLocalSSH = false;
@@ -700,7 +702,7 @@ export class RemoteConnector extends Disposable {
 					this.logService.info('Going to use lssh');
 				}
 
-				const forceUseLocalApp = Configuration.getUseLocalApp(useLocalSSH);
+				const forceUseLocalApp = Configuration.getUseLocalApp();
 				const userOverride = String(isUserOverrideSetting('gitpod.remote.useLocalApp'));
 				let sshDestination: SSHDestination | undefined;
 				if (!forceUseLocalApp) {
@@ -828,7 +830,7 @@ export class RemoteConnector extends Disposable {
 
 	public async autoTunnelCommand(gitpodHost: string, instanceId: string, enabled: boolean) {
 		if (this.sessionService.isSignedIn()) {
-			const forceUseLocalApp = Configuration.getUseLocalApp(await this.experiments.getUseLocalSSHProxy(gitpodHost));
+			const forceUseLocalApp = Configuration.getUseLocalApp();
 			if (!forceUseLocalApp) {
 				const authority = vscode.Uri.parse(gitpodHost).authority;
 				const configKey = `config/${authority}`;

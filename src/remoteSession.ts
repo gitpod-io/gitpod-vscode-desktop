@@ -61,7 +61,7 @@ export class RemoteSession extends Disposable {
 		}
 
 		try {
-			const useLocalSSH = await this.experiments.getUseLocalSSHProxy(this.connectionInfo.gitpodHost);
+			const useLocalSSH = await this.experiments.getUseLocalSSHProxy();
 			if (useLocalSSH) {
 				this.extensionServiceServer = new ExtensionServiceServer(this.logService, this.sessionService, this.hostService, this.telemetryService, this.experiments);
 			}

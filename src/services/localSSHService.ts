@@ -12,9 +12,10 @@ import { IHostService } from './hostService';
 import SSHConfiguration from '../ssh/sshConfig';
 import { isWindows } from '../common/platform';
 import { getLocalSSHDomain } from '../remote';
-import { ITelemetryService } from './telemetryService';
+import { ITelemetryService, UserFlowTelemetry } from './telemetryService';
 
 export interface ILocalSSHService {
+    flow?: UserFlowTelemetry;
     isSupportLocalSSH: boolean;
     initialized: Promise<void>;
 }
@@ -26,7 +27,8 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
         private readonly context: vscode.ExtensionContext,
         private readonly hostService: IHostService,
         private readonly telemetryService: ITelemetryService,
-        private readonly logService: ILogService
+        private readonly logService: ILogService,
+        public flow?: UserFlowTelemetry,
     ) {
         super();
 
@@ -65,6 +67,8 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
             this.telemetryService.sendTelemetryException(this.hostService.gitpodHost, e);
             this.isSupportLocalSSH = false;
         }
+        const flowData = this.flow ? this.flow : { gitpodHost: this.hostService.gitpodHost, userId: this.sessionService.safeGetUserId() };
+        this.telemetryService.sendUserFlowStatus(this.isSupportLocalSSH ? 'success' : 'failure', { ...flowData, flow: 'local_ssh_config' });
     }
 
     private async configureSettings({ proxyScript, launcher }: { proxyScript: string; launcher: string }) {
