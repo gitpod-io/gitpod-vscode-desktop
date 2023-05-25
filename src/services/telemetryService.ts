@@ -8,6 +8,8 @@ import { Analytics, AnalyticsSettings } from '@segment/analytics-node';
 import * as os from 'os';
 import * as vscode from 'vscode';
 
+const ProductionUntrustedSegmentKey = 'untrusted-dummy-key';
+
 const analyticsClientFactory = async (gitpodHost: string, segmentKey: string, logger: vscode.LogOutputChannel): Promise<BaseTelemetryClient> => {
 	const serviceUrl = new URL(gitpodHost);
 
@@ -17,7 +19,7 @@ const analyticsClientFactory = async (gitpodHost: string, segmentKey: string, lo
 		host: 'https://api.segment.io',
 		path: '/v1/batch'
 	};
-	if (segmentKey === 'untrusted-dummy-key') {
+	if (segmentKey === ProductionUntrustedSegmentKey) {
 		settings.host = gitpodHost;
 		settings.path = '/analytics' + settings.path;
 	} else {
@@ -75,6 +77,10 @@ const analyticsClientFactory = async (gitpodHost: string, segmentKey: string, lo
 				userId,
 				properties,
 			};
+			if (segmentKey !== ProductionUntrustedSegmentKey) {
+				logger.info('Local error report', jsonData);
+				return;
+			}
 			fetch(errorMetricsEndpoint, {
 				method: 'POST',
 				body: JSON.stringify(jsonData),
