@@ -26,6 +26,15 @@ export async function isFile(path: string) {
     }
 }
 
+export async function isDir(path: string) {
+    try {
+        const s = await fs.promises.stat(path);
+        return s.isDirectory();
+    } catch {
+        return false;
+    }
+}
+
 export function untildify(path: string){
 	return path.replace(/^~(?=$|\/|\\)/, homeDir);
 }

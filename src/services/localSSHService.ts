@@ -21,6 +21,35 @@ export interface ILocalSSHService {
     initialized: Promise<void>;
 }
 
+type FailedToInitializeCode = 'RaceCondition' | 'UnavailableToImprove' | 'UserConfiguredWrong' | 'Unknown';
+
+// TODO: i18n support? 
+const FailedMsgRegexArr: Array<{ regexList: RegExp[]; failureCode: FailedToInitializeCode }> = [
+    {
+        failureCode: 'RaceCondition',
+        regexList: [
+            /Gitpod ssh config.*?does not exist/,
+            /Unable to delete nonexistent file/,
+        ]
+    },
+    {
+        failureCode: 'UnavailableToImprove',
+        regexList: [
+            /ENOSPC: no space left on device/,
+            /Could not create ssh config.*?EPERM: operation not permitted/,
+            /Could not write ssh config.*?EACCES: permission denied/,
+            /Could not write ssh config.*?EROFS: read-only file system/,
+            /Could not write ssh config.*?EMFILE: too many open files/,
+        ]
+    },
+    {
+        failureCode: 'UserConfiguredWrong',
+        regexList: [
+            /is not a .*?, cannot write ssh config file/,
+        ]
+    }
+];
+
 export class LocalSSHService extends Disposable implements ILocalSSHService {
     public isSupportLocalSSH: boolean = false;
     public initialized: Promise<void>;
@@ -57,12 +86,20 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
     }
 
     private async initialize() {
+        let failureCode: FailedToInitializeCode | undefined;
         try {
             const locations = await this.copyProxyScript();
             await this.configureSettings(locations);
             this.isSupportLocalSSH = true;
         } catch (e) {
             this.logService.error(e, 'failed to copy local ssh client.js');
+            failureCode = 'Unknown';
+            for (const msgRegex of FailedMsgRegexArr) {
+                if (msgRegex.regexList.find(r => r.test(e.toString()))) {
+                    failureCode = msgRegex.failureCode;
+                    break;
+                }
+            }
             if (e.message) {
                 e.message = `Failed to copy local ssh client.js: ${e.message}`;
             }
@@ -70,7 +107,7 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
             this.isSupportLocalSSH = false;
         }
         const flowData = this.flow ? this.flow : { gitpodHost: this.hostService.gitpodHost, userId: this.sessionService.safeGetUserId() };
-        this.telemetryService.sendUserFlowStatus(this.isSupportLocalSSH ? 'success' : 'failure', { ...flowData, flow: 'local_ssh_config' });
+        this.telemetryService.sendUserFlowStatus(this.isSupportLocalSSH ? 'success' : 'failure', { ...flowData, flow: 'local_ssh_config', failureCode });
     }
 
     private async configureSettings({ proxyScript, launcher }: { proxyScript: string; launcher: string }) {
