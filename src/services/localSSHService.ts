@@ -13,6 +13,7 @@ import SSHConfiguration from '../ssh/sshConfig';
 import { isWindows } from '../common/platform';
 import { getLocalSSHDomain } from '../remote';
 import { ITelemetryService, UserFlowTelemetry } from './telemetryService';
+import { ISessionService } from './sessionService';
 
 export interface ILocalSSHService {
     flow?: UserFlowTelemetry;
@@ -27,6 +28,7 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
         private readonly context: vscode.ExtensionContext,
         private readonly hostService: IHostService,
         private readonly telemetryService: ITelemetryService,
+        private readonly sessionService: ISessionService,
         private readonly logService: ILogService,
         public flow?: UserFlowTelemetry,
     ) {
