@@ -112,7 +112,7 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
             };
         } catch (e) {
             this.logService.error(e, 'failed to get workspace auth info');
-            throw e;
+            throw new ServerError(Status.UNAVAILABLE, e.toString());
         }
     }
 
