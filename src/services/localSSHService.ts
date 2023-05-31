@@ -14,6 +14,7 @@ import { isWindows } from '../common/platform';
 import { getLocalSSHDomain } from '../remote';
 import { ITelemetryService, UserFlowTelemetry } from './telemetryService';
 import { ISessionService } from './sessionService';
+import { WrapError } from '../common/utils';
 
 export interface ILocalSSHService {
     flow?: UserFlowTelemetry;
@@ -21,45 +22,18 @@ export interface ILocalSSHService {
     initialized: Promise<void>;
 }
 
-type FailedToInitializeCode = 'RaceCondition' | 'UnavailableToImprove' | 'UserConfiguredWrong' | 'Unknown';
-
-// TODO: i18n support? 
-const FailedMsgRegexArr: Array<{ regexList: RegExp[]; failureCode: FailedToInitializeCode }> = [
-    {
-        failureCode: 'RaceCondition',
-        regexList: [
-            /Gitpod ssh config.*?does not exist/,
-            /Unable to delete nonexistent file/,
-        ]
-    },
-    {
-        failureCode: 'UnavailableToImprove',
-        regexList: [
-            /ENOSPC: no space left on device/,
-            /Could not create ssh config.*?EPERM: operation not permitted/,
-            /Could not write ssh config.*?EACCES: permission denied/,
-            /Could not write ssh config.*?EROFS: read-only file system/,
-            /Could not write ssh config.*?EMFILE: too many open files/,
-        ]
-    },
-    {
-        failureCode: 'UserConfiguredWrong',
-        regexList: [
-            /is not a .*?, cannot write ssh config file/,
-        ]
-    }
-];
+type FailedToInitializeCode = 'RaceCondition' | 'Unknown' | string;
 
 export class LocalSSHService extends Disposable implements ILocalSSHService {
     public isSupportLocalSSH: boolean = false;
     public initialized: Promise<void>;
+    public flow?: UserFlowTelemetry;
     constructor(
         private readonly context: vscode.ExtensionContext,
         private readonly hostService: IHostService,
         private readonly telemetryService: ITelemetryService,
         private readonly sessionService: ISessionService,
         private readonly logService: ILogService,
-        public flow?: UserFlowTelemetry,
     ) {
         super();
 
@@ -92,16 +66,13 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
             await this.configureSettings(locations);
             this.isSupportLocalSSH = true;
         } catch (e) {
-            this.logService.error(e, 'failed to copy local ssh client.js');
+            this.logService.error(e, 'failed to initialize');
             failureCode = 'Unknown';
-            for (const msgRegex of FailedMsgRegexArr) {
-                if (msgRegex.regexList.find(r => r.test(e.toString()))) {
-                    failureCode = msgRegex.failureCode;
-                    break;
-                }
+            if (e?.code) {
+                failureCode = e.code;
             }
-            if (e.message) {
-                e.message = `Failed to copy local ssh client.js: ${e.message}`;
+            if (e?.message) {
+                e.message = `Failed to initialize: ${e.message}`;
             }
             this.telemetryService.sendTelemetryException(this.hostService.gitpodHost, e);
             this.isSupportLocalSSH = false;
@@ -128,14 +99,18 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
     }
 
     private async copyProxyScript() {
-        const [proxyScript, launcher] = await Promise.all([
-            this.copyFileToGlobalStorage('out/local-ssh/proxy.js', 'sshproxy/proxy.js'),
-            isWindows ? this.copyFileToGlobalStorage('out/local-ssh/proxylauncher.bat', 'sshproxy/proxylauncher.bat') : this.copyFileToGlobalStorage('out/local-ssh/proxylauncher.sh', 'sshproxy/proxylauncher.sh')
-        ]);
-        if (!isWindows) {
-            await fsp.chmod(launcher, 0o755);
+        try {
+            const [proxyScript, launcher] = await Promise.all([
+                this.copyFileToGlobalStorage('out/local-ssh/proxy.js', 'sshproxy/proxy.js'),
+                isWindows ? this.copyFileToGlobalStorage('out/local-ssh/proxylauncher.bat', 'sshproxy/proxylauncher.bat') : this.copyFileToGlobalStorage('out/local-ssh/proxylauncher.sh', 'sshproxy/proxylauncher.sh')
+            ]);
+            if (!isWindows) {
+                await fsp.chmod(launcher, 0o755);
+            }
+            return { proxyScript, launcher };
+        } catch (e) {
+            throw new WrapError('Failed to copy local ssh proxy scripts', e, 'RaceCondition');
         }
-        return { proxyScript, launcher };
     }
 
     private async copyFileToGlobalStorage(filepath: string, destPath: string) {
