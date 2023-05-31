@@ -64,7 +64,6 @@ export class ExperimentalSettings extends Disposable {
     async getRaw<T>(
         configcatKey: string,
         custom: {
-            gitpodHost: string;
             [key: string]: string;
         }
     ) {
@@ -140,8 +139,8 @@ export class ExperimentalSettings extends Disposable {
     /**
      * @see https://app.configcat.com/08da1258-64fb-4a8e-8a1e-51de773884f6/08da1258-6541-4fc7-8b61-c8b47f82f3a0/08da1258-6512-4ec0-80a3-3f6aa301f853?settingId=75503
      */
-    async getUseLocalSSHProxy(gitpodHost: string): Promise<boolean> {
-        return (await this.getRaw<boolean>('gitpod_desktop_use_local_ssh_proxy', { gitpodHost })) ?? false;
+    async getUseLocalSSHProxy(): Promise<boolean> {
+        return (await this.getRaw<boolean>('gitpod_desktop_use_local_ssh_proxy', {})) ?? false;
     }
 
     async getUsePublicAPI(gitpodHost: string): Promise<boolean> {

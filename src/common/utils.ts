@@ -124,3 +124,16 @@ export function arrayEquals<T>(one: ReadonlyArray<T> | undefined, other: Readonl
 export function getServiceURL(gitpodHost: string): string {
 	return new URL(gitpodHost).toString().replace(/\/$/, '');
 }
+
+export class WrapError extends Error {
+	code: string | undefined;
+	constructor(msg: string, err: any, code?: string) {
+		super(msg);
+		if (err instanceof Error) {
+			this.name = err.name;
+			this.stack = err.stack;
+			this.message = `${msg}: ${err.message}`;
+		}
+		this.code = code ? code : err.code;
+	}
+}

@@ -8,8 +8,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import SSHConfig, { Line, Section, Directive } from 'ssh-config';
 import * as vscode from 'vscode';
-import { exists, isFile, untildify } from '../common/files';
+import { exists, isDir, isFile, untildify } from '../common/files';
 import { isWindows } from '../common/platform';
+import { WrapError } from '../common/utils';
 
 const systemSSHConfig = isWindows ? path.resolve(process.env.ALLUSERSPROFILE || 'C:\\ProgramData', 'ssh\\ssh_config') : '/etc/ssh/ssh_config';
 const defaultSSHConfigPath = path.resolve(os.homedir(), '.ssh/config');
@@ -76,7 +77,7 @@ export default class SSHConfiguration {
 
     static async loadGitpodSSHConfig(): Promise<SSHConfiguration> {
         if (!(await isFile(gitpodSSHConfigPath))) {
-            throw new Error(`Gitpod ssh config file ${gitpodSSHConfigPath} does not exist`);
+            throw new WrapError(`Gitpod ssh config file ${gitpodSSHConfigPath} does not exist`, null, 'NotFile');
         }
 
         let content = (await fs.promises.readFile(gitpodSSHConfigPath, 'utf8')).trim();
@@ -86,13 +87,13 @@ export default class SSHConfiguration {
 
     static async saveGitpodSSHConfig(config: SSHConfiguration): Promise<void> {
         if (!(await isFile(gitpodSSHConfigPath))) {
-            throw new Error(`Gitpod ssh config file ${gitpodSSHConfigPath} does not exist`);
+            throw new WrapError(`Gitpod ssh config file ${gitpodSSHConfigPath} does not exist`, null, 'NotFile');
         }
 
         try {
             await fs.promises.writeFile(gitpodSSHConfigPath, config.toString());
         } catch (e) {
-            throw new Error(`Could not write gitpod ssh config file ${gitpodSSHConfigPath}: ${e}`);
+            throw new WrapError(`Could not write gitpod ssh config file ${gitpodSSHConfigPath}`, e);
         }
     }
 
@@ -110,7 +111,7 @@ Include "gitpod/config"
             try {
                 content = (await fs.promises.readFile(configPath, 'utf8')).trim();
             } catch (e) {
-                throw new Error(`Could not read ssh config file at ${configPath}: ${e}`);
+                throw new WrapError(`Could not read ssh config file at ${configPath}`, e);
             }
         }
 
@@ -119,36 +120,49 @@ Include "gitpod/config"
             content = `${gitpodIncludeSection}\n\n${content}`;
 
             const configFileDir = path.dirname(configPath);
+            // must be dir
             if (!(await exists(configFileDir))) {
                 try {
                     await fs.promises.mkdir(configFileDir, { recursive: true });
                 } catch (e) {
-                    throw new Error(`Could not create ssh config folder ${configFileDir}: ${e}`);
+                    throw new WrapError(`Could not create ssh config folder ${configFileDir}`, e);
                 }
+            }
+            if (!(await isDir(configFileDir)))  {
+                throw new WrapError(`${configFileDir} is not a directory, cannot write ssh config file`, null, 'NotDirectory');
             }
 
             try {
                 await fs.promises.writeFile(configPath, content);
             } catch (e) {
-                throw new Error(`Could not write ssh config file ${configPath}: ${e}`);
+                throw new WrapError(`Could not write ssh config file ${configPath}`, e);
             }
         }
 
         const gitpodConfigFileDir = path.dirname(gitpodSSHConfigPath);
+        // must be dir
         if (!(await exists(gitpodConfigFileDir))) {
             try {
                 await fs.promises.mkdir(gitpodConfigFileDir, { recursive: true });
             } catch (e) {
-                throw new Error(`Could not create gitpod ssh config folder ${gitpodConfigFileDir}: ${e}`);
+                throw new WrapError(`Could not create gitpod ssh config folder ${gitpodConfigFileDir}`, e);
             }
         }
 
+        if (!(await isDir(gitpodConfigFileDir)))  {
+            throw new WrapError(`${gitpodConfigFileDir} is not a directory, cannot write ssh config file`, null, 'NotDirectory');
+        }
+
+        // must be file
         if (!(await exists(gitpodSSHConfigPath))) {
             try {
                 await fs.promises.writeFile(gitpodSSHConfigPath, gitpodHeader);
             } catch (e) {
-                throw new Error(`Could not write gitpod ssh config file ${gitpodSSHConfigPath}: ${e}`);
+                throw new WrapError(`Could not write gitpod ssh config file ${gitpodSSHConfigPath}`, e);
             }
+        }
+        if (!(await isFile(gitpodSSHConfigPath)))  {
+            throw new WrapError(`${gitpodSSHConfigPath} is not a file, cannot write ssh config file`, null, 'NotFile');
         }
     }
 

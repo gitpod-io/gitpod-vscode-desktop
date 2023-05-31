@@ -13,10 +13,7 @@ function getGitpodHost() {
     return vscode.workspace.getConfiguration('gitpod').get<string>('host', 'https://gitpod.io/');
 }
 
-function getUseLocalApp(useLocalSSHServer?: boolean) {
-    if (useLocalSSHServer) {
-        return false;
-    }
+function getUseLocalApp() {
     return vscode.workspace.getConfiguration('gitpod').get<boolean>('remote.useLocalApp', false);
 }
 
