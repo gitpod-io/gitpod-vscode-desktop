@@ -58,7 +58,11 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		logger.info(`${extensionId}/${packageJSON.version} (${os.release()} ${os.platform()} ${os.arch()}) vscode/${vscode.version} (${vscode.env.appName})`);
 
-		telemetryService = new TelemetryService(packageJSON.segmentKey, logger);
+		const piiPaths = [context.extensionPath, context.globalStorageUri.fsPath];
+		if (context.storageUri) {
+			piiPaths.push(context.storageUri.fsPath);
+		}
+		telemetryService = new TelemetryService(packageJSON.segmentKey, piiPaths, logger);
 
 		const notificationService = new NotificationService(telemetryService);
 
