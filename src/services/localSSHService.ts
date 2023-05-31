@@ -22,7 +22,7 @@ export interface ILocalSSHService {
     initialized: Promise<void>;
 }
 
-type FailedToInitializeCode = 'RaceCondition' | 'Unknown' | string;
+type FailedToInitializeCode = 'Unknown' | string;
 
 export class LocalSSHService extends Disposable implements ILocalSSHService {
     public isSupportLocalSSH: boolean = false;
