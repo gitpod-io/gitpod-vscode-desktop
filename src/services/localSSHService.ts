@@ -78,7 +78,7 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
             this.isSupportLocalSSH = false;
         }
         const flowData = this.flow ? this.flow : { gitpodHost: this.hostService.gitpodHost, userId: this.sessionService.safeGetUserId() };
-        this.telemetryService.sendUserFlowStatus(this.isSupportLocalSSH ? 'success' : 'failure', { ...flowData, flow: 'local_ssh_config', failureCode });
+        this.telemetryService.sendUserFlowStatus(this.isSupportLocalSSH ? 'success' : 'failure', { ...flowData, flow: 'local_ssh_config', failureCode, useLocalAPP: String(Configuration.getUseLocalApp()) });
     }
 
     private async configureSettings({ proxyScript, launcher }: { proxyScript: string; launcher: string }) {
@@ -109,7 +109,7 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
             }
             return { proxyScript, launcher };
         } catch (e) {
-            throw new WrapError('Failed to copy local ssh proxy scripts', e, 'RaceCondition');
+            throw new WrapError('Failed to copy local ssh proxy scripts', e);
         }
     }
 
