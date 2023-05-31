@@ -61,6 +61,7 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
 
     private async initialize() {
         let failureCode: FailedToInitializeCode | undefined;
+        const useLocalAPP = String(Configuration.getUseLocalApp());
         try {
             const locations = await this.copyProxyScript();
             await this.configureSettings(locations);
@@ -74,11 +75,11 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
             if (e?.message) {
                 e.message = `Failed to initialize: ${e.message}`;
             }
-            this.telemetryService.sendTelemetryException(this.hostService.gitpodHost, e);
+            this.telemetryService.sendTelemetryException(this.hostService.gitpodHost, e, { useLocalAPP });
             this.isSupportLocalSSH = false;
         }
         const flowData = this.flow ? this.flow : { gitpodHost: this.hostService.gitpodHost, userId: this.sessionService.safeGetUserId() };
-        this.telemetryService.sendUserFlowStatus(this.isSupportLocalSSH ? 'success' : 'failure', { ...flowData, flow: 'local_ssh_config', failureCode, useLocalAPP: String(Configuration.getUseLocalApp()) });
+        this.telemetryService.sendUserFlowStatus(this.isSupportLocalSSH ? 'success' : 'failure', { ...flowData, flow: 'local_ssh_config', failureCode, useLocalAPP });
     }
 
     private async configureSettings({ proxyScript, launcher }: { proxyScript: string; launcher: string }) {
