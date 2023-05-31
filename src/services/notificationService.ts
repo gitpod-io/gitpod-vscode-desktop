@@ -4,11 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { ITelemetryService, UserFlowTelemetry } from './telemetryService';
+import { ITelemetryService, UserFlowTelemetryProperties } from './telemetryService';
 
 export interface NotificationOption extends vscode.MessageOptions {
     id: string;
-    flow: UserFlowTelemetry;
+    flow: UserFlowTelemetryProperties;
 }
 
 export interface INotificationService {

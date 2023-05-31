@@ -12,12 +12,12 @@ import { IHostService } from './hostService';
 import SSHConfiguration from '../ssh/sshConfig';
 import { isWindows } from '../common/platform';
 import { getLocalSSHDomain } from '../remote';
-import { ITelemetryService, UserFlowTelemetry } from './telemetryService';
+import { ITelemetryService, UserFlowTelemetryProperties } from './telemetryService';
 import { ISessionService } from './sessionService';
 import { WrapError } from '../common/utils';
 
 export interface ILocalSSHService {
-    flow?: UserFlowTelemetry;
+    flow?: UserFlowTelemetryProperties;
     isSupportLocalSSH: boolean;
     initialized: Promise<void>;
 }
@@ -27,7 +27,7 @@ type FailedToInitializeCode = 'Unknown' | string;
 export class LocalSSHService extends Disposable implements ILocalSSHService {
     public isSupportLocalSSH: boolean = false;
     public initialized: Promise<void>;
-    public flow?: UserFlowTelemetry;
+    public flow?: UserFlowTelemetryProperties;
     constructor(
         private readonly context: vscode.ExtensionContext,
         private readonly hostService: IHostService,
@@ -75,7 +75,7 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
             if (e?.message) {
                 e.message = `Failed to initialize: ${e.message}`;
             }
-            this.telemetryService.sendTelemetryException(this.hostService.gitpodHost, e, { useLocalAPP });
+            this.telemetryService.sendTelemetryException(e, { gitpodHost: this.hostService.gitpodHost, useLocalAPP });
             this.isSupportLocalSSH = false;
         }
         const flowData = this.flow ? this.flow : { gitpodHost: this.hostService.gitpodHost, userId: this.sessionService.safeGetUserId() };

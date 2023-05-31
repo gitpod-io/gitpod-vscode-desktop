@@ -14,7 +14,7 @@ import { ISessionService } from '../../services/sessionService';
 import { CallContext, ServerError, Status } from 'nice-grpc-common';
 import { IHostService } from '../../services/hostService';
 import { Server, createServer } from 'nice-grpc';
-import { ITelemetryService, UserFlowTelemetry } from '../../services/telemetryService';
+import { ITelemetryService, UserFlowTelemetryProperties } from '../../services/telemetryService';
 import { ExperimentalSettings } from '../../experiments';
 import { Configuration } from '../../configuration';
 import { timeout } from '../../common/async';
@@ -121,7 +121,7 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
         if (!request.flowStatus || request.flowStatus === '') {
             return {};
         }
-        const flow: UserFlowTelemetry = {
+        const flow: UserFlowTelemetryProperties = {
             flow: 'local_ssh',
             workspaceId: request.workspaceId,
             instanceId: request.instanceId,
@@ -140,14 +140,14 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
         const err = new Error(request.errorMessage);
         err.name = `${request.errorName}[local-ssh]`;
         err.stack = request.errorStack;
-        const properties: Record<string, any> = {
+        this.telemetryService.sendTelemetryException(err, {
+            gitpodHost: request.gitpodHost,
             workspaceId: request.workspaceId,
             instanceId: request.instanceId,
             daemonVersion: request.daemonVersion,
             extensionVersion: request.extensionVersion,
             userId: request.userId,
-        };
-        this.telemetryService.sendTelemetryException(request.gitpodHost, err, properties);
+        });
         return {};
     }
 }

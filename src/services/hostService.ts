@@ -8,7 +8,7 @@ import { Disposable } from '../common/dispose';
 import { GitpodVersion, getGitpodVersion } from '../featureSupport';
 import { INotificationService } from './notificationService';
 import { getGitpodRemoteWindowConnectionInfo } from '../remote';
-import { UserFlowTelemetry } from './telemetryService';
+import { UserFlowTelemetryProperties } from './telemetryService';
 import { ILogService } from './logService';
 import { Configuration } from '../configuration';
 
@@ -62,7 +62,7 @@ export class HostService extends Disposable implements IHostService {
 
     async changeHost(newHost: string, skipRemoteWindowCheck: boolean = false) {
         if (new URL(this._gitpodHost).host !== new URL(newHost).host) {
-            const flow: UserFlowTelemetry = { flow: 'changeHost', gitpodHost: newHost };
+            const flow: UserFlowTelemetryProperties = { flow: 'changeHost', gitpodHost: newHost };
 
             // Don't allow to change gitpod host if we are in a remote window
             if (!skipRemoteWindowCheck && !!getGitpodRemoteWindowConnectionInfo(this.context)) {

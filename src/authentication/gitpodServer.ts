@@ -10,7 +10,7 @@ import pkceChallenge from 'pkce-challenge';
 import { v4 as uuid } from 'uuid';
 import { Disposable } from '../common/dispose';
 import { INotificationService } from '../services/notificationService';
-import { UserFlowTelemetry } from '../services/telemetryService';
+import { UserFlowTelemetryProperties } from '../services/telemetryService';
 import { ILogService } from '../services/logService';
 
 interface ExchangeTokenResponse {
@@ -49,7 +49,7 @@ export default class GitpodServer extends Disposable {
 		this._serviceUrl = serviceUrl.replace(/\/$/, '');
 	}
 
-	public async login(scopes: string, flow: UserFlowTelemetry): Promise<string> {
+	public async login(scopes: string, flow: UserFlowTelemetryProperties): Promise<string> {
 		this.logService.info(`Logging in for the following scopes: ${scopes}`);
 
 		const callbackUri = await vscode.env.asExternalUri(vscode.Uri.parse(`${vscode.env.uriScheme}://gitpod.gitpod-desktop/complete-gitpod-auth`));
@@ -102,7 +102,7 @@ export default class GitpodServer extends Disposable {
 		});
 	}
 
-	private exchangeCodeForToken: (scopes: string, flow: UserFlowTelemetry) => PromiseAdapter<vscode.Uri, string> =
+	private exchangeCodeForToken: (scopes: string, flow: UserFlowTelemetryProperties) => PromiseAdapter<vscode.Uri, string> =
 		(scopes, flow) => async (uri, resolve, reject) => {
 			const query = new URLSearchParams(uri.query);
 			const code = query.get('code');

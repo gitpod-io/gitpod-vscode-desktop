@@ -11,7 +11,7 @@ import * as vscode from 'vscode';
 import { Command } from '../commandManager';
 import { ILogService } from '../services/logService';
 import { INotificationService } from '../services/notificationService';
-import { ITelemetryService, UserFlowTelemetry } from '../services/telemetryService';
+import { ITelemetryService, UserFlowTelemetryProperties } from '../services/telemetryService';
 import { HostService } from '../services/hostService';
 
 interface IFile {
@@ -32,7 +32,7 @@ export class ExportLogsCommand implements Command {
 
 	async execute() {
 		const gitpodHost = this.hostService.gitpodHost;
-		const flow: UserFlowTelemetry = { gitpodHost, flow: 'export_logs' };
+		const flow: UserFlowTelemetryProperties = { gitpodHost, flow: 'export_logs' };
 		this.telemetryService.sendUserFlowStatus('exporting', flow);
 		try {
 			await this.exportLogs();

@@ -11,7 +11,7 @@ import { HeartbeatManager } from './heartbeat';
 import { WorkspaceState } from './workspaceState';
 import { ISyncExtension, NoSettingsSyncSession, NoSyncStoreError, SettingsSync, SyncResource, parseSyncData } from './settingsSync';
 import { ExperimentalSettings } from './experiments';
-import { ITelemetryService, UserFlowTelemetry } from './services/telemetryService';
+import { ITelemetryService, UserFlowTelemetryProperties } from './services/telemetryService';
 import { INotificationService } from './services/notificationService';
 import { retry } from './common/async';
 import { withServerApi } from './internalApi';
@@ -87,7 +87,7 @@ export class RemoteSession extends Disposable {
 				this.workspaceState = new WorkspaceState(this.connectionInfo.workspaceId, this.sessionService, this.logService);
 				await this.workspaceState.initialize();
 				this._register(this.workspaceState.onWorkspaceStopped(async () => {
-					const remoteFlow: UserFlowTelemetry = { ...this.connectionInfo, userId: this.sessionService.getUserId(), flow: 'remote_window', phase: 'stopped' };
+					const remoteFlow: UserFlowTelemetryProperties = { ...this.connectionInfo, userId: this.sessionService.getUserId(), flow: 'remote_window', phase: 'stopped' };
 					showWsNotRunningDialog(this.connectionInfo.workspaceId, this.connectionInfo.gitpodHost, remoteFlow, this.notificationService, this.logService);
 				}));
 			}
@@ -107,7 +107,7 @@ export class RemoteSession extends Disposable {
 
 			vscode.commands.executeCommand('setContext', 'gitpod.inWorkspace', true);
 		} catch (e) {
-			const remoteFlow: UserFlowTelemetry = { ...this.connectionInfo, userId: this.sessionService.getUserId(), flow: 'remote_window' };
+			const remoteFlow: UserFlowTelemetryProperties = { ...this.connectionInfo, userId: this.sessionService.getUserId(), flow: 'remote_window' };
 			if (e instanceof NoRunningInstanceError) {
 				remoteFlow['phase'] = e.phase;
 				showWsNotRunningDialog(this.connectionInfo.workspaceId, this.connectionInfo.gitpodHost, remoteFlow, this.notificationService, this.logService);
@@ -115,8 +115,11 @@ export class RemoteSession extends Disposable {
 			}
 			e.message = `Failed to resolve whole gitpod remote connection process: ${e.message}`;
 			this.logService.error(e);
-			this.telemetryService.sendTelemetryException(this.connectionInfo.gitpodHost, e, {
-				workspaceId: this.connectionInfo.workspaceId, instanceId: this.connectionInfo.instanceId, userId: this.sessionService.getUserId()
+			this.telemetryService.sendTelemetryException(e, {
+				gitpodHost: this.connectionInfo.gitpodHost,
+				workspaceId: this.connectionInfo.workspaceId,
+				instanceId: this.connectionInfo.instanceId,
+				userId: this.sessionService.getUserId()
 			});
 
 			this.logService.show();
@@ -128,7 +131,7 @@ export class RemoteSession extends Disposable {
 		}
 	}
 
-	private async initializeRemoteExtensions(flow: UserFlowTelemetry & { quiet: boolean; flowId: string }) {
+	private async initializeRemoteExtensions(flow: UserFlowTelemetryProperties & { quiet: boolean; flowId: string }) {
 		this.telemetryService.sendUserFlowStatus('enabled', flow);
 		let syncData: { ref: string; content: string } | undefined;
 		try {
@@ -245,7 +248,7 @@ export class RemoteSession extends Disposable {
 	}
 
 	private async showRevertGitpodHostDialog() {
-		const flow: UserFlowTelemetry = { ...this.connectionInfo, flow: 'remote_session' };
+		const flow: UserFlowTelemetryProperties = { ...this.connectionInfo, flow: 'remote_session' };
 		const revert = 'Revert change';
 		const action = await this.notificationService.showErrorMessage(`Cannot change 'gitpod.host' setting while connected to a remote workspace`, { id: 'switch_gitpod_host_remote', flow, modal: true }, revert);
 		if (action === revert) {

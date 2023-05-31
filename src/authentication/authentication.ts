@@ -9,7 +9,7 @@ import Keychain from '../common/keychain';
 import GitpodServer from './gitpodServer';
 import { arrayEquals } from '../common/utils';
 import { Disposable } from '../common/dispose';
-import { ITelemetryService, UserFlowTelemetry } from '../services/telemetryService';
+import { ITelemetryService, UserFlowTelemetryProperties } from '../services/telemetryService';
 import { INotificationService } from '../services/notificationService';
 import { ILogService } from '../services/logService';
 import { Configuration } from '../configuration';
@@ -34,7 +34,7 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 
 	private _sessionsPromise: Promise<vscode.AuthenticationSession[]>;
 
-	private readonly flow = { flow: 'auth' } as Readonly<UserFlowTelemetry>;
+	private readonly flow = { flow: 'auth' } as Readonly<UserFlowTelemetryProperties>;
 
 	constructor(
 		private readonly context: vscode.ExtensionContext,
