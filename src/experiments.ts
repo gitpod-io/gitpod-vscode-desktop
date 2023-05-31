@@ -123,8 +123,8 @@ export class ExperimentalSettings extends Disposable {
         return { key, defaultValue: values.defaultValue, globalValue: values.globalValue, experimentValue };
     }
 
-    async forceRefreshAsync(): Promise<void> {
-        await this.configcatClient.forceRefreshAsync();
+    forceRefreshAsync(): Promise<void> {
+        return this.configcatClient.forceRefreshAsync();
     }
 
     private isPreRelease() {
