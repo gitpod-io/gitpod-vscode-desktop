@@ -9,7 +9,7 @@ import { Analytics, AnalyticsSettings } from '@segment/analytics-node';
 import { Disposable } from '../common/dispose';
 import { Configuration } from '../configuration';
 import { ILogService } from './logService';
-import { cloneAndChange, escapeRegExpCharacters } from '../common/utils';
+import { cloneAndChange, escapeRegExpCharacters, mixin } from '../common/utils';
 
 const ProductionUntrustedSegmentKey = 'untrusted-dummy-key';
 
@@ -48,7 +48,7 @@ export class TelemetryService extends Disposable implements ITelemetryService {
 	private analitycsClients: Map<string, Analytics> = new Map();
 	private telemetryLogger: vscode.TelemetryLogger;
 
-	constructor(segmentKey: string, piiPaths: string[], private readonly logService: ILogService) {
+	constructor(extensionId: string, extensionVersion: string, segmentKey: string, piiPaths: string[], private readonly logService: ILogService) {
 		super();
 
 		// static cleanup pattern for: `vscode-file:///DANGEROUS/PATH/resources/app/Useful/Information`
@@ -64,6 +64,8 @@ export class TelemetryService extends Disposable implements ITelemetryService {
 				cleanupPatterns.push(new RegExp(escapeRegExpCharacters(piiPath.replace(/\\/g, '/')), 'gi'));
 			}
 		}
+
+		const commonProperties = getCommonProperties(extensionId, extensionVersion);
 
 		this.telemetryLogger = this._register(vscode.env.createTelemetryLogger(
 			{
@@ -92,15 +94,16 @@ export class TelemetryService extends Disposable implements ITelemetryService {
 					});
 				},
 				sendErrorData: (error, data) => {
-					const properties = cleanData(data ?? {}, cleanupPatterns);
-					const errorProps = cleanData({ stack: error.stack }, cleanupPatterns);
+					let properties = cleanData(data ?? {}, cleanupPatterns);
+					properties = mixin(properties, commonProperties);
+					const errorProps = cleanData({ message: error.message, stack: error.stack }, cleanupPatterns);
 
 					// Unhandled errors have no data so use host from config
 					const gitpodHost = properties['gitpodHost'] ?? Configuration.getGitpodHost();
 					const errorMetricsEndpoint = this.getErrorMetricsEndpoint(gitpodHost);
 
 					properties['error_name'] = error.name;
-					properties['error_message'] = error.message;
+					properties['error_message'] = errorProps.message;
 					properties['debug_workspace'] = String(properties['debug_workspace'] ?? false);
 
 					const workspaceId = properties['workspaceId'] ?? '';
@@ -114,7 +117,7 @@ export class TelemetryService extends Disposable implements ITelemetryService {
 
 					const jsonData = {
 						component: 'vscode-desktop-extension',
-						errorStack: errorProps.stack || String(error),
+						errorStack: errorProps.stack || '',
 						version: properties['common.extversion'],
 						workspaceId,
 						instanceId,
@@ -214,6 +217,33 @@ export class TelemetryService extends Disposable implements ITelemetryService {
 
 // Remove when upstream TODO is addressed
 // https://github.com/microsoft/vscode/blob/44ef5cc53127cbaa11dee1728bdf8c24522f8fa0/src/vs/workbench/api/common/extHostTelemetry.ts#L278-L279
+
+function getCommonProperties(extensionId: string, extensionVersion: string) {
+	const commonProperties = Object.create(null);
+	commonProperties['common.os'] = os.platform();
+	commonProperties['common.nodeArch'] = os.arch();
+	commonProperties['common.platformversion'] = os.release().replace(/^(\d+)(\.\d+)?(\.\d+)?(.*)/, '$1$2$3');
+	commonProperties['common.extname'] = extensionId;
+	commonProperties['common.extversion'] = extensionVersion;
+	if (vscode && vscode.env) {
+		commonProperties['common.vscodemachineid'] = vscode.env.machineId;
+		commonProperties['common.vscodesessionid'] = vscode.env.sessionId;
+		commonProperties['common.vscodeversion'] = vscode.version;
+		commonProperties['common.product'] = vscode.env.appHost;
+
+		switch (vscode.env.uiKind) {
+			case vscode.UIKind.Web:
+				commonProperties['common.uikind'] = 'web';
+				break;
+			case vscode.UIKind.Desktop:
+				commonProperties['common.uikind'] = 'desktop';
+				break;
+			default:
+				commonProperties['common.uikind'] = 'unknown';
+		}
+	}
+	return commonProperties;
+}
 
 function anonymizeFilePaths(stack: string, cleanupPatterns: RegExp[]): string {
 

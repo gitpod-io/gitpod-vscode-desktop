@@ -179,6 +179,33 @@ function _cloneAndChange(obj: any, changer: (orig: any) => any, seen: Set<any>):
 	return obj;
 }
 
+/**
+ * Copies all properties of source into destination. The optional parameter "overwrite" allows to control
+ * if existing properties on the destination should be overwritten or not. Defaults to true (overwrite).
+ */
+export function mixin(destination: any, source: any, overwrite: boolean = true): any {
+	if (!_isObject(destination)) {
+		return source;
+	}
+
+	if (_isObject(source)) {
+		Object.keys(source).forEach(key => {
+			if (key in destination) {
+				if (overwrite) {
+					if (_isObject(destination[key]) && _isObject(source[key])) {
+						mixin(destination[key], source[key], overwrite);
+					} else {
+						destination[key] = source[key];
+					}
+				}
+			} else {
+				destination[key] = source[key];
+			}
+		});
+	}
+	return destination;
+}
+
 export function getServiceURL(gitpodHost: string): string {
 	return new URL(gitpodHost).toString().replace(/\/$/, '');
 }

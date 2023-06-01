@@ -62,7 +62,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		if (context.storageUri) {
 			piiPaths.push(context.storageUri.fsPath);
 		}
-		telemetryService = new TelemetryService(packageJSON.segmentKey, piiPaths, logger);
+		telemetryService = new TelemetryService(extensionId, packageJSON.version, packageJSON.segmentKey, piiPaths, logger);
 
 		const notificationService = new NotificationService(telemetryService);
 
