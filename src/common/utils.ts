@@ -213,11 +213,11 @@ export function getServiceURL(gitpodHost: string): string {
 export class WrapError extends Error {
 	code: string | undefined;
 	constructor(msg: string, err: any, code?: string) {
-		super(msg);
-		if (err instanceof Error) {
+		const isErr = err instanceof Error;
+		super(isErr ? `${msg}: ${err.message}` : msg);
+		if (isErr) {
 			this.name = err.name;
-			this.stack = err.stack;
-			this.message = `${msg}: ${err.message}`;
+			this.stack = this.stack + '\n\n' + err.stack;
 		}
 		this.code = code ? code : err.code;
 	}
