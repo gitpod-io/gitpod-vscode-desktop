@@ -128,13 +128,13 @@
 				"command": "gitpod.workspaces.connectInNewWindow",
 				"category": "Gitpod",
 				"title": "Connnect to Workspace...",
-				"icon": "$(plug)"
+				"icon": "$(empty-window)"
 			},
 			{
 				"command": "gitpod.workspaces.connectInCurrentWindow",
 				"category": "Gitpod",
 				"title": "Connnect to Workspace in current window",
-				"icon": "$(plug)"
+				"icon": "$(arrow-right)"
 			},
 			{
 				"command": "gitpod.workspaces.stopWorkspace",
@@ -176,14 +176,19 @@
 			],
 			"view/item/context": [
 				{
-					"command": "gitpod.workspaces.connectInNewWindow",
+					"command": "gitpod.workspaces.connectInCurrentWindow",
 					"when": "viewItem =~ /^gitpod-workspaces.workspace/",
 					"group": "inline@1"
 				},
 				{
+					"command": "gitpod.workspaces.connectInNewWindow",
+					"when": "viewItem =~ /^gitpod-workspaces.workspace/",
+					"group": "inline@2"
+				},
+				{
 					"command": "gitpod.workspaces.stopWorkspace",
 					"when": "viewItem =~ /^gitpod-workspaces.workspace.running$/",
-					"group": "inline@2"
+					"group": "inline@3"
 				},
 				{
 					"command": "gitpod.workspaces.connectInCurrentWindow",
