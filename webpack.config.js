@@ -9,6 +9,7 @@ const CopyPlugin = require('copy-webpack-plugin');
 
 const daemonVersion = new webpack.DefinePlugin({
 	'process.env.DAEMON_VERSION': JSON.stringify(packageJSON.daemonVersion ?? '0.0.1'),
+	'process.env.SEGMENT_KEY': JSON.stringify(packageJSON.segmentKey ?? ''),
 });
 
 /**@type {import('webpack').Configuration}*/

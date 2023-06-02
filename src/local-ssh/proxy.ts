@@ -21,13 +21,10 @@ function getHostKey(): Buffer {
     return Buffer.from(HOST_KEY, 'base64');
 }
 
-function getDaemonVersion() {
-    return process.env.DAEMON_VERSION ?? '0.0.1';
-}
-
 interface ClientOptions {
     host: string;
     extIpcPort: number;
+    machineID: string;
 }
 
 function getClientOptions(): ClientOptions {
@@ -38,16 +35,14 @@ function getClientOptions(): ClientOptions {
     return {
         host,
         extIpcPort: Number.parseInt(args[1], 10),
+        machineID: args[2] ?? '',
     };
 }
-
-
-type SSHUserFlowTelemetry = Partial<SendLocalSSHUserFlowStatusRequest>;
 
 type FailedToProxyCode = 'SSH.AuthenticationFailed' | 'TUNNEL.AuthenticateSSHKeyFailed' | 'NoRunningInstance' | 'FailedToGetAuthInfo';
 class FailedToProxyError extends Error {
     constructor(public readonly failureCode: FailedToProxyCode, originError?: Error) {
-        const msg = 'Failed to proxy connection: ' + failureCode
+        const msg = 'Failed to proxy connection: ' + failureCode;
         super(originError ? (msg + ': ' + originError.toString()) : msg );
         this.name = 'FailedToProxyError';
     }
@@ -60,7 +55,18 @@ class FailedToProxyError extends Error {
 // TODO(local-ssh): Remove me after direct ssh works with @microsft/dev-tunnels-ssh
 const FORCE_TUNNEL = true;
 
+interface SSHUserFlowTelemetry extends UserFlowTelemetryProperties {
+    flow: 'local_ssh';
+    gitpodHost: string;
+    workspaceId: string;
+    instanceId?: string;
+    daemonVersion: string;
+    userId?: string;
+    failureCode?: FailedToProxyCode;
+}
+
 const flow: SSHUserFlowTelemetry = {
+    flow: 'local_ssh',
     gitpodHost: '',
     workspaceId: '',
     daemonVersion: getDaemonVersion(),
@@ -69,12 +75,14 @@ const flow: SSHUserFlowTelemetry = {
 class WebSocketSSHProxy {
 
     private extensionIpc: Client<ExtensionServiceDefinition>;
+    private telemetryService: ITelemetryService;
 
     constructor(private logService: ILogService, private options: ClientOptions) {
         flow.gitpodHost = this.options.host;
         this.onExit();
         this.onException();
         this.extensionIpc = createClient(ExtensionServiceDefinition, createChannel('127.0.0.1:' + this.options.extIpcPort));
+        this.telemetryService = new TelemetryService(options.machineID, options.host, logService);
     }
 
     private onExit() {
@@ -127,7 +135,7 @@ class WebSocketSSHProxy {
                     return {};
                 }).catch(async err => {
                     if (err instanceof FailedToProxyError) {
-                        flow.flowFailureCode = err.failureCode;
+                        flow.failureCode = err.failureCode;
                     }
                     await Promise.allSettled([
                         this.sendUserStatusFlow('failed'),
@@ -156,7 +164,7 @@ class WebSocketSSHProxy {
         flow.instanceId = workspaceInfo.instanceId;
         flow.userId = workspaceInfo.userId;
         if (workspaceInfo.phase && workspaceInfo.phase !== '' && workspaceInfo.phase !== 'running') {
-            throw new FailedToProxyError('NoRunningInstance')
+            throw new FailedToProxyError('NoRunningInstance');
         }
 
         if (FORCE_TUNNEL) {
@@ -225,36 +233,26 @@ class WebSocketSSHProxy {
     }
 
     async sendUserStatusFlow(status: 'connected' | 'connecting' | 'failed') {
-        // TODO: Use telemetryService in proxy after telemetryService does not depend on `vscode` lib and remove retry
-        return retry(() => this.extensionIpc.sendLocalSSHUserFlowStatus({ flowStatus: status, ...flow }), 200, 50).catch(e => {
-            this.logService.error(e, `failed to send ${status} flow status`);
-        });
+        this.telemetryService.sendUserFlowStatus(status, flow);
     }
 
     async sendErrorReport(workspaceAuthInfo: Partial<GetWorkspaceAuthInfoResponse>, err: Error | any, message: string) {
-        // TODO: Use telemetryService in proxy after telemetryService does not depend on `vscode` lib and remove retry
-        const request: Partial<SendErrorReportRequest> = {
+        const properties = {
             gitpodHost: workspaceAuthInfo.gitpodHost,
             userId: workspaceAuthInfo.userId,
             workspaceId: workspaceAuthInfo.workspaceId,
             instanceId: workspaceAuthInfo.instanceId,
-            errorName: '',
-            errorMessage: '',
-            errorStack: '',
             daemonVersion: getDaemonVersion(),
         };
+        let error: Error;
         if (err instanceof Error) {
-            request.errorName = err.name;
-            request.errorMessage = message + ': ' + err.message;
-            request.errorStack = err.stack ?? '';
+            error = new Error(message + ': ' + err.message);
+            error.name = err.name;
+            error.stack = error.stack + '\n\n' + err.stack;
         } else {
-            request.errorName = '';
-            request.errorMessage = message + ': ' + err.toString();
-            request.errorStack = '';
+            error = new Error(message + ': ' + err.toString());
         }
-        return retry(() => this.extensionIpc.sendErrorReport(request), 200, 50).catch(e => {
-            this.logService.error(e, 'failed to send error report');
-        });
+        this.telemetryService.sendTelemetryException(err, properties as any);
     }
 }
 
@@ -264,6 +262,8 @@ if (!options) {
 }
 
 import { NopeLogger } from './logger';
+import { getDaemonVersion } from './utils';
+import { ITelemetryService, TelemetryService, UserFlowTelemetryProperties } from './telemetryService';
 const logService = new NopeLogger();
 
 // DO NOT PUSH CHANGES BELOW TO PRODUCTION
