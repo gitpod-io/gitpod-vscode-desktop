@@ -126,7 +126,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	} finally {
 		const rawActivateProperties = {
 			gitpodHost: remoteConnectionInfo?.connectionInfo.gitpodHost || hostService?.gitpodHost || Configuration.getGitpodHost(),
-			isRemoteSSH: String(vscode.env.remoteName === 'remote-ssh'),
+			isRemoteSSH: String(vscode.env.remoteName === 'ssh-remote'),
 			remoteUri: vscode.workspace.workspaceFile?.toString() || vscode.workspace.workspaceFolders?.[0].uri.toString() || '',
 			workspaceId: remoteConnectionInfo?.connectionInfo.workspaceId || '',
 			instanceId: remoteConnectionInfo?.connectionInfo.instanceId || '',
