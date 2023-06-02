@@ -63,7 +63,6 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
     }
 
     private async initialize() {
-        // global storage
         const gitpodHost = this.hostService.gitpodHost;
         const lockFile = vscode.Uri.joinPath(this.context.globalStorageUri, `${gitpodHost}`);
         await this.lock(lockFile.fsPath, async () => {
