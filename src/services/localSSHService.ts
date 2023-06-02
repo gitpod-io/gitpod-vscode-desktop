@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import fsp from 'fs/promises';
+import lockfile from 'proper-lockfile';
 import { Disposable } from '../common/dispose';
 import { ILogService } from './logService';
 import { Configuration } from '../configuration';
@@ -62,26 +63,31 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
     }
 
     private async initialize() {
-        let failureCode: FailedToInitializeCode | undefined;
-        const useLocalAPP = String(Configuration.getUseLocalApp());
-        try {
-            const locations = await this.copyProxyScript();
-            await this.configureSettings(locations);
-            this.isSupportLocalSSH = true;
-        } catch (e) {
-            this.logService.error(e, 'failed to initialize');
-            failureCode = 'Unknown';
-            if (e?.code) {
-                failureCode = e.code;
+        // global storage
+        const gitpodHost = this.hostService.gitpodHost;
+        const lockFile = vscode.Uri.joinPath(this.context.globalStorageUri, `${gitpodHost}`);
+        await this.lock(lockFile.fsPath, async () => {
+            let failureCode: FailedToInitializeCode | undefined;
+            const useLocalAPP = String(Configuration.getUseLocalApp());
+            try {
+                const locations = await this.copyProxyScript();
+                await this.configureSettings(locations);
+                this.isSupportLocalSSH = true;
+            } catch (e) {
+                this.logService.error(e, 'failed to initialize');
+                failureCode = 'Unknown';
+                if (e?.code) {
+                    failureCode = e.code;
+                }
+                if (e?.message) {
+                    e.message = `Failed to initialize: ${e.message}`;
+                }
+                this.telemetryService.sendTelemetryException(e, { gitpodHost, useLocalAPP });
+                this.isSupportLocalSSH = false;
             }
-            if (e?.message) {
-                e.message = `Failed to initialize: ${e.message}`;
-            }
-            this.telemetryService.sendTelemetryException(e, { gitpodHost: this.hostService.gitpodHost, useLocalAPP });
-            this.isSupportLocalSSH = false;
-        }
-        const flowData = this.flow ? this.flow : { gitpodHost: this.hostService.gitpodHost, userId: this.sessionService.safeGetUserId() };
-        this.telemetryService.sendUserFlowStatus(this.isSupportLocalSSH ? 'success' : 'failure', { ...flowData, flow: 'local_ssh_config', failureCode, useLocalAPP });
+            const flowData = this.flow ? this.flow : { gitpodHost, userId: this.sessionService.safeGetUserId() };
+            this.telemetryService.sendUserFlowStatus(this.isSupportLocalSSH ? 'success' : 'failure', { ...flowData, flow: 'local_ssh_config', failureCode, useLocalAPP });
+        });
     }
 
     private async configureSettings({ proxyScript, launcher }: { proxyScript: string; launcher: string }) {
@@ -122,5 +128,17 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
         const destUri = vscode.Uri.joinPath(this.context.globalStorageUri, destPath);
         await vscode.workspace.fs.copy(fileUri, destUri, { overwrite: true });
         return destUri.fsPath;
+    }
+
+    private async lock(path: string, cb: () => Promise<void>) {
+        try {
+            await lockfile.lock(path, {
+                stale: 1000 * 10, // 10s
+            });
+            await cb();
+            await lockfile.unlock(path);
+        } catch (e) {
+            this.logService.warn('Failed to lock file', e);
+        }
     }
 }
