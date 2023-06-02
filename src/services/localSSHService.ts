@@ -16,12 +16,14 @@ import { getLocalSSHDomain } from '../remote';
 import { ITelemetryService, UserFlowTelemetryProperties } from '../common/telemetry';
 import { ISessionService } from './sessionService';
 import { WrapError } from '../common/utils';
+import { canExtensionServiceServerWork } from '../local-ssh/ipc/extensionServiceServer';
 
 export interface ILocalSSHService {
     flow?: UserFlowTelemetryProperties;
     isSupportLocalSSH: boolean;
     initialized: Promise<void>;
     prepareInitialize: () => void;
+    extensionServerReady: () => Promise<boolean>;
 }
 
 type FailedToInitializeCode = 'Unknown' | 'LockFailed' | string;
@@ -60,6 +62,22 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
                 this.initialized = this.initialize();
             }
         }));
+    }
+    async extensionServerReady(): Promise<boolean> {
+        try {
+            await canExtensionServiceServerWork();
+            return true;
+        } catch (e) {
+            const err = new WrapError('cannot ping extension ipc service server', e, 'ExtensionServerUnavailable');
+            // TODO: do we need telemetry event? new event name?
+            this.telemetryService.sendTelemetryException(err, {
+                gitpodHost: this.flow?.gitpodHost ?? this.hostService.gitpodHost,
+                userId: this.flow?.userId ?? this.sessionService.safeGetUserId(),
+                instanceId: this.flow?.instanceId,
+                workspaceId: this.flow?.workspaceId,
+            });
+            return false;
+        }
     }
 
     private async initialize() {

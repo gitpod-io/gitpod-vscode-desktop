@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ExtensionServiceDefinition, ExtensionServiceImplementation, GetWorkspaceAuthInfoRequest, GetWorkspaceAuthInfoResponse, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest } from '../../proto/typescript/ipc/v1/ipc';
+import { ExtensionServiceDefinition, ExtensionServiceImplementation, GetWorkspaceAuthInfoRequest, GetWorkspaceAuthInfoResponse, PingRequest, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest } from '../../proto/typescript/ipc/v1/ipc';
 import { Disposable } from '../../common/dispose';
 export { ExtensionServiceDefinition } from '../../proto/typescript/ipc/v1/ipc';
 import { withServerApi } from '../../internalApi';
@@ -13,7 +13,7 @@ import { ILogService } from '../../services/logService';
 import { ISessionService } from '../../services/sessionService';
 import { CallContext, ServerError, Status } from 'nice-grpc-common';
 import { IHostService } from '../../services/hostService';
-import { Server, createServer } from 'nice-grpc';
+import { Server, createChannel, createClient, createServer } from 'nice-grpc';
 import { ITelemetryService, UserFlowTelemetryProperties } from '../../common/telemetry';
 import { ExperimentalSettings } from '../../experiments';
 import { Configuration } from '../../configuration';
@@ -24,6 +24,7 @@ import { NodeHttpTransport } from '@improbable-eng/grpc-web-node-http-transport'
 import { CreateSSHKeyPairRequest } from '@gitpod/supervisor-api-grpcweb/lib/control_pb';
 import * as ssh2 from 'ssh2';
 import { ParsedKey } from 'ssh2-streams';
+import { createServer as netCreateServer } from 'net';
 
 const phaseMap: Record<WorkspaceInstanceStatus_Phase, WorkspaceInstancePhase | undefined> = {
     [WorkspaceInstanceStatus_Phase.CREATING]: 'pending',
@@ -150,6 +151,10 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
         });
         return {};
     }
+
+    async ping(_request: PingRequest, _context: CallContext): Promise<{}> {
+        return {};
+    }
 }
 
 export class ExtensionServiceServer extends Disposable {
@@ -197,4 +202,28 @@ export class ExtensionServiceServer extends Disposable {
     public override dispose() {
         this.server.forceShutdown();
     }
+}
+
+async function isPortUsed(port: number): Promise<boolean> {
+    return new Promise<boolean>((resolve, _reject) => {
+        const server = netCreateServer();
+        server.once('error', () => {
+            resolve(true);
+        });
+        server.once('listening', () => {
+            server.close();
+            resolve(false);
+        });
+        server.listen(port);
+    });
+}
+
+export async function canExtensionServiceServerWork(): Promise<true> {
+    const port = Configuration.getLocalSshExtensionIpcPort();
+    if (!(await isPortUsed(port))) {
+        return true;
+    }
+    const extensionIpc = createClient(ExtensionServiceDefinition, createChannel(`127.0.0.1:${port}`));
+    await extensionIpc.ping({});
+    return true;
 }

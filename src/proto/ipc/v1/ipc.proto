@@ -6,7 +6,11 @@ service ExtensionService {
     rpc GetWorkspaceAuthInfo (GetWorkspaceAuthInfoRequest) returns (GetWorkspaceAuthInfoResponse) {}
     rpc SendLocalSSHUserFlowStatus (SendLocalSSHUserFlowStatusRequest) returns (SendLocalSSHUserFlowStatusResponse) {}
     rpc SendErrorReport (SendErrorReportRequest) returns (SendErrorReportResponse) {}
+    rpc Ping (PingRequest) returns (PingResponse) {}
 }
+
+message PingRequest {}
+message PingResponse {}
 
 message SendErrorReportRequest {
     string workspace_id = 1;
