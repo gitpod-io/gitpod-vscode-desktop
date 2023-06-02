@@ -20,13 +20,14 @@ export interface ILocalSSHService {
     flow?: UserFlowTelemetryProperties;
     isSupportLocalSSH: boolean;
     initialized: Promise<void>;
+    prepareInitialize: () => void;
 }
 
 type FailedToInitializeCode = 'Unknown' | string;
 
 export class LocalSSHService extends Disposable implements ILocalSSHService {
     public isSupportLocalSSH: boolean = false;
-    public initialized: Promise<void>;
+    public initialized!: Promise<void>;
     public flow?: UserFlowTelemetryProperties;
     constructor(
         private readonly context: vscode.ExtensionContext,
@@ -36,9 +37,10 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
         private readonly logService: ILogService,
     ) {
         super();
+    }
 
+    prepareInitialize() {
         this.initialized = this.initialize();
-
         this._register(vscode.workspace.onDidChangeConfiguration(async e => {
             if (
                 e.affectsConfiguration('gitpod.lsshExtensionIpcPort') ||
