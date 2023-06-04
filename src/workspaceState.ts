@@ -66,6 +66,7 @@ export class WorkspaceState extends Disposable {
         const ws = await this.sessionService.getAPI().getWorkspace(this.workspaceId);
         this._contextUrl = ws.context?.contextUrl;
         this.workspaceState ??= ws?.status;
+        this.logService.trace(`WorkspaceState: initial state`, WorkspaceInstanceStatus_Phase[this.workspaceState!.instance!.status!.phase]);
     }
 
     private async checkWorkspaceState(workspaceState: WorkspaceStatus | undefined) {
@@ -73,6 +74,7 @@ export class WorkspaceState extends Disposable {
         const oldPhase = this.workspaceState?.instance?.status?.phase;
         this.workspaceState = workspaceState;
         if (phase && oldPhase && phase !== oldPhase) {
+            this.logService.trace(`WorkspaceState: update state`, WorkspaceInstanceStatus_Phase[this.workspaceState!.instance!.status!.phase]);
             this._onWorkspaceStateChanged.fire();
         }
     }
