@@ -35,7 +35,7 @@ class WorkspaceTreeItem {
 
 type DataTreeItem = RepoOwnerTreeItem | WorkspaceTreeItem;
 
-export class WorkspacesView extends Disposable implements vscode.TreeDataProvider<DataTreeItem> {
+export class WorkspacesExplorerView extends Disposable implements vscode.TreeDataProvider<DataTreeItem> {
 
     private readonly _onDidChangeTreeData = this._register(new vscode.EventEmitter<DataTreeItem | DataTreeItem[] | void>());
     public readonly onDidChangeTreeData = this._onDidChangeTreeData.event;

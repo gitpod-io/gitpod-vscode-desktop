@@ -172,6 +172,11 @@
 					"command": "gitpod.workspaces.refresh",
 					"when": "view == gitpod-workspaces",
 					"group": "navigation"
+				},
+				{
+					"command": "gitpod.workspaces.stopCurrentWorkspace",
+					"when": "view == gitpod-workspace",
+					"group": "navigation"
 				}
 			],
 			"view/item/context": [
@@ -272,7 +277,13 @@
 					"id": "gitpod-workspaces",
 					"name": "Workspaces",
 					"icon": "$(squirrel)",
-					"when": "gitpod.authenticated == true"
+					"when": "gitpod.authenticated == true && gitpod.remoteConnection == false"
+				},
+				{
+					"id": "gitpod-workspace",
+					"name": "Workspace",
+					"icon": "$(squirrel)",
+					"when": "gitpod.authenticated == true && gitpod.remoteConnection == true"
 				}
 			]
 		},

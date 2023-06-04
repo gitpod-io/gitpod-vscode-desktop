@@ -22,8 +22,9 @@ import { SignInCommand } from './commands/account';
 import { ExportLogsCommand } from './commands/logs';
 import { Configuration } from './configuration';
 import { LocalSSHService } from './services/localSSHService';
-import { WorkspacesView } from './workspacesView';
+import { WorkspacesExplorerView } from './workspacesExplorerView';
 import { ConnectInCurrentWindowCommand, ConnectInNewWindowCommand, DeleteWorkspaceCommand, OpenInBrowserCommand, StopCurrentWorkspaceCommand, StopWorkspaceCommand } from './commands/workspaces';
+import { WorkspaceView } from './workspaceView';
 
 // connect-web uses fetch api, so we need to polyfill it
 if (!global.fetch) {
@@ -104,11 +105,18 @@ export async function activate(context: vscode.ExtensionContext) {
 			}
 		}));
 
-		const workspacesView = new WorkspacesView(commandManager, sessionService, hostService);
-		context.subscriptions.push(vscode.window.createTreeView('gitpod-workspaces', { treeDataProvider: workspacesView }));
-		context.subscriptions.push(workspacesView);
-
 		remoteConnectionInfo = getGitpodRemoteWindowConnectionInfo(context);
+		vscode.commands.executeCommand('setContext', 'gitpod.remoteConnection', !!remoteConnectionInfo);
+
+		const workspacesExplorerView = new WorkspacesExplorerView(commandManager, sessionService, hostService);
+		context.subscriptions.push(vscode.window.createTreeView('gitpod-workspaces', { treeDataProvider: workspacesExplorerView }));
+		context.subscriptions.push(workspacesExplorerView);
+
+		if (remoteConnectionInfo) {
+			const workspaceView = new WorkspaceView(remoteConnectionInfo.connectionInfo.workspaceId, sessionService);
+			context.subscriptions.push(vscode.window.createTreeView('gitpod-workspace', { treeDataProvider: workspaceView }));
+			context.subscriptions.push(workspaceView);
+		}
 
 		// Register global commands
 		commandManager.register(new SignInCommand(sessionService));
