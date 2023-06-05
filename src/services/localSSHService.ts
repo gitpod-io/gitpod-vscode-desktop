@@ -5,7 +5,6 @@
 
 import * as vscode from 'vscode';
 import fsp from 'fs/promises';
-import * as crypto from 'crypto';
 import lockfile from 'proper-lockfile';
 import { Disposable } from '../common/dispose';
 import { ILogService } from './logService';
@@ -66,10 +65,13 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
     private async initialize() {
         let failureCode: FailedToInitializeCode | undefined;
         const useLocalAPP = String(Configuration.getUseLocalApp());
+        const lockFolder = vscode.Uri.joinPath(this.context.globalStorageUri, 'initialize.lock');
         try {
-            const locations = await this.copyProxyScript();
-            await this.configureSettings(locations);
-            this.isSupportLocalSSH = true;
+            await this.lock(lockFolder.fsPath, async () => {
+                const locations = await this.copyProxyScript();
+                await this.configureSettings(locations);
+                this.isSupportLocalSSH = true;
+            });
         } catch (e) {
             this.logService.error(e, 'failed to initialize');
             failureCode = 'Unknown';
@@ -87,17 +89,12 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
     }
 
     private async configureSettings({ proxyScript, launcher }: { proxyScript: string; launcher: string }) {
-        const gitpodHost = this.hostService.gitpodHost;
         const extIpcPort = Configuration.getLocalSshExtensionIpcPort();
-        const lockName = crypto.createHash('sha1').update(`${gitpodHost}_${extIpcPort}`).digest('hex').substring(0, 8);
-        const lockFile = vscode.Uri.joinPath(this.context.globalStorageUri, `${lockName}.lock`);
-        await this.lock(lockFile.fsPath, async () => {
-            const hostConfig = this.getHostSSHConfig(gitpodHost, launcher, proxyScript, extIpcPort);
-            await SSHConfiguration.ensureIncludeGitpodSSHConfig();
-            const gitpodConfig = await SSHConfiguration.loadGitpodSSHConfig();
-            gitpodConfig.addHostConfiguration(hostConfig);
-            await SSHConfiguration.saveGitpodSSHConfig(gitpodConfig);
-        });
+        const hostConfig = this.getHostSSHConfig(this.hostService.gitpodHost, launcher, proxyScript, extIpcPort);
+        await SSHConfiguration.ensureIncludeGitpodSSHConfig();
+        const gitpodConfig = await SSHConfiguration.loadGitpodSSHConfig();
+        gitpodConfig.addHostConfiguration(hostConfig);
+        await SSHConfiguration.saveGitpodSSHConfig(gitpodConfig);
     }
 
     private getHostSSHConfig(host: string, launcher: string, proxyScript: string, extIpcPort: number) {
@@ -109,25 +106,18 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
     }
 
     private async copyProxyScript() {
-        const lockFile = vscode.Uri.joinPath(this.context.globalStorageUri, 'copyProxy.lock');
-        let proxyScript = '';
-        let launcher = '';
-        await this.lock(lockFile.fsPath, async () => {
-            try {
-                const [proxyScriptLoc, launcherLoc] = await Promise.all([
-                    this.copyFileToGlobalStorage('out/local-ssh/proxy.js', 'sshproxy/proxy.js'),
-                    isWindows ? this.copyFileToGlobalStorage('out/local-ssh/proxylauncher.bat', 'sshproxy/proxylauncher.bat') : this.copyFileToGlobalStorage('out/local-ssh/proxylauncher.sh', 'sshproxy/proxylauncher.sh')
-                ]);
-                if (!isWindows) {
-                    await fsp.chmod(launcherLoc, 0o755);
-                }
-                proxyScript = proxyScriptLoc;
-                launcher = launcherLoc;
-            } catch (e) {
-                throw new WrapError('Failed to copy local ssh proxy scripts', e);
+        try {
+            const [proxyScript, launcher] = await Promise.all([
+                this.copyFileToGlobalStorage('out/local-ssh/proxy.js', 'sshproxy/proxy.js'),
+                isWindows ? this.copyFileToGlobalStorage('out/local-ssh/proxylauncher.bat', 'sshproxy/proxylauncher.bat') : this.copyFileToGlobalStorage('out/local-ssh/proxylauncher.sh', 'sshproxy/proxylauncher.sh')
+            ]);
+            if (!isWindows) {
+                await fsp.chmod(launcher, 0o755);
             }
-        });
-        return { proxyScript, launcher };
+            return { proxyScript, launcher };
+        } catch (e) {
+            throw new WrapError('Failed to copy local ssh proxy scripts', e);
+        }
     }
 
     private async copyFileToGlobalStorage(filepath: string, destPath: string) {
