@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import fsp from 'fs/promises';
+import * as crypto from 'crypto';
 import lockfile from 'proper-lockfile';
 import { Disposable } from '../common/dispose';
 import { ILogService } from './logService';
@@ -88,7 +89,7 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
     private async configureSettings({ proxyScript, launcher }: { proxyScript: string; launcher: string }) {
         const gitpodHost = this.hostService.gitpodHost;
         const extIpcPort = Configuration.getLocalSshExtensionIpcPort();
-        const lockName = Buffer.from(`${gitpodHost}_${extIpcPort}`).toString('base64');
+        const lockName = crypto.createHash('sha1').update(`${gitpodHost}_${extIpcPort}`).digest('hex').substring(0, 8);
         const lockFile = vscode.Uri.joinPath(this.context.globalStorageUri, `${lockName}.lock`);
         await this.lock(lockFile.fsPath, async () => {
             const hostConfig = this.getHostSSHConfig(gitpodHost, launcher, proxyScript, extIpcPort);
