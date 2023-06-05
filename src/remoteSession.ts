@@ -11,7 +11,7 @@ import { HeartbeatManager } from './heartbeat';
 import { WorkspaceState } from './workspaceState';
 import { ISyncExtension, NoSettingsSyncSession, NoSyncStoreError, SettingsSync, SyncResource, parseSyncData } from './settingsSync';
 import { ExperimentalSettings } from './experiments';
-import { ITelemetryService, UserFlowTelemetryProperties } from './services/telemetryService';
+import { ITelemetryService, UserFlowTelemetryProperties } from './common/telemetry';
 import { INotificationService } from './services/notificationService';
 import { retry } from './common/async';
 import { withServerApi } from './internalApi';

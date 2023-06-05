@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { UserFlowTelemetryProperties } from './services/telemetryService';
+import { UserFlowTelemetryProperties } from './common/telemetry';
 import { INotificationService } from './services/notificationService';
 import { ILogService } from './services/logService';
 

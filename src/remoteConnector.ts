@@ -21,7 +21,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
 import { withServerApi } from './internalApi';
-import { ITelemetryService, UserFlowTelemetryProperties } from './services/telemetryService';
+import { ITelemetryService, UserFlowTelemetryProperties } from './common/telemetry';
 import { addHostToHostFile, checkNewHostInHostkeys } from './ssh/hostfile';
 import { ScopeFeature } from './featureSupport';
 import SSHConfiguration from './ssh/sshConfig';

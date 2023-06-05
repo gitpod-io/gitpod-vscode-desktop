@@ -11,7 +11,7 @@ import * as vscode from 'vscode';
 import { Command } from '../commandManager';
 import { ILogService } from '../services/logService';
 import { INotificationService } from '../services/notificationService';
-import { ITelemetryService, UserFlowTelemetryProperties } from '../services/telemetryService';
+import { ITelemetryService, UserFlowTelemetryProperties } from '../common/telemetry';
 import { HostService } from '../services/hostService';
 
 interface IFile {

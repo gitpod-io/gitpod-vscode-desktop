@@ -8,7 +8,7 @@ import { Disposable } from '../common/dispose';
 import { isFeatureSupported, isOauthInspectSupported } from '../featureSupport';
 import { IHostService } from './hostService';
 import { GitpodPublicApi, IGitpodAPI } from '../publicApi';
-import { eventToPromise } from '../common/utils';
+import { eventToPromise } from '../common/vscodeEvent';
 import { ILogService } from './logService';
 
 export class NoSignedInError extends Error {

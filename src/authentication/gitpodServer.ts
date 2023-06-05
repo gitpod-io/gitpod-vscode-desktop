@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { PromiseAdapter, promiseFromEvent } from '../common/utils';
+import { PromiseAdapter, promiseFromEvent } from '../common/vscodeEvent';
 import { withServerApi } from '../internalApi';
 import pkceChallenge from 'pkce-challenge';
 import { v4 as uuid } from 'uuid';
 import { Disposable } from '../common/dispose';
 import { INotificationService } from '../services/notificationService';
-import { UserFlowTelemetryProperties } from '../services/telemetryService';
+import { UserFlowTelemetryProperties } from '../common/telemetry';
 import { ILogService } from '../services/logService';
 
 interface ExchangeTokenResponse {

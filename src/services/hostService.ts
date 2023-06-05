@@ -8,7 +8,7 @@ import { Disposable } from '../common/dispose';
 import { GitpodVersion, getGitpodVersion } from '../featureSupport';
 import { INotificationService } from './notificationService';
 import { getGitpodRemoteWindowConnectionInfo } from '../remote';
-import { UserFlowTelemetryProperties } from './telemetryService';
+import { UserFlowTelemetryProperties } from '../common/telemetry';
 import { ILogService } from './logService';
 import { Configuration } from '../configuration';
 
