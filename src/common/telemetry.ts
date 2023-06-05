@@ -71,7 +71,7 @@ export function getErrorMetricsEndpoint(gitpodHost: string): string {
     return `https://ide.${serviceUrl.hostname}/metrics-api/reportError`;
 }
 
-export function commonSendEventData (logService: ILogService, segmentClient: Analytics | undefined, machineId: string, eventName: string, data?: any) {
+export function commonSendEventData (logService: ILogService, segmentKey: string, segmentClient: Analytics | undefined, machineId: string, eventName: string, data?: any) {
     const idx = eventName.indexOf('/');
     eventName = eventName.substring(idx + 1);
 
@@ -84,6 +84,11 @@ export function commonSendEventData (logService: ILogService, segmentClient: Ana
     }
 
     delete properties['gitpodHost'];
+
+    if (segmentKey !== ProductionUntrustedSegmentKey) {
+        logService.trace('Local event report', eventName, properties);
+        return;
+    }
 
     segmentClient?.track({
         anonymousId: machineId,

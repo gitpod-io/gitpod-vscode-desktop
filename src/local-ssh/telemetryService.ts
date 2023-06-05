@@ -28,7 +28,7 @@ export class TelemetryService implements ITelemetryService {
 	}
 
 	sendEventData(eventName: string, data?: Record<string, any>) {
-		commonSendEventData(this.logService, this.segmentClient, this.machineId, eventName, data);
+		commonSendEventData(this.logService, this.segmentKey, this.segmentClient, this.machineId, eventName, data);
 	}
 
 	sendErrorData(error: Error, data?: Record<string, any>) {
