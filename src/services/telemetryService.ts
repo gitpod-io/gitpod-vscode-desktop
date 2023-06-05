@@ -36,8 +36,6 @@ export class TelemetryService extends Disposable implements ITelemetryService {
 						return;
 					}
 
-					delete properties['gitpodHost'];
-
 					commonSendEventData(logService, this.getSegmentAnalyticsClient(gitpodHost, segmentKey), vscode.env.machineId, eventName, data);
 				},
 				sendErrorData: (error, data) => {
