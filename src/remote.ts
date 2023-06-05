@@ -43,7 +43,21 @@ export function getGitpodRemoteWindowConnectionInfo(context: vscode.ExtensionCon
     return undefined;
 }
 
-export async function showWsNotRunningDialog(workspaceId: string, gitpodHost: string, flow: UserFlowTelemetryProperties, notificationService: INotificationService, logService: ILogService) {
+export async function showWsNotRunningDialog(workspaceId: string, flow: UserFlowTelemetryProperties, notificationService: INotificationService, logService: ILogService) {
+    const msg = `Workspace ${workspaceId} is not running.`;
+    logService.error(msg);
+
+    const closeWindow: vscode.MessageItem = { title: 'Close window' };
+    const startWorkspace: vscode.MessageItem = { title: 'Start workspace', isCloseAffordance: true };
+    const resp = await notificationService.showErrorMessage(msg, { id: 'ws_not_running', flow, modal: true }, closeWindow, startWorkspace);
+    if (resp === closeWindow) {
+        vscode.commands.executeCommand('workbench.action.remote.close');
+    } else if (resp === startWorkspace) {
+        vscode.commands.executeCommand('workbench.action.reloadWindow');
+    }
+}
+
+export async function showWsNotRunningDialogOld(workspaceId: string, gitpodHost: string, flow: UserFlowTelemetryProperties, notificationService: INotificationService, logService: ILogService) {
     const msg = `Workspace ${workspaceId} is not running. Please restart the workspace.`;
     logService.error(msg);
 

@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { v4 as uuid } from 'uuid';
-import { NoRunningInstanceError, SSHConnectionParams, SSH_DEST_KEY, showWsNotRunningDialog } from './remote';
+import { NoRunningInstanceError, SSHConnectionParams, SSH_DEST_KEY, showWsNotRunningDialog, showWsNotRunningDialogOld } from './remote';
 import { Disposable } from './common/dispose';
 import { HeartbeatManager } from './heartbeat';
 import { WorkspaceState } from './workspaceState';
@@ -84,7 +84,7 @@ export class RemoteSession extends Disposable {
 				}
 				this._register(this.workspaceState.onWorkspaceStopped(() => {
 					const remoteFlow: UserFlowTelemetryProperties = { ...this.connectionInfo, userId: this.sessionService.getUserId(), flow: 'remote_window', phase: 'stopped' };
-					showWsNotRunningDialog(this.connectionInfo.workspaceId, this.connectionInfo.gitpodHost, remoteFlow, this.notificationService, this.logService);
+					showWsNotRunningDialog(this.connectionInfo.workspaceId, remoteFlow, this.notificationService, this.logService);
 				}));
 				instanceId = this.workspaceState.instanceId;
 			} else {
@@ -116,7 +116,7 @@ export class RemoteSession extends Disposable {
 			const remoteFlow: UserFlowTelemetryProperties = { ...this.connectionInfo, userId: this.sessionService.getUserId(), flow: 'remote_window' };
 			if (e instanceof NoRunningInstanceError) {
 				remoteFlow['phase'] = e.phase;
-				showWsNotRunningDialog(this.connectionInfo.workspaceId, this.connectionInfo.gitpodHost, remoteFlow, this.notificationService, this.logService);
+				showWsNotRunningDialogOld(this.connectionInfo.workspaceId, this.connectionInfo.gitpodHost, remoteFlow, this.notificationService, this.logService);
 				return;
 			}
 			e.message = `Failed to resolve whole gitpod remote connection process: ${e.message}`;
