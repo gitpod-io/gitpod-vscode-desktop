@@ -10,6 +10,9 @@ import { WorkspaceData, rawWorkspaceToWorkspaceData } from '../publicApi';
 import { SSHConnectionParams, SSH_DEST_KEY, getLocalSSHDomain } from '../remote';
 import SSHDestination from '../ssh/sshDestination';
 import { IHostService } from '../services/hostService';
+import { WorkspaceState } from '../workspaceState';
+import { ILogService } from '../services/logService';
+import { eventToPromise } from '../common/event';
 
 async function showWorkspacesPicker(sessionService: ISessionService, placeHolder: string): Promise<WorkspaceData | undefined> {
 	const pickItemsPromise = sessionService.getAPI().listWorkspaces()
@@ -32,6 +35,7 @@ export class ConnectInNewWindowCommand implements Command {
 		private readonly context: vscode.ExtensionContext,
 		private readonly sessionService: ISessionService,
 		private readonly hostService: IHostService,
+		private readonly logService: ILogService,
 	) { }
 
 	async execute(treeItem?: { id: string }) {
@@ -53,11 +57,38 @@ export class ConnectInNewWindowCommand implements Command {
 		// TODO: remove this, should not be needed
 		await this.context.globalState.update(`${SSH_DEST_KEY}${sshDest.toRemoteSSHString()}`, { workspaceId: wsData.id, gitpodHost: this.hostService.gitpodHost, instanceId: '' } as SSHConnectionParams);
 
-		// TODO: getWorkspace API need to return path to open, for now harcode it
-		await vscode.commands.executeCommand(
-			'vscode.openFolder',
-			vscode.Uri.parse(`vscode-remote://ssh-remote+${sshDest.toRemoteSSHString()}/workspace/${wsData.repo}`),
-			{ forceNewWindow: true }
+		await vscode.window.withProgress(
+			{
+				title: `Starting workspace ${wsData!.id}`,
+				location: vscode.ProgressLocation.Notification
+			},
+			async () => {
+				let wsState: WorkspaceState | undefined;
+				try {
+					wsState = new WorkspaceState(wsData!.id, this.sessionService, this.logService);
+					await wsState.initialize();
+
+					if (wsState.isWorkspaceStopping) {
+						// TODO: if stopping tell user to await until stopped to start again
+						return;
+					}
+
+					if (wsState.isWorkspaceStopped) {
+						// Start workspace automatically
+						await this.sessionService.getAPI().startWorkspace(wsData!.id);
+						await eventToPromise(wsState.onWorkspaceRunning);
+					}
+
+					// TODO: getWorkspace API need to return path to open, for now harcode it
+					await vscode.commands.executeCommand(
+						'vscode.openFolder',
+						vscode.Uri.parse(`vscode-remote://ssh-remote+${sshDest.toRemoteSSHString()}/workspace/${wsData!.repo}`),
+						{ forceNewWindow: true }
+					);
+				} finally {
+					wsState?.dispose();
+				}
+			}
 		);
 	}
 }
@@ -69,6 +100,7 @@ export class ConnectInCurrentWindowCommand implements Command {
 		private readonly context: vscode.ExtensionContext,
 		private readonly sessionService: ISessionService,
 		private readonly hostService: IHostService,
+		private readonly logService: ILogService,
 	) { }
 
 	async execute(treeItem?: { id: string }) {
@@ -90,11 +122,38 @@ export class ConnectInCurrentWindowCommand implements Command {
 		// TODO: remove this, should not be needed
 		await this.context.globalState.update(`${SSH_DEST_KEY}${sshDest.toRemoteSSHString()}`, { workspaceId: wsData.id, gitpodHost: this.hostService.gitpodHost, instanceId: '' } as SSHConnectionParams);
 
-		// TODO: getWorkspace API need to return path to open, for now harcode it
-		await vscode.commands.executeCommand(
-			'vscode.openFolder',
-			vscode.Uri.parse(`vscode-remote://ssh-remote+${sshDest.toRemoteSSHString()}/workspace/${wsData.repo}`),
-			{ forceNewWindow: false }
+		await vscode.window.withProgress(
+			{
+				title: `Starting workspace ${wsData!.id}`,
+				location: vscode.ProgressLocation.Notification
+			},
+			async () => {
+				let wsState: WorkspaceState | undefined;
+				try {
+					wsState = new WorkspaceState(wsData!.id, this.sessionService, this.logService);
+					await wsState.initialize();
+
+					if (wsState.isWorkspaceStopping) {
+						// TODO: if stopping tell user to await until stopped to start again
+						return;
+					}
+
+					if (wsState.isWorkspaceStopped) {
+						// Start workspace automatically
+						await this.sessionService.getAPI().startWorkspace(wsData!.id);
+						await eventToPromise(wsState.onWorkspaceRunning);
+					}
+
+					// TODO: getWorkspace API need to return path to open, for now harcode it
+					await vscode.commands.executeCommand(
+						'vscode.openFolder',
+						vscode.Uri.parse(`vscode-remote://ssh-remote+${sshDest.toRemoteSSHString()}/workspace/${wsData!.repo}`),
+						{ forceNewWindow: false }
+					);
+				} finally {
+					wsState?.dispose();
+				}
+			}
 		);
 	}
 }

@@ -22,8 +22,7 @@ import { ParsedKey } from 'ssh2-streams';
 import { isPortUsed } from '../../common/ports';
 import { WrapError } from '../../common/utils';
 import { ConnectError, Code } from '@bufbuild/connect';
-import { WorkspaceState } from '../../workspaceState';
-import { eventToPromise } from '../../common/event';
+import { rawWorkspaceToWorkspaceData } from '../../publicApi';
 
 function isServiceError(obj: any): obj is ServiceError {
     // eslint-disable-next-line eqeqeq
@@ -65,13 +64,13 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
     ) {
     }
 
-    private async getWorkspaceSSHKey(ownerToken: string, workspaceId: string, workspaceHost: string, signal: AbortSignal) {
-        const workspaceUrl = `https://${workspaceId}.${workspaceHost}`;
-
+    private async getWorkspaceSSHKey(ownerToken: string, workspaceUrl: string, signal: AbortSignal) {
+        const url = new URL(workspaceUrl);
+        url.pathname = '/_supervisor/v1';
         const privateKey = await wrapSupervisorAPIError(() => new Promise<string>((resolve, reject) => {
             const metadata = new BrowserHeaders();
             metadata.append('x-gitpod-owner-token', ownerToken);
-            const client = new ControlServiceClient(`${workspaceUrl}/_supervisor/v1`, { transport: NodeHttpTransport() });
+            const client = new ControlServiceClient(url.toString(), { transport: NodeHttpTransport() });
             client.createSSHKeyPair(new CreateSSHKeyPairRequest(), metadata, (err, resp) => {
                 if (err) {
                     return reject(err);
@@ -91,7 +90,6 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
     async getWorkspaceAuthInfo(request: GetWorkspaceAuthInfoRequest, _context: CallContext): Promise<GetWorkspaceAuthInfoResponse> {
         let userId: string | undefined;
         let instanceId: string | undefined;
-        let wsState: WorkspaceState | undefined;
         try {
             if (new URL(this.hostService.gitpodHost).host !== new URL(request.gitpodHost).host) {
                 this.logService.error(`gitpod host mismatch, actual: ${this.hostService.gitpodHost} target: ${request.gitpodHost}`);
@@ -110,33 +108,16 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
             // TODO(lssh): Get auth info according to `request.gitpodHost`
             const gitpodHost = this.hostService.gitpodHost;
 
-            wsState = new WorkspaceState(workspaceId, this.sessionService, this.logService);
-            await wsState.initialize();
-
-            // Check up to 5s if the workspace state has changed in case it's restarting
-            for (let i = 0; i < 5; i++) {
-                if (!wsState.isWorkspaceStopping && !wsState.isWorkspaceStopped) {
-                    break;
-                }
-                await timeout(1000);
-            }
-
-            if (wsState.isWorkspaceStopping || wsState.isWorkspaceStopped) {
-                throw new ServerError(Status.UNAVAILABLE, 'workspace is not running, current phase: ' + 'stopped');
-            }
-
-            if (!wsState.isWorkspaceRunning) {
-                // Await until workspace is running
-                await eventToPromise(wsState.onWorkspaceRunning);
-            }
+            const rawWorkspace = await this.sessionService.getAPI().getWorkspace(actualWorkspaceId);
+            const wsData = rawWorkspaceToWorkspaceData(rawWorkspace);
 
             const ownerToken = await this.sessionService.getAPI().getOwnerToken(actualWorkspaceId);
 
-            instanceId = wsState.instanceId!;
-            const url = new URL(wsState.workspaceUrl!);
+            instanceId = rawWorkspace.status!.instance!.instanceId;
+            const url = new URL(wsData.workspaceUrl);
             const workspaceHost = url.host.substring(url.host.indexOf('.') + 1);
 
-            const sshkey = wsState.isWorkspaceRunning ? (await this.getWorkspaceSSHKey(ownerToken, workspaceId, workspaceHost, _context.signal)) : '';
+            const sshkey = wsData.phase === 'running' ? (await this.getWorkspaceSSHKey(ownerToken, wsData.workspaceUrl, _context.signal)) : '';
 
             return {
                 gitpodHost,
@@ -146,7 +127,7 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
                 workspaceHost,
                 ownerToken,
                 sshkey,
-                phase: 'running',
+                phase: wsData.phase,
             };
         } catch (e) {
             let code = Status.INTERNAL;
@@ -164,8 +145,6 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
             });
 
             throw new ServerError(code, wrapErr.toString());
-        } finally {
-            wsState?.dispose();
         }
     }
 
