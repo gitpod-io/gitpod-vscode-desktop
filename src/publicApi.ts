@@ -222,6 +222,8 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
     }
 }
 
+export type WorkspacePhase = 'unspecified' | 'preparing' | 'imagebuild' | 'pending' | 'creating' | 'initializing' | 'running' | 'interrupted' | 'stopping' | 'stopped';
+
 export interface WorkspaceData {
     provider: string;
     owner: string;
@@ -229,7 +231,7 @@ export interface WorkspaceData {
     id: string;
     contextUrl: string;
     workspaceUrl: string;
-    phase: WorkspaceInstanceStatus_Phase;
+    phase: WorkspacePhase;
 }
 
 export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace): WorkspaceData;
@@ -248,7 +250,7 @@ export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace | Workspace
             id: ws.workspaceId,
             contextUrl: ws.context!.contextUrl,
             workspaceUrl: ws.status!.instance!.status!.url,
-            phase: ws.status?.instance?.status?.phase
+            phase: WorkspaceInstanceStatus_Phase[ws.status?.instance?.status?.phase ?? WorkspaceInstanceStatus_Phase.UNSPECIFIED].toLowerCase() as WorkspacePhase
         };
     };
 

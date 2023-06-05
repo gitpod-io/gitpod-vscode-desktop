@@ -8,7 +8,6 @@ import { Disposable } from './common/dispose';
 import { ISessionService } from './services/sessionService';
 import { groupBy, stringCompare } from './common/utils';
 import { CommandManager } from './commandManager';
-import { WorkspaceInstanceStatus_Phase } from '@gitpod/public-api/lib/gitpod/experimental/v1/workspaces_pb';
 import { rawWorkspaceToWorkspaceData } from './publicApi';
 import { IHostService } from './services/hostService';
 
@@ -78,7 +77,7 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
                     ws.repo,
                     ws.id,
                     ws.contextUrl,
-                    ws.phase === WorkspaceInstanceStatus_Phase.RUNNING
+                    ws.phase === 'running'
                 );
             });
             const groupedWorkspaces = groupBy(workspaces, (a, b) => { return stringCompare(a.provider, b.provider) || stringCompare(a.owner, b.owner); });
