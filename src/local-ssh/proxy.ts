@@ -14,7 +14,6 @@ import * as stream from 'stream';
 import { ILogService } from '../services/logService';
 import { TelemetryService } from './telemetryService';
 import { ITelemetryService, UserFlowTelemetryProperties } from '../common/telemetry';
-import { getDaemonVersion } from './utils';
 
 // This public key is safe to be public since we only use it to verify local-ssh connections.
 const HOST_KEY = 'LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ1QwcXg1eEJUVmc4TUVJbUUKZmN4RXRZN1dmQVVsM0JYQURBK2JYREsyaDZlaFJBTkNBQVJlQXo0RDVVZXpqZ0l1SXVOWXpVL3BCWDdlOXoxeApvZUN6UklqcGdCUHozS0dWRzZLYXV5TU5YUm95a21YSS9BNFpWaW9nd2Vjb0FUUjRUQ2FtWm1ScAotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg==';
@@ -46,7 +45,7 @@ type FailedToProxyCode = 'SSH.AuthenticationFailed' | 'TUNNEL.AuthenticateSSHKey
 class FailedToProxyError extends Error {
     constructor(public readonly failureCode: FailedToProxyCode, originError?: Error) {
         const msg = 'Failed to proxy connection: ' + failureCode;
-        super(originError ? (msg + ': ' + originError.toString()) : msg );
+        super(originError ? (msg + ': ' + originError.toString()) : msg);
         this.name = 'FailedToProxyError';
     }
 
@@ -63,29 +62,28 @@ interface SSHUserFlowTelemetry extends UserFlowTelemetryProperties {
     gitpodHost: string;
     workspaceId: string;
     instanceId?: string;
-    daemonVersion: string;
     userId?: string;
     failureCode?: FailedToProxyCode;
 }
 
-const flow: SSHUserFlowTelemetry = {
-    flow: 'local_ssh',
-    gitpodHost: '',
-    workspaceId: '',
-    daemonVersion: getDaemonVersion(),
-};
-
 class WebSocketSSHProxy {
-
     private extensionIpc: Client<ExtensionServiceDefinition>;
-    private telemetryService: ITelemetryService;
+    private flow: SSHUserFlowTelemetry;
 
-    constructor(private logService: ILogService, private options: ClientOptions) {
-        flow.gitpodHost = this.options.host;
+    constructor(
+        private readonly options: ClientOptions,
+        private readonly telemetryService: ITelemetryService,
+        private readonly logService: ILogService
+    ) {
+        this.flow = {
+            flow: 'local_ssh',
+            gitpodHost: this.options.host,
+            workspaceId: '',
+        };
+
         this.onExit();
         this.onException();
         this.extensionIpc = createClient(ExtensionServiceDefinition, createChannel('127.0.0.1:' + this.options.extIpcPort));
-        this.telemetryService = new TelemetryService(options.machineID, options.host, logService);
     }
 
     private onExit() {
@@ -129,7 +127,7 @@ class WebSocketSSHProxy {
 
         let pipePromise: Promise<void> | undefined;
         session.onAuthenticating(async (e) => {
-            flow.workspaceId = e.username ?? '';
+            this.flow.workspaceId = e.username ?? '';
             this.sendUserStatusFlow('connecting');
             e.authenticationPromise = this.authenticateClient(e.username ?? '')
                 .then(async pipeSession => {
@@ -138,11 +136,11 @@ class WebSocketSSHProxy {
                     return {};
                 }).catch(async err => {
                     if (err instanceof FailedToProxyError) {
-                        flow.failureCode = err.failureCode;
+                        this.flow.failureCode = err.failureCode;
                     }
                     await Promise.allSettled([
                         this.sendUserStatusFlow('failed'),
-                        this.sendErrorReport(flow, err, 'failed to authenticate proxy with username: ' + e.username ?? '')
+                        this.sendErrorReport(this.flow, err, 'failed to authenticate proxy with username: ' + e.username ?? '')
                     ]);
                     this.logService.error(err, 'failed to authenticate proxy with username: ' + e.username ?? '');
                     await session.close(SshDisconnectReason.byApplication, err.toString(), err instanceof Error ? err : undefined);
@@ -157,15 +155,15 @@ class WebSocketSSHProxy {
                 return;
             }
             this.logService.error(e, 'failed to connect to client');
-            await this.sendErrorReport(flow, e, 'failed to connect to client');
+            await this.sendErrorReport(this.flow, e, 'failed to connect to client');
             await session.close(SshDisconnectReason.byApplication, e.toString(), e instanceof Error ? e : undefined);
         }
     }
 
     private async authenticateClient(username: string) {
         const workspaceInfo = await this.retryGetWorkspaceInfo(username);
-        flow.instanceId = workspaceInfo.instanceId;
-        flow.userId = workspaceInfo.userId;
+        this.flow.instanceId = workspaceInfo.instanceId;
+        this.flow.userId = workspaceInfo.userId;
         if (workspaceInfo.phase && workspaceInfo.phase !== '' && workspaceInfo.phase !== 'running') {
             throw new FailedToProxyError('NoRunningInstance');
         }
@@ -176,7 +174,7 @@ class WebSocketSSHProxy {
         try {
             return await this.tryDirectSSH(workspaceInfo);
         } catch (e) {
-            this.sendErrorReport(workspaceInfo, e, 'try direct ssh failed');
+            this.sendErrorReport(this.flow, e, 'try direct ssh failed');
             return this.getTunnelSSHConfig(workspaceInfo);
         }
     }
@@ -236,16 +234,15 @@ class WebSocketSSHProxy {
     }
 
     async sendUserStatusFlow(status: 'connected' | 'connecting' | 'failed') {
-        this.telemetryService.sendUserFlowStatus(status, flow);
+        this.telemetryService.sendUserFlowStatus(status, this.flow);
     }
 
-    async sendErrorReport(workspaceAuthInfo: Partial<GetWorkspaceAuthInfoResponse>, err: Error | any, message: string) {
+    async sendErrorReport(info: UserFlowTelemetryProperties, err: Error | any, message: string) {
         const properties = {
-            gitpodHost: workspaceAuthInfo.gitpodHost,
-            userId: workspaceAuthInfo.userId,
-            workspaceId: workspaceAuthInfo.workspaceId,
-            instanceId: workspaceAuthInfo.instanceId,
-            daemonVersion: getDaemonVersion(),
+            gitpodHost: info.gitpodHost,
+            userId: info.userId,
+            workspaceId: info.workspaceId,
+            instanceId: info.instanceId,
         };
         let error: Error;
         if (err instanceof Error) {
@@ -255,7 +252,7 @@ class WebSocketSSHProxy {
         } else {
             error = new Error(message + ': ' + err.toString());
         }
-        this.telemetryService.sendTelemetryException(err, properties as any);
+        this.telemetryService.sendTelemetryException(err, properties);
     }
 }
 
@@ -271,8 +268,16 @@ const logService = new NopeLogger();
 // import { DebugLogger } from './logger';
 // const logService = new DebugLogger();
 
-const proxy = new WebSocketSSHProxy(logService, options);
-proxy.start().catch((e) => {
-    proxy.sendErrorReport(flow, e, 'failed to start proxy');
-    logService.error(e, 'failed to start proxy');
+const telemetryService = new TelemetryService(
+    process.env.SEGMENT_KEY!,
+    options.machineID,
+    process.env.EXT_NAME!,
+    process.env.EXT_VERSION!,
+    options.host,
+    logService
+);
+
+const proxy = new WebSocketSSHProxy(options, telemetryService, logService);
+proxy.start().catch(() => {
+    // Noop, catch everything in start method pls
 });

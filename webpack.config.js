@@ -7,8 +7,9 @@ const webpack = require('webpack');
 const packageJSON = require('./package.json')
 const CopyPlugin = require('copy-webpack-plugin');
 
-const daemonVersion = new webpack.DefinePlugin({
-	'process.env.DAEMON_VERSION': JSON.stringify(packageJSON.daemonVersion ?? '0.0.1'),
+const envPlugin = new webpack.DefinePlugin({
+	'process.env.EXT_NAME': JSON.stringify('gitpod.gitpod-desktop'),
+	'process.env.EXT_VERSION': JSON.stringify(packageJSON.version ?? '0.0.1'),
 	'process.env.SEGMENT_KEY': JSON.stringify(packageJSON.segmentKey ?? ''),
 });
 
@@ -57,7 +58,7 @@ const prodConfig = {
 				{ from: 'src/local-ssh/proxylauncher.sh', to: 'local-ssh/proxylauncher.sh' },
 			],
 		}),
-		daemonVersion,
+		envPlugin,
 	]
 }
 
@@ -98,7 +99,7 @@ const devConfig = {
 				{ from: 'src/local-ssh/proxylauncher.sh', to: 'local-ssh/proxylauncher.sh' },
 			],
 		}),
-		daemonVersion,
+		envPlugin,
 	],
 	watchOptions: {
 		// for some systems, watching many files can result in a lot of CPU or memory usage
