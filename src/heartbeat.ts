@@ -7,7 +7,7 @@ import { WorkspaceInfo } from '@gitpod/gitpod-protocol';
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
 import { withServerApi } from './internalApi';
-import { ITelemetryService } from './services/telemetryService';
+import { ITelemetryService } from './common/telemetry';
 import { SSHConnectionParams } from './remote';
 import { ISessionService } from './services/sessionService';
 import { ILogService } from './services/logService';

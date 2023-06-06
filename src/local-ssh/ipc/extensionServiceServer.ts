@@ -14,7 +14,7 @@ import { ISessionService } from '../../services/sessionService';
 import { CallContext, ServerError, Status } from 'nice-grpc-common';
 import { IHostService } from '../../services/hostService';
 import { Server, createServer } from 'nice-grpc';
-import { ITelemetryService, UserFlowTelemetryProperties } from '../../services/telemetryService';
+import { ITelemetryService, UserFlowTelemetryProperties } from '../../common/telemetry';
 import { ExperimentalSettings } from '../../experiments';
 import { Configuration } from '../../configuration';
 import { timeout } from '../../common/async';

@@ -9,7 +9,7 @@ import Keychain from '../common/keychain';
 import GitpodServer from './gitpodServer';
 import { arrayEquals } from '../common/utils';
 import { Disposable } from '../common/dispose';
-import { ITelemetryService, UserFlowTelemetryProperties } from '../services/telemetryService';
+import { ITelemetryService, UserFlowTelemetryProperties } from '../common/telemetry';
 import { INotificationService } from '../services/notificationService';
 import { ILogService } from '../services/logService';
 import { Configuration } from '../configuration';

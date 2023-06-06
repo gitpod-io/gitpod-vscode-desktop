@@ -9,7 +9,7 @@ import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
 import { ISessionService } from './services/sessionService';
 import { ILogService } from './services/logService';
-import { filterEvent } from './common/utils';
+import { filterEvent } from './common/event';
 
 export class WorkspaceState extends Disposable {
     private workspaceState: WorkspaceStatus | undefined;

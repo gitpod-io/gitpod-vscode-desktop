@@ -4,7 +4,6 @@
 	"description": "Gitpod Support",
 	"publisher": "gitpod",
 	"version": "0.0.115",
-	"daemonVersion": "0.0.9",
 	"license": "MIT",
 	"icon": "resources/gitpod.png",
 	"repository": {

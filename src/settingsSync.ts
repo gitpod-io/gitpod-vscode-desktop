@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
 import { INotificationService } from './services/notificationService';
-import { ITelemetryService } from './services/telemetryService';
+import { ITelemetryService } from './common/telemetry';
 import { ILogService } from './services/logService';
 import { CommandManager } from './commandManager';
 import { Configuration } from './configuration';

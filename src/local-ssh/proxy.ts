@@ -6,12 +6,14 @@
 import { SshClient } from '@microsoft/dev-tunnels-ssh-tcp';
 import { NodeStream, SshClientCredentials, SshClientSession, SshDisconnectReason, SshServerSession, SshSessionConfiguration, Stream, WebSocketStream } from '@microsoft/dev-tunnels-ssh';
 import { importKey, importKeyBytes } from '@microsoft/dev-tunnels-ssh-keys';
-import { ExtensionServiceDefinition, GetWorkspaceAuthInfoResponse, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest } from '../proto/typescript/ipc/v1/ipc';
+import { ExtensionServiceDefinition, GetWorkspaceAuthInfoResponse } from '../proto/typescript/ipc/v1/ipc';
 import { Client, createChannel, createClient } from 'nice-grpc';
 import { retry } from '../common/async';
 import { WebSocket } from 'ws';
 import * as stream from 'stream';
 import { ILogService } from '../services/logService';
+import { TelemetryService } from './telemetryService';
+import { ITelemetryService, UserFlowTelemetryProperties } from '../common/telemetry';
 
 // This public key is safe to be public since we only use it to verify local-ssh connections.
 const HOST_KEY = 'LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ1QwcXg1eEJUVmc4TUVJbUUKZmN4RXRZN1dmQVVsM0JYQURBK2JYREsyaDZlaFJBTkNBQVJlQXo0RDVVZXpqZ0l1SXVOWXpVL3BCWDdlOXoxeApvZUN6UklqcGdCUHozS0dWRzZLYXV5TU5YUm95a21YSS9BNFpWaW9nd2Vjb0FUUjRUQ2FtWm1ScAotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg==';
@@ -21,13 +23,10 @@ function getHostKey(): Buffer {
     return Buffer.from(HOST_KEY, 'base64');
 }
 
-function getDaemonVersion() {
-    return process.env.DAEMON_VERSION ?? '0.0.1';
-}
-
 interface ClientOptions {
     host: string;
     extIpcPort: number;
+    machineID: string;
 }
 
 function getClientOptions(): ClientOptions {
@@ -38,17 +37,15 @@ function getClientOptions(): ClientOptions {
     return {
         host,
         extIpcPort: Number.parseInt(args[1], 10),
+        machineID: args[2] ?? '',
     };
 }
-
-
-type SSHUserFlowTelemetry = Partial<SendLocalSSHUserFlowStatusRequest>;
 
 type FailedToProxyCode = 'SSH.AuthenticationFailed' | 'TUNNEL.AuthenticateSSHKeyFailed' | 'NoRunningInstance' | 'FailedToGetAuthInfo';
 class FailedToProxyError extends Error {
     constructor(public readonly failureCode: FailedToProxyCode, originError?: Error) {
-        const msg = 'Failed to proxy connection: ' + failureCode
-        super(originError ? (msg + ': ' + originError.toString()) : msg );
+        const msg = 'Failed to proxy connection: ' + failureCode;
+        super(originError ? (msg + ': ' + originError.toString()) : msg);
         this.name = 'FailedToProxyError';
     }
 
@@ -60,18 +57,30 @@ class FailedToProxyError extends Error {
 // TODO(local-ssh): Remove me after direct ssh works with @microsft/dev-tunnels-ssh
 const FORCE_TUNNEL = true;
 
-const flow: SSHUserFlowTelemetry = {
-    gitpodHost: '',
-    workspaceId: '',
-    daemonVersion: getDaemonVersion(),
-};
+interface SSHUserFlowTelemetry extends UserFlowTelemetryProperties {
+    flow: 'local_ssh';
+    gitpodHost: string;
+    workspaceId: string;
+    instanceId?: string;
+    userId?: string;
+    failureCode?: FailedToProxyCode;
+}
 
 class WebSocketSSHProxy {
-
     private extensionIpc: Client<ExtensionServiceDefinition>;
+    private flow: SSHUserFlowTelemetry;
 
-    constructor(private logService: ILogService, private options: ClientOptions) {
-        flow.gitpodHost = this.options.host;
+    constructor(
+        private readonly options: ClientOptions,
+        private readonly telemetryService: ITelemetryService,
+        private readonly logService: ILogService
+    ) {
+        this.flow = {
+            flow: 'local_ssh',
+            gitpodHost: this.options.host,
+            workspaceId: '',
+        };
+
         this.onExit();
         this.onException();
         this.extensionIpc = createClient(ExtensionServiceDefinition, createChannel('127.0.0.1:' + this.options.extIpcPort));
@@ -118,7 +127,7 @@ class WebSocketSSHProxy {
 
         let pipePromise: Promise<void> | undefined;
         session.onAuthenticating(async (e) => {
-            flow.workspaceId = e.username ?? '';
+            this.flow.workspaceId = e.username ?? '';
             this.sendUserStatusFlow('connecting');
             e.authenticationPromise = this.authenticateClient(e.username ?? '')
                 .then(async pipeSession => {
@@ -127,11 +136,11 @@ class WebSocketSSHProxy {
                     return {};
                 }).catch(async err => {
                     if (err instanceof FailedToProxyError) {
-                        flow.flowFailureCode = err.failureCode;
+                        this.flow.failureCode = err.failureCode;
                     }
                     await Promise.allSettled([
                         this.sendUserStatusFlow('failed'),
-                        this.sendErrorReport(flow, err, 'failed to authenticate proxy with username: ' + e.username ?? '')
+                        this.sendErrorReport(this.flow, err, 'failed to authenticate proxy with username: ' + e.username ?? '')
                     ]);
                     this.logService.error(err, 'failed to authenticate proxy with username: ' + e.username ?? '');
                     await session.close(SshDisconnectReason.byApplication, err.toString(), err instanceof Error ? err : undefined);
@@ -146,17 +155,17 @@ class WebSocketSSHProxy {
                 return;
             }
             this.logService.error(e, 'failed to connect to client');
-            await this.sendErrorReport(flow, e, 'failed to connect to client');
+            await this.sendErrorReport(this.flow, e, 'failed to connect to client');
             await session.close(SshDisconnectReason.byApplication, e.toString(), e instanceof Error ? e : undefined);
         }
     }
 
     private async authenticateClient(username: string) {
         const workspaceInfo = await this.retryGetWorkspaceInfo(username);
-        flow.instanceId = workspaceInfo.instanceId;
-        flow.userId = workspaceInfo.userId;
+        this.flow.instanceId = workspaceInfo.instanceId;
+        this.flow.userId = workspaceInfo.userId;
         if (workspaceInfo.phase && workspaceInfo.phase !== '' && workspaceInfo.phase !== 'running') {
-            throw new FailedToProxyError('NoRunningInstance')
+            throw new FailedToProxyError('NoRunningInstance');
         }
 
         if (FORCE_TUNNEL) {
@@ -165,7 +174,7 @@ class WebSocketSSHProxy {
         try {
             return await this.tryDirectSSH(workspaceInfo);
         } catch (e) {
-            this.sendErrorReport(workspaceInfo, e, 'try direct ssh failed');
+            this.sendErrorReport(this.flow, e, 'try direct ssh failed');
             return this.getTunnelSSHConfig(workspaceInfo);
         }
     }
@@ -225,36 +234,25 @@ class WebSocketSSHProxy {
     }
 
     async sendUserStatusFlow(status: 'connected' | 'connecting' | 'failed') {
-        // TODO: Use telemetryService in proxy after telemetryService does not depend on `vscode` lib and remove retry
-        return retry(() => this.extensionIpc.sendLocalSSHUserFlowStatus({ flowStatus: status, ...flow }), 200, 50).catch(e => {
-            this.logService.error(e, `failed to send ${status} flow status`);
-        });
+        this.telemetryService.sendUserFlowStatus(status, this.flow);
     }
 
-    async sendErrorReport(workspaceAuthInfo: Partial<GetWorkspaceAuthInfoResponse>, err: Error | any, message: string) {
-        // TODO: Use telemetryService in proxy after telemetryService does not depend on `vscode` lib and remove retry
-        const request: Partial<SendErrorReportRequest> = {
-            gitpodHost: workspaceAuthInfo.gitpodHost,
-            userId: workspaceAuthInfo.userId,
-            workspaceId: workspaceAuthInfo.workspaceId,
-            instanceId: workspaceAuthInfo.instanceId,
-            errorName: '',
-            errorMessage: '',
-            errorStack: '',
-            daemonVersion: getDaemonVersion(),
+    async sendErrorReport(info: UserFlowTelemetryProperties, err: Error | any, message: string) {
+        const properties = {
+            gitpodHost: info.gitpodHost,
+            userId: info.userId,
+            workspaceId: info.workspaceId,
+            instanceId: info.instanceId,
         };
+        let error: Error;
         if (err instanceof Error) {
-            request.errorName = err.name;
-            request.errorMessage = message + ': ' + err.message;
-            request.errorStack = err.stack ?? '';
+            error = new Error(message + ': ' + err.message);
+            error.name = err.name;
+            error.stack = error.stack + '\n\n' + err.stack;
         } else {
-            request.errorName = '';
-            request.errorMessage = message + ': ' + err.toString();
-            request.errorStack = '';
+            error = new Error(message + ': ' + err.toString());
         }
-        return retry(() => this.extensionIpc.sendErrorReport(request), 200, 50).catch(e => {
-            this.logService.error(e, 'failed to send error report');
-        });
+        this.telemetryService.sendTelemetryException(err, properties);
     }
 }
 
@@ -270,8 +268,16 @@ const logService = new NopeLogger();
 // import { DebugLogger } from './logger';
 // const logService = new DebugLogger();
 
-const proxy = new WebSocketSSHProxy(logService, options);
-proxy.start().catch((e) => {
-    proxy.sendErrorReport(flow, e, 'failed to start proxy');
-    logService.error(e, 'failed to start proxy');
+const telemetryService = new TelemetryService(
+    process.env.SEGMENT_KEY!,
+    options.machineID,
+    process.env.EXT_NAME!,
+    process.env.EXT_VERSION!,
+    options.host,
+    logService
+);
+
+const proxy = new WebSocketSSHProxy(options, telemetryService, logService);
+proxy.start().catch(() => {
+    // Noop, catch everything in start method pls
 });

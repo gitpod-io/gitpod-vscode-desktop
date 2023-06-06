@@ -13,7 +13,7 @@ import { IHostService } from './hostService';
 import SSHConfiguration from '../ssh/sshConfig';
 import { isWindows } from '../common/platform';
 import { getLocalSSHDomain } from '../remote';
-import { ITelemetryService, UserFlowTelemetryProperties } from './telemetryService';
+import { ITelemetryService, UserFlowTelemetryProperties } from '../common/telemetry';
 import { ISessionService } from './sessionService';
 import { WrapError } from '../common/utils';
 
@@ -101,7 +101,7 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
         return {
             Host: '*.' + getLocalSSHDomain(host),
             StrictHostKeyChecking: 'no',
-            ProxyCommand: `"${launcher}" "${process.execPath}" "${proxyScript}" --ms-enable-electron-run-as-node %h ${extIpcPort}`
+            ProxyCommand: `"${launcher}" "${process.execPath}" "${proxyScript}" --ms-enable-electron-run-as-node %h ${extIpcPort} ${vscode.env.machineId}`
         };
     }
 
