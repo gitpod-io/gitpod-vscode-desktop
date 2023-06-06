@@ -82,7 +82,6 @@ export class HeartbeatManager extends Disposable {
         this._register(vscode.debug.onDidTerminateDebugSession(() => this.updateLastActivity('onDidTerminateDebugSession')));
         this._register(vscode.debug.onDidChangeBreakpoints(() => this.updateLastActivity('onDidChangeBreakpoints')));
         this._register(vscode.extensions.onDidChange(() => this.updateLastActivity('onDidChangeExtensions')));
-        this._register(vscode.languages.onDidChangeDiagnostics(() => this.updateLastActivity('onDidChangeDiagnostics')));
         this._register(vscode.tasks.onDidStartTask(() => this.updateLastActivity('onDidStartTask')));
         this._register(vscode.tasks.onDidStartTaskProcess(() => this.updateLastActivity('onDidStartTaskProcess')));
         this._register(vscode.tasks.onDidEndTask(() => this.updateLastActivity('onDidEndTask')));
