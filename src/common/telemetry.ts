@@ -261,7 +261,7 @@ function removePropertiesWithPossibleUserInfo(property: string): string {
 
 type isTrustedValueFunc = (value: any) => boolean;
 
-function cleanData(data: Record<string, any>, cleanUpPatterns: RegExp[], isTrustedValue: isTrustedValueFunc): Record<string, any> {
+export function cleanData(data: Record<string, any>, cleanUpPatterns: RegExp[], isTrustedValue: isTrustedValueFunc): Record<string, any> {
 	return cloneAndChange(data, value => {
 
 		// If it's a trusted value it means it's okay to skip cleaning so we don't clean it

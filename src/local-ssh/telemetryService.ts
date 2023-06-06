@@ -5,7 +5,12 @@
 
 import { Analytics } from '@segment/analytics-node';
 import { ILogService } from '../services/logService';
-import { ITelemetryService, TelemetryEventProperties, UserFlowTelemetryProperties, createSegmentAnalyticsClient, getBaseProperties, commonSendErrorData, commonSendEventData, getCleanupPatterns, TRUSTED_VALUES } from '../common/telemetry';
+import { ITelemetryService, TelemetryEventProperties, UserFlowTelemetryProperties, createSegmentAnalyticsClient, getBaseProperties, commonSendErrorData, commonSendEventData, getCleanupPatterns, TRUSTED_VALUES, cleanData } from '../common/telemetry';
+import { mixin } from '../common/utils';
+
+const isTrustedValue = (value: any) => {
+	return value instanceof TelemetryTrustedValue || Object.hasOwnProperty.call(value, 'isTrustedTelemetryValue');
+};
 
 export class TelemetryService implements ITelemetryService {
 	private segmentClient: Analytics | undefined;
@@ -27,16 +32,15 @@ export class TelemetryService implements ITelemetryService {
 	}
 
 	sendEventData(eventName: string, data?: Record<string, any>) {
-		commonSendEventData(this.logService, this.segmentKey, this.segmentClient, this.machineId, eventName, data);
+		const properties = mixin(cleanData(data ?? {}, this.cleanupPatterns, isTrustedValue), this.commonProperties);
+		commonSendEventData(this.logService, this.segmentKey, this.segmentClient, this.machineId, eventName, properties);
 	}
 
 	sendErrorData(error: Error, data?: Record<string, any>) {
 		commonSendErrorData(this.logService, this.segmentKey, this.gitpodHost, error, data, {
 			cleanupPatterns: this.cleanupPatterns,
 			commonProperties: this.commonProperties,
-			isTrustedValue: (value) => {
-				return value instanceof TelemetryTrustedValue || Object.hasOwnProperty.call(value, 'isTrustedTelemetryValue');
-			}
+			isTrustedValue
 		});
 	}
 
