@@ -21,7 +21,7 @@ export class TelemetryService implements ITelemetryService {
 		private readonly logService: ILogService,
 	) {
 		this.segmentKey = getSegmentKey();
-		this.segmentClient = createSegmentAnalyticsClient(this.logService ,gitpodHost, this.segmentKey);
+		this.segmentClient = createSegmentAnalyticsClient({ writeKey: this.segmentKey, maxEventsInBatch: 1 }, gitpodHost, this.logService);
 		this.cleanupPatterns = getCleanupPatterns([]);
 		const commonProperties = getCommonProperties(machineId);
 		this.commonProperties = commonProperties;
@@ -82,5 +82,5 @@ function getCommonProperties(machineId: string) {
 }
 
 class TelemetryTrustedValue {
-	constructor(public value: any, public isTrustedTelemetryValue: boolean = true) {}
+	constructor(public value: any, public isTrustedTelemetryValue: boolean = true) { }
 }

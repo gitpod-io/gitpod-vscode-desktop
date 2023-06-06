@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { PromiseAdapter, promiseFromEvent } from '../common/vscodeEvent';
+import { PromiseAdapter, promiseFromEvent } from '../common/event';
 import { withServerApi } from '../internalApi';
 import pkceChallenge from 'pkce-challenge';
 import { v4 as uuid } from 'uuid';

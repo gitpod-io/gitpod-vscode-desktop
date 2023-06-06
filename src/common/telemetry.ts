@@ -42,137 +42,137 @@ export interface ITelemetryService {
 	sendUserFlowStatus(status: string, flow: UserFlowTelemetryProperties): void;
 }
 
-export function createSegmentAnalyticsClient(logService: ILogService, gitpodHost: string, segmentKey: string): Analytics | undefined {
-    const serviceUrl = new URL(gitpodHost);
+export function createSegmentAnalyticsClient(settings: AnalyticsSettings, gitpodHost: string, logService: ILogService): Analytics | undefined {
+	const serviceUrl = new URL(gitpodHost);
 
-    const settings: AnalyticsSettings = {
-        writeKey: segmentKey,
-        // in dev mode we report directly to IDE playground source
-        host: 'https://api.segment.io',
-        path: '/v1/batch'
-    };
-    if (segmentKey === ProductionUntrustedSegmentKey) {
-        settings.host = gitpodHost;
-        settings.path = '/analytics' + settings.path;
-    } else {
-        if (serviceUrl.host !== 'gitpod.io' && !serviceUrl.host.endsWith('.gitpod-dev.com')) {
-            logService.error(`No telemetry: dedicated installations should send data always to own endpoints, host: ${serviceUrl.host}`);
-            return undefined;
-        }
-    }
+	const updatedSettings: AnalyticsSettings = {
+		...settings,
+		// in dev mode we report directly to IDE playground source
+		host: 'https://api.segment.io',
+		path: '/v1/batch'
+	};
+	if (updatedSettings.writeKey === ProductionUntrustedSegmentKey) {
+		settings.host = gitpodHost;
+		settings.path = '/analytics' + settings.path;
+	} else {
+		if (serviceUrl.host !== 'gitpod.io' && !serviceUrl.host.endsWith('.gitpod-dev.com')) {
+			logService.error(`No telemetry: dedicated installations should send data always to own endpoints, host: ${serviceUrl.host}`);
+			return undefined;
+		}
+	}
 
-    const client = new Analytics(settings);
-    return client;
+	const client = new Analytics(updatedSettings);
+	return client;
 }
 
 
 export function getErrorMetricsEndpoint(gitpodHost: string): string {
-    const serviceUrl = new URL(gitpodHost);
-    return `https://ide.${serviceUrl.hostname}/metrics-api/reportError`;
+	const serviceUrl = new URL(gitpodHost);
+	return `https://ide.${serviceUrl.hostname}/metrics-api/reportError`;
 }
 
-export function commonSendEventData (logService: ILogService, segmentKey: string, segmentClient: Analytics | undefined, machineId: string, eventName: string, data?: any) {
-    const idx = eventName.indexOf('/');
-    eventName = eventName.substring(idx + 1);
+export function commonSendEventData(logService: ILogService, segmentKey: string, segmentClient: Analytics | undefined, machineId: string, eventName: string, data?: any) {
+	const idx = eventName.indexOf('/');
+	eventName = eventName.substring(idx + 1);
 
-    const properties = data ?? {};
+	const properties = data ?? {};
 
-    const gitpodHost: string | undefined = properties['gitpodHost'];
-    if (!gitpodHost) {
-        logService.error(`Missing 'gitpodHost' property in event ${eventName}`);
-        return;
-    }
+	const gitpodHost: string | undefined = properties['gitpodHost'];
+	if (!gitpodHost) {
+		logService.error(`Missing 'gitpodHost' property in event ${eventName}`);
+		return;
+	}
 
-    delete properties['gitpodHost'];
+	delete properties['gitpodHost'];
 
-    if (segmentKey !== ProductionUntrustedSegmentKey) {
-        logService.trace('Local event report', eventName, properties);
-        return;
-    }
+	if (segmentKey !== ProductionUntrustedSegmentKey) {
+		logService.trace('Local event report', eventName, properties);
+		return;
+	}
 
-    segmentClient?.track({
-        anonymousId: machineId,
-        event: eventName,
-        properties
-    }, (err) => {
-        if (err) {
-            logService.error('Failed to log event to app analytics:', err);
-        }
-    });
+	segmentClient?.track({
+		anonymousId: machineId,
+		event: eventName,
+		properties
+	}, (err) => {
+		if (err) {
+			logService.error('Failed to log event to app analytics:', err);
+		}
+	});
 }
 
 interface SendErrorDataOptions {
-    cleanupPatterns: RegExp[];
-    commonProperties: Record<string, any>;
-    isTrustedValue: isTrustedValueFunc;
+	cleanupPatterns: RegExp[];
+	commonProperties: Record<string, any>;
+	isTrustedValue: isTrustedValueFunc;
 }
 
 export function getCleanupPatterns(piiPaths: string[]) {
-    // static cleanup pattern for: `vscode-file:///DANGEROUS/PATH/resources/app/Useful/Information`
-    const cleanupPatterns = [/(vscode-)?file:\/\/\/.*?\/resources\/app\//gi];
-    piiPaths.push(os.tmpdir());
-    piiPaths.push(os.homedir());
-    for (const piiPath of piiPaths) {
-        cleanupPatterns.push(new RegExp(escapeRegExpCharacters(piiPath), 'gi'));
+	// static cleanup pattern for: `vscode-file:///DANGEROUS/PATH/resources/app/Useful/Information`
+	const cleanupPatterns = [/(vscode-)?file:\/\/\/.*?\/resources\/app\//gi];
+	piiPaths.push(os.tmpdir());
+	piiPaths.push(os.homedir());
+	for (const piiPath of piiPaths) {
+		cleanupPatterns.push(new RegExp(escapeRegExpCharacters(piiPath), 'gi'));
 
-        if (piiPath.indexOf('\\') >= 0) {
-            cleanupPatterns.push(new RegExp(escapeRegExpCharacters(piiPath.replace(/\\/g, '/')), 'gi'));
-        }
-    }
-    return cleanupPatterns;
+		if (piiPath.indexOf('\\') >= 0) {
+			cleanupPatterns.push(new RegExp(escapeRegExpCharacters(piiPath.replace(/\\/g, '/')), 'gi'));
+		}
+	}
+	return cleanupPatterns;
 }
 
-export function commonSendErrorData (logService: ILogService, segmentKey: string, defaultGitpodHost: string, error: Error, data: any | undefined, options: SendErrorDataOptions) {
-    const { cleanupPatterns, commonProperties, isTrustedValue } = options;
-    let properties = cleanData(data ?? {}, cleanupPatterns, isTrustedValue);
-    properties = mixin(properties, commonProperties);
-    const errorProps = cleanData({ message: error.message, stack: error.stack }, cleanupPatterns, isTrustedValue);
+export function commonSendErrorData(logService: ILogService, segmentKey: string, defaultGitpodHost: string, error: Error, data: any | undefined, options: SendErrorDataOptions) {
+	const { cleanupPatterns, commonProperties, isTrustedValue } = options;
+	let properties = cleanData(data ?? {}, cleanupPatterns, isTrustedValue);
+	properties = mixin(properties, commonProperties);
+	const errorProps = cleanData({ message: error.message, stack: error.stack }, cleanupPatterns, isTrustedValue);
 
-    // Unhandled errors have no data so use host from config
-    const gitpodHost = properties['gitpodHost'] ?? defaultGitpodHost;
-    const errorMetricsEndpoint = getErrorMetricsEndpoint(gitpodHost);
+	// Unhandled errors have no data so use host from config
+	const gitpodHost = properties['gitpodHost'] ?? defaultGitpodHost;
+	const errorMetricsEndpoint = getErrorMetricsEndpoint(gitpodHost);
 
-    properties['error_name'] = error.name;
-    properties['error_message'] = errorProps.message;
-    properties['debug_workspace'] = String(properties['debug_workspace'] ?? false);
+	properties['error_name'] = error.name;
+	properties['error_message'] = errorProps.message;
+	properties['debug_workspace'] = String(properties['debug_workspace'] ?? false);
 
-    const workspaceId = properties['workspaceId'] ?? '';
-    const instanceId = properties['instanceId'] ?? '';
-    const userId = properties['userId'] ?? '';
+	const workspaceId = properties['workspaceId'] ?? '';
+	const instanceId = properties['instanceId'] ?? '';
+	const userId = properties['userId'] ?? '';
 
-    delete properties['gitpodHost'];
-    delete properties['workspaceId'];
-    delete properties['instanceId'];
-    delete properties['userId'];
+	delete properties['gitpodHost'];
+	delete properties['workspaceId'];
+	delete properties['instanceId'];
+	delete properties['userId'];
 
-    const jsonData = {
-        component: 'vscode-desktop-extension',
-        errorStack: errorProps.stack || '',
-        version: properties['common.extversion'],
-        workspaceId,
-        instanceId,
-        userId,
-        properties,
-    };
+	const jsonData = {
+		component: 'vscode-desktop-extension',
+		errorStack: errorProps.stack || '',
+		version: properties['common.extversion'],
+		workspaceId,
+		instanceId,
+		userId,
+		properties,
+	};
 
-    if (segmentKey !== ProductionUntrustedSegmentKey) {
-        logService.trace('Local error report', jsonData);
-        return;
-    }
+	if (segmentKey !== ProductionUntrustedSegmentKey) {
+		logService.trace('Local error report', jsonData);
+		return;
+	}
 
-    fetch(errorMetricsEndpoint, {
-        method: 'POST',
-        body: JSON.stringify(jsonData),
-        headers: {
-            'Content-Type': 'application/json',
-        },
-    }).then((resp) => {
-        if (!resp.ok) {
-            logService.error(`Metrics endpoint responded with ${resp.status} ${resp.statusText}`);
-        }
-    }).catch((e) => {
-        logService.error('Failed to report error to metrics endpoint!', e);
-    });
+	fetch(errorMetricsEndpoint, {
+		method: 'POST',
+		body: JSON.stringify(jsonData),
+		headers: {
+			'Content-Type': 'application/json',
+		},
+	}).then((resp) => {
+		if (!resp.ok) {
+			logService.error(`Metrics endpoint responded with ${resp.status} ${resp.statusText}`);
+		}
+	}).catch((e) => {
+		logService.error('Failed to report error to metrics endpoint!', e);
+	});
 }
 
 
@@ -265,9 +265,9 @@ function cleanData(data: Record<string, any>, cleanUpPatterns: RegExp[], isTrust
 	return cloneAndChange(data, value => {
 
 		// If it's a trusted value it means it's okay to skip cleaning so we don't clean it
-        if (isTrustedValue(value)) {
-            return value.value;
-        }
+		if (isTrustedValue(value)) {
+			return value.value;
+		}
 
 		// We only know how to clean strings
 		if (typeof value === 'string') {

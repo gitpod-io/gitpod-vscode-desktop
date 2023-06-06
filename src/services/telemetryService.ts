@@ -66,12 +66,11 @@ export class TelemetryService extends Disposable implements ITelemetryService {
 	}
 
 	private getSegmentAnalyticsClient(gitpodHost: string, segmentKey: string): Analytics | undefined {
-		
 		const serviceUrl = new URL(gitpodHost);
 		if (this.analitycsClients.has(serviceUrl.host)) {
 			return this.analitycsClients.get(serviceUrl.host)!;
 		}
-		const client = createSegmentAnalyticsClient(this.logService, gitpodHost, segmentKey);
+		const client = createSegmentAnalyticsClient({ writeKey: segmentKey }, gitpodHost, this.logService);
 		if (!client) {
 			return undefined;
 		}
@@ -106,7 +105,7 @@ function getCommonProperties(extensionId: string, extensionVersion: string) {
 		properties['common.vscodesessionid'] = vscode.env.sessionId;
 		properties['common.vscodeversion'] = vscode.version;
 		properties['common.product'] = vscode.env.appHost;
-        properties['common.uikind'] = vscode.env.uiKind;
+		properties['common.uikind'] = vscode.env.uiKind;
 		switch (vscode.env.uiKind) {
 			case vscode.UIKind.Web:
 				properties['common.uikind'] = 'web';
