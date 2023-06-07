@@ -68,14 +68,22 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
             await canExtensionServiceServerWork();
             return true;
         } catch (e) {
-            const err = new WrapError('cannot ping extension ipc service server', e, 'ExtensionServerUnavailable');
-            // TODO: do we need telemetry event? new event name?
+            const failureCode = 'ExtensionServerUnavailable';
+            const err = new WrapError('cannot ping extension ipc service server', e, failureCode);
+            const flow = {
+                ...this.flow,
+                flow: 'ping_extension_server',
+                gitpodHost: this.hostService.gitpodHost,
+                userId: this.sessionService.safeGetUserId(),
+                failureCode,
+            };
             this.telemetryService.sendTelemetryException(err, {
-                gitpodHost: this.flow?.gitpodHost ?? this.hostService.gitpodHost,
-                userId: this.flow?.userId ?? this.sessionService.safeGetUserId(),
-                instanceId: this.flow?.instanceId,
-                workspaceId: this.flow?.workspaceId,
+                gitpodHost: flow.gitpodHost,
+                userId: flow.userId,
+                instanceId: flow.instanceId,
+                workspaceId: flow.workspaceId,
             });
+            this.telemetryService.sendUserFlowStatus('failure', flow);
             return false;
         }
     }

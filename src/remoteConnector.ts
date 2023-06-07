@@ -689,11 +689,11 @@ export class RemoteConnector extends Disposable {
 
 				let useLocalSSH = await this.experiments.getUseLocalSSHProxy();
 				if (useLocalSSH) {
+					this.localSSHService.flow = sshFlow;
 					const [_, isExtensionServerReady] = await Promise.all([
 						(async () => {
 							// we need to update the remote ssh config first, since another call is too late for local-ssh
 							await this.updateRemoteSSHConfig(true, undefined);
-							this.localSSHService.flow = sshFlow;
 							this.localSSHService.prepareInitialize();
 							await this.localSSHService.initialized;
 						})(),
