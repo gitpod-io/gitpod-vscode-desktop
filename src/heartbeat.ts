@@ -43,6 +43,8 @@ export class HeartbeatManager extends Disposable {
         totalCount: 0,
     };
 
+    private focused = true;
+
     constructor(
         private readonly connectionInfo: SSHConnectionParams,
         private readonly workspaceState: WorkspaceState | undefined,
@@ -73,7 +75,10 @@ export class HeartbeatManager extends Disposable {
         this._register(vscode.window.onDidOpenTerminal(() => this.updateLastActivity('onDidOpenTerminal')));
         this._register(vscode.window.onDidCloseTerminal(() => this.updateLastActivity('onDidCloseTerminal')));
         this._register(vscode.window.onDidChangeTerminalState(() => this.updateLastActivity('onDidChangeTerminalState')));
-        this._register(vscode.window.onDidChangeWindowState(() => this.updateLastActivity('onDidChangeWindowState')));
+        this._register(vscode.window.onDidChangeWindowState((e) => {
+            this.focused = e.focused;
+            this.updateLastActivity('onDidChangeWindowState');
+        }));
         this._register(vscode.window.onDidChangeActiveColorTheme(() => this.updateLastActivity('onDidChangeActiveColorTheme')));
         this._register(vscode.authentication.onDidChangeSessions(() => this.updateLastActivity('onDidChangeSessions')));
         this._register(vscode.debug.onDidChangeActiveDebugSession(() => this.updateLastActivity('onDidChangeActiveDebugSession')));
@@ -216,6 +221,8 @@ export class HeartbeatManager extends Disposable {
             clientKind: 'vscode-desktop',
             debugWorkspace: String(!!this.connectionInfo.debugWorkspace),
             delta: Object.fromEntries(this.eventCounterMap),
+            focused: this.focused,
+            publicApi: !!this.workspaceState
         } as IDEHeartbeatTelemetryData);
 
         this.eventCounterMap.clear();
