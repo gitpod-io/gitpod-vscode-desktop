@@ -26,6 +26,9 @@ export interface ILocalSSHService {
 
 type FailedToInitializeCode = 'Unknown' | 'LockFailed' | string;
 
+// IgnoredFailedCodes contains the codes that don't need to send error report
+const IgnoredFailedCodes: FailedToInitializeCode[] = ['ENOSPC'];
+
 export class LocalSSHService extends Disposable implements ILocalSSHService {
     public isSupportLocalSSH: boolean = false;
     public initialized!: Promise<void>;
@@ -74,14 +77,18 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
             });
         } catch (e) {
             this.logService.error(e, 'failed to initialize');
+            let sendErrorReport = true;
             failureCode = 'Unknown';
             if (e?.code) {
                 failureCode = e.code;
+                sendErrorReport = !IgnoredFailedCodes.includes(e.code)
             }
             if (e?.message) {
                 e.message = `Failed to initialize: ${e.message}`;
             }
-            this.telemetryService.sendTelemetryException(e, { gitpodHost: this.hostService.gitpodHost, useLocalAPP });
+            if (sendErrorReport) {
+                this.telemetryService.sendTelemetryException(e, { gitpodHost: this.hostService.gitpodHost, useLocalAPP });
+            }
             this.isSupportLocalSSH = false;
         }
         const flowData = this.flow ? this.flow : { gitpodHost: this.hostService.gitpodHost, userId: this.sessionService.safeGetUserId() };

@@ -42,6 +42,10 @@ function getClientOptions(): ClientOptions {
 }
 
 type FailedToProxyCode = 'SSH.AuthenticationFailed' | 'TUNNEL.AuthenticateSSHKeyFailed' | 'NoRunningInstance' | 'FailedToGetAuthInfo';
+
+// IgnoredFailedCodes contains the failreCode that don't need to send error report
+const IgnoredFailedCodes: FailedToProxyCode[] = ['NoRunningInstance'];
+
 class FailedToProxyError extends Error {
     constructor(public readonly failureCode: FailedToProxyCode, originError?: Error) {
         const msg = 'Failed to proxy connection: ' + failureCode;
@@ -135,12 +139,16 @@ class WebSocketSSHProxy {
                     pipePromise = session.pipe(pipeSession);
                     return {};
                 }).catch(async err => {
+                    let sendErrorReport = true
                     if (err instanceof FailedToProxyError) {
                         this.flow.failureCode = err.failureCode;
+                        if (IgnoredFailedCodes.includes(err.failureCode)) {
+                            sendErrorReport = false
+                        }
                     }
                     await Promise.allSettled([
                         this.sendUserStatusFlow('failed'),
-                        this.sendErrorReport(this.flow, err, 'failed to authenticate proxy with username: ' + e.username ?? '')
+                        sendErrorReport ? this.sendErrorReport(this.flow, err, 'failed to authenticate proxy with username: ' + e.username ?? '') : undefined,
                     ]);
                     this.logService.error(err, 'failed to authenticate proxy with username: ' + e.username ?? '');
                     await session.close(SshDisconnectReason.byApplication, err.toString(), err instanceof Error ? err : undefined);
