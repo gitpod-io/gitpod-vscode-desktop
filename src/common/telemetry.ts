@@ -52,8 +52,8 @@ export function createSegmentAnalyticsClient(settings: AnalyticsSettings, gitpod
 		path: '/v1/batch'
 	};
 	if (updatedSettings.writeKey === ProductionUntrustedSegmentKey) {
-		settings.host = gitpodHost;
-		settings.path = '/analytics/v1/batch';
+		updatedSettings.host = gitpodHost;
+		updatedSettings.path = '/analytics/v1/batch';
 	} else {
 		if (serviceUrl.host !== 'gitpod.io' && !serviceUrl.host.endsWith('.gitpod-dev.com')) {
 			logService.error(`No telemetry: dedicated installations should send data always to own endpoints, host: ${serviceUrl.host}`);
