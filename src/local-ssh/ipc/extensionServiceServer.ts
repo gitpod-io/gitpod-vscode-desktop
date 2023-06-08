@@ -24,7 +24,7 @@ import { NodeHttpTransport } from '@improbable-eng/grpc-web-node-http-transport'
 import { CreateSSHKeyPairRequest } from '@gitpod/supervisor-api-grpcweb/lib/control_pb';
 import * as ssh2 from 'ssh2';
 import { ParsedKey } from 'ssh2-streams';
-import { createServer as netCreateServer } from 'net';
+import { isPortUsed } from '../../common/ports';
 
 const phaseMap: Record<WorkspaceInstanceStatus_Phase, WorkspaceInstancePhase | undefined> = {
     [WorkspaceInstanceStatus_Phase.CREATING]: 'pending',
@@ -202,20 +202,6 @@ export class ExtensionServiceServer extends Disposable {
     public override dispose() {
         this.server.forceShutdown();
     }
-}
-
-async function isPortUsed(port: number): Promise<boolean> {
-    return new Promise<boolean>((resolve, _reject) => {
-        const server = netCreateServer();
-        server.once('error', () => {
-            resolve(true);
-        });
-        server.once('listening', () => {
-            server.close();
-            resolve(false);
-        });
-        server.listen(port);
-    });
 }
 
 export async function canExtensionServiceServerWork(): Promise<true> {
