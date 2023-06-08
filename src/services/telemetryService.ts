@@ -28,15 +28,18 @@ export class TelemetryService extends Disposable implements ITelemetryService {
 					const idx = eventName.indexOf('/');
 					eventName = eventName.substring(idx + 1);
 
-					const properties = data ?? {};
-
-					const gitpodHost: string | undefined = properties['gitpodHost'];
+					const gitpodHost: string | undefined = data?.['gitpodHost'];
 					if (!gitpodHost) {
 						logService.error(`Missing 'gitpodHost' property in event ${eventName}`);
 						return;
 					}
 
-					commonSendEventData(logService, segmentKey, this.getSegmentAnalyticsClient(gitpodHost, segmentKey), vscode.env.machineId, eventName, data);
+					const analyticsClient = this.getSegmentAnalyticsClient(gitpodHost, segmentKey);
+					if (!analyticsClient) {
+						return;
+					}
+
+					commonSendEventData(logService, analyticsClient, vscode.env.machineId, eventName, data);
 				},
 				sendErrorData: (error, data) => {
 					commonSendErrorData(logService, segmentKey, Configuration.getGitpodHost(), error, data, {

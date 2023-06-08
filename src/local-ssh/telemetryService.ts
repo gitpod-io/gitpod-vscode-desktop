@@ -33,7 +33,14 @@ export class TelemetryService implements ITelemetryService {
 
 	sendEventData(eventName: string, data?: Record<string, any>) {
 		const properties = mixin(cleanData(data ?? {}, this.cleanupPatterns, isTrustedValue), this.commonProperties);
-		commonSendEventData(this.logService, this.segmentKey, this.segmentClient, this.machineId, eventName, properties);
+
+		this.logService.trace('Local event report', eventName, properties);
+
+		if (!this.segmentClient) {
+			return;
+		}
+
+		commonSendEventData(this.logService, this.segmentClient, this.machineId, eventName, properties);
 	}
 
 	sendErrorData(error: Error, data?: Record<string, any>) {
