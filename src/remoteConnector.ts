@@ -693,7 +693,7 @@ export class RemoteConnector extends Disposable {
 					await this.updateRemoteSSHConfig(true, undefined);
 
 					this.localSSHService.flow = sshFlow;
-					const [_, isExtensionServerReady] = await Promise.all([
+					const [isSupportLocalSSH, isExtensionServerReady] = await Promise.all([
 						this.localSSHService.initialize(),
 						this.localSSHService.extensionServerReady()
 					]);
@@ -701,7 +701,7 @@ export class RemoteConnector extends Disposable {
 						this.logService.error('Extension IPC server is not ready');
 						useLocalSSH = false;
 					}
-					if (!this.localSSHService.isSupportLocalSSH) {
+					if (!isSupportLocalSSH) {
 						this.logService.error('Local SSH is not supported on this platform');
 						useLocalSSH = false;
 					}

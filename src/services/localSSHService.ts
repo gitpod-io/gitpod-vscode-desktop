@@ -20,9 +20,8 @@ import { canExtensionServiceServerWork } from '../local-ssh/ipc/extensionService
 
 export interface ILocalSSHService {
     flow?: UserFlowTelemetryProperties;
-    isSupportLocalSSH: boolean;
 
-    initialize: () => Promise<void>;
+    initialize: () => Promise<boolean>;
     extensionServerReady: () => Promise<boolean>;
 }
 
@@ -32,9 +31,8 @@ type FailedToInitializeCode = 'Unknown' | 'LockFailed' | string;
 const IgnoredFailedCodes: FailedToInitializeCode[] = ['ENOSPC'];
 
 export class LocalSSHService extends Disposable implements ILocalSSHService {
-    private initPromise!: Promise<void>;
+    private initPromise!: Promise<boolean>;
 
-    public isSupportLocalSSH: boolean = false;
     public flow?: UserFlowTelemetryProperties;
 
     constructor(
@@ -47,7 +45,7 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
         super();
     }
 
-    async initialize(): Promise<void> {
+    async initialize(): Promise<boolean> {
         if (this.initPromise) {
             return this.initPromise;
         }
@@ -99,20 +97,23 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
         }
     }
 
-    private async doInitialize() {
-        let failureCode: FailedToInitializeCode | undefined;
+    private async doInitialize(): Promise<boolean> {
+        let flowData = this.flow ?? { gitpodHost: this.hostService.gitpodHost, userId: this.sessionService.safeGetUserId() };
+        flowData = { ...flowData, flow: 'local_ssh_config', useLocalAPP: String(Configuration.getUseLocalApp()) };
         try {
             const lockFolder = vscode.Uri.joinPath(this.context.globalStorageUri, 'initialize');
             await this.lock(lockFolder.fsPath, async () => {
                 const locations = await this.copyProxyScript();
                 await this.configureSettings(locations);
-                this.isSupportLocalSSH = true;
             });
+
+            this.telemetryService.sendUserFlowStatus('success', flowData);
+            return true;
         } catch (e) {
             this.logService.error('Failed to initialize ssh proxy config', e);
 
             let sendErrorReport = true;
-            failureCode = 'Unknown';
+            let failureCode: FailedToInitializeCode = 'Unknown';
             if (e?.code) {
                 failureCode = e.code;
                 sendErrorReport = !IgnoredFailedCodes.includes(e.code);
@@ -123,11 +124,10 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
             if (sendErrorReport) {
                 this.telemetryService.sendTelemetryException(e, { gitpodHost: this.hostService.gitpodHost, useLocalAPP: String(Configuration.getUseLocalApp()) });
             }
-            this.isSupportLocalSSH = false;
-        }
 
-        const flowData = this.flow ?? { gitpodHost: this.hostService.gitpodHost, userId: this.sessionService.safeGetUserId() };
-        this.telemetryService.sendUserFlowStatus(this.isSupportLocalSSH ? 'success' : 'failure', { ...flowData, flow: 'local_ssh_config', failureCode, useLocalAPP: String(Configuration.getUseLocalApp()) });
+            this.telemetryService.sendUserFlowStatus('failure', { ...flowData, failureCode });
+            return false;
+        }
     }
 
     private async configureSettings({ proxyScript, launcher }: { proxyScript: string; launcher: string }) {
