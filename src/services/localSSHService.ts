@@ -16,12 +16,14 @@ import { getLocalSSHDomain } from '../remote';
 import { ITelemetryService, UserFlowTelemetryProperties } from '../common/telemetry';
 import { ISessionService } from './sessionService';
 import { WrapError } from '../common/utils';
+import { canExtensionServiceServerWork } from '../local-ssh/ipc/extensionServiceServer';
 
 export interface ILocalSSHService {
     flow?: UserFlowTelemetryProperties;
     isSupportLocalSSH: boolean;
     initialized: Promise<void>;
     prepareInitialize: () => void;
+    extensionServerReady: () => Promise<boolean>;
 }
 
 type FailedToInitializeCode = 'Unknown' | 'LockFailed' | string;
@@ -63,6 +65,30 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
                 this.initialized = this.initialize();
             }
         }));
+    }
+    async extensionServerReady(): Promise<boolean> {
+        try {
+            await canExtensionServiceServerWork();
+            return true;
+        } catch (e) {
+            const failureCode = 'ExtensionServerUnavailable';
+            const err = new WrapError('cannot ping extension ipc service server', e, failureCode);
+            const flow = {
+                ...this.flow,
+                flow: 'ping_extension_server',
+                gitpodHost: this.hostService.gitpodHost,
+                userId: this.sessionService.safeGetUserId(),
+                failureCode,
+            };
+            this.telemetryService.sendTelemetryException(err, {
+                gitpodHost: flow.gitpodHost,
+                userId: flow.userId,
+                instanceId: flow.instanceId,
+                workspaceId: flow.workspaceId,
+            });
+            this.telemetryService.sendUserFlowStatus('failure', flow);
+            return false;
+        }
     }
 
     private async initialize() {

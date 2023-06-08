@@ -4,6 +4,12 @@ import * as _m0 from "protobufjs/minimal";
 
 export const protobufPackage = "ipc.v1";
 
+export interface PingRequest {
+}
+
+export interface PingResponse {
+}
+
 export interface SendErrorReportRequest {
   workspaceId: string;
   instanceId: string;
@@ -205,6 +211,92 @@ export interface GetWorkspaceAuthInfoResponse {
   sshkey: string;
   phase: string;
 }
+
+function createBasePingRequest(): PingRequest {
+  return {};
+}
+
+export const PingRequest = {
+  encode(_: PingRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): PingRequest {
+    const reader = input instanceof _m0.Reader ? input : new _m0.Reader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBasePingRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+
+  fromJSON(_: any): PingRequest {
+    return {};
+  },
+
+  toJSON(_: PingRequest): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<PingRequest>): PingRequest {
+    return PingRequest.fromPartial(base ?? {});
+  },
+
+  fromPartial(_: DeepPartial<PingRequest>): PingRequest {
+    const message = createBasePingRequest();
+    return message;
+  },
+};
+
+function createBasePingResponse(): PingResponse {
+  return {};
+}
+
+export const PingResponse = {
+  encode(_: PingResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): PingResponse {
+    const reader = input instanceof _m0.Reader ? input : new _m0.Reader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBasePingResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+
+  fromJSON(_: any): PingResponse {
+    return {};
+  },
+
+  toJSON(_: PingResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<PingResponse>): PingResponse {
+    return PingResponse.fromPartial(base ?? {});
+  },
+
+  fromPartial(_: DeepPartial<PingResponse>): PingResponse {
+    const message = createBasePingResponse();
+    return message;
+  },
+};
 
 function createBaseSendErrorReportRequest(): SendErrorReportRequest {
   return {
@@ -790,6 +882,14 @@ export const ExtensionServiceDefinition = {
       responseStream: false,
       options: {},
     },
+    ping: {
+      name: "Ping",
+      requestType: PingRequest,
+      requestStream: false,
+      responseType: PingResponse,
+      responseStream: false,
+      options: {},
+    },
   },
 } as const;
 
@@ -806,6 +906,7 @@ export interface ExtensionServiceImplementation<CallContextExt = {}> {
     request: SendErrorReportRequest,
     context: CallContext & CallContextExt,
   ): Promise<DeepPartial<SendErrorReportResponse>>;
+  ping(request: PingRequest, context: CallContext & CallContextExt): Promise<DeepPartial<PingResponse>>;
 }
 
 export interface ExtensionServiceClient<CallOptionsExt = {}> {
@@ -821,6 +922,7 @@ export interface ExtensionServiceClient<CallOptionsExt = {}> {
     request: DeepPartial<SendErrorReportRequest>,
     options?: CallOptions & CallOptionsExt,
   ): Promise<SendErrorReportResponse>;
+  ping(request: DeepPartial<PingRequest>, options?: CallOptions & CallOptionsExt): Promise<PingResponse>;
 }
 
 type Builtin = Date | Function | Uint8Array | string | number | boolean | undefined;
