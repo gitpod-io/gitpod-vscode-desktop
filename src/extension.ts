@@ -50,6 +50,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		logger = vscode.window.createOutputChannel('Gitpod', { log: true });
 		context.subscriptions.push(logger);
 
+		// always try to create extension globalStorage folder
+		await createExtensionGlobalStorage(logger, context);
+
 		const onDidChangeLogLevel = (logLevel: vscode.LogLevel) => {
 			logger!.info(`Log level: ${vscode.LogLevel[logLevel]}`);
 		};
@@ -139,6 +142,15 @@ export async function activate(context: vscode.ExtensionContext) {
 			...rawActivateProperties,
 			remoteUri: String(!!rawActivateProperties.remoteUri)
 		});
+	}
+}
+
+async function createExtensionGlobalStorage(logger: vscode.LogOutputChannel, context: vscode.ExtensionContext) {
+	try {
+		// it will not throw error if folder already exists
+		await vscode.workspace.fs.createDirectory(context.globalStorageUri);
+	} catch (e) {
+		logger.error('Failed to create global storage', e);
 	}
 }
 
