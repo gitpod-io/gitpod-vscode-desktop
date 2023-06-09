@@ -690,7 +690,8 @@ export class RemoteConnector extends Disposable {
 				const forceUseLocalApp = Configuration.getUseLocalApp();
 				const userOverride = String(isUserOverrideSetting('gitpod.remote.useLocalApp'));
 				let sshDestination: SSHDestination | undefined;
-				let useLocalSSH = await this.experiments.getUseLocalSSHProxy();
+				const useLocalSSH = await this.experiments.getUseLocalSSHProxy();
+				sshFlow.useLocalSSH = String(useLocalSSH);
 				if (!forceUseLocalApp && useLocalSSH) {
 					const openSSHVersion = await getOpenSSHVersion();
 					const localSSHFlow: UserFlowTelemetryProperties = { kind: 'local-ssh', openSSHVersion, userOverride, ...sshFlow };
