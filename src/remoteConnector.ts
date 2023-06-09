@@ -687,40 +687,50 @@ export class RemoteConnector extends Disposable {
 				this.usePublicApi = await this.experiments.getUsePublicAPI(params.gitpodHost);
 				this.logService.info(`Going to use ${this.usePublicApi ? 'public' : 'server'} API`);
 
-				let useLocalSSH = await this.experiments.getUseLocalSSHProxy();
-				if (useLocalSSH) {
-					// If needed, revert local-app changes first
-					await this.updateRemoteSSHConfig(true, undefined);
-
-					this.localSSHService.flow = sshFlow;
-					const [isSupportLocalSSH, isExtensionServerReady] = await Promise.all([
-						this.localSSHService.initialize(),
-						this.localSSHService.extensionServerReady()
-					]);
-					if (!isExtensionServerReady) {
-						this.logService.error('Extension IPC server is not ready');
-						useLocalSSH = false;
-					}
-					if (!isSupportLocalSSH) {
-						this.logService.error('Local SSH is not supported on this platform');
-						useLocalSSH = false;
-					}
-				}
-				if (useLocalSSH) {
-					this.logService.info('Going to use lssh');
-				}
-
 				const forceUseLocalApp = Configuration.getUseLocalApp();
 				const userOverride = String(isUserOverrideSetting('gitpod.remote.useLocalApp'));
 				let sshDestination: SSHDestination | undefined;
-				if (!forceUseLocalApp) {
+				let useLocalSSH = await this.experiments.getUseLocalSSHProxy();
+				if (!forceUseLocalApp && useLocalSSH) {
 					const openSSHVersion = await getOpenSSHVersion();
-					const gatewayFlow: UserFlowTelemetryProperties = { kind: useLocalSSH ? 'local-ssh' : 'gateway', openSSHVersion, userOverride, ...sshFlow };
+					const localSSHFlow: UserFlowTelemetryProperties = { kind: 'local-ssh', openSSHVersion, userOverride, ...sshFlow };
+					try {
+						this.telemetryService.sendUserFlowStatus('connecting', localSSHFlow);
+						// If needed, revert local-app changes first
+						await this.updateRemoteSSHConfig(true, undefined);
+
+						this.localSSHService.flow = sshFlow;
+						const [isSupportLocalSSH, isExtensionServerReady] = await Promise.all([
+							this.localSSHService.initialize(),
+							this.localSSHService.extensionServerReady()
+						]);
+						if (!isExtensionServerReady) {
+							throw new Error('NoExtensionIPCServer')
+						}
+						if (!isSupportLocalSSH) {
+							throw new Error('NoLocalSSHSupport')
+						}
+						this.logService.info('Going to use lssh');
+
+						const { destination } = await this.getLocalSSHWorkspaceSSHDestination(params);
+						params.connType = 'local-ssh';
+						sshDestination = destination;
+						
+						this.telemetryService.sendUserFlowStatus('connected', localSSHFlow);
+					} catch (e) {
+						this.telemetryService.sendUserFlowStatus('failed', { ...localSSHFlow, reason: e.toString() });
+						this.logService.error(`Local SSH: failed to connect to ${params.workspaceId} Gitpod workspace:`, e);
+					}
+				}
+
+				if (!forceUseLocalApp && sshDestination === undefined) {
+					const openSSHVersion = await getOpenSSHVersion();
+					const gatewayFlow: UserFlowTelemetryProperties = { kind: 'gateway', openSSHVersion, userOverride, ...sshFlow };
 					try {
 						this.telemetryService.sendUserFlowStatus('connecting', gatewayFlow);
 
-						const { destination, password } = useLocalSSH ? await this.getLocalSSHWorkspaceSSHDestination(params) : await this.getWorkspaceSSHDestination(params);
-						params.connType = useLocalSSH ? 'local-ssh' : 'ssh-gateway';
+						const { destination, password } = await this.getWorkspaceSSHDestination(params);
+						params.connType = 'ssh-gateway';
 
 						sshDestination = destination;
 
@@ -771,7 +781,7 @@ export class RemoteConnector extends Disposable {
 
 				const usingSSHGateway = !!sshDestination;
 				let localAppSSHConfigPath: string | undefined;
-				if (!usingSSHGateway && !params.debugWorkspace) {
+				if (sshDestination === undefined && !params.debugWorkspace) {
 					// debug workspace does not support local app mode
 					const localAppFlow = { kind: 'local-app', userOverride, ...sshFlow };
 					try {
