@@ -253,10 +253,13 @@ export class RemoteSession extends Disposable {
 
 	private async showRevertGitpodHostDialog() {
 		const flow: UserFlowTelemetryProperties = { ...this.connectionInfo, flow: 'remote_session' };
-		const revert = 'Revert change';
-		const action = await this.notificationService.showErrorMessage(`Cannot change 'gitpod.host' setting while connected to a remote workspace`, { id: 'switch_gitpod_host_remote', flow, modal: true }, revert);
+		const revert: vscode.MessageItem = { title: 'Revert change' };
+		const close: vscode.MessageItem = { title: 'Close window', isCloseAffordance: true };
+		const action = await this.notificationService.showErrorMessage(`Cannot change 'gitpod.host' setting while connected to a remote workspace`, { id: 'switch_gitpod_host_remote', flow, modal: true }, revert, close);
 		if (action === revert) {
 			await this.hostService.changeHost(this.connectionInfo.gitpodHost, true);
+		} else if (action === close) {
+			vscode.commands.executeCommand('workbench.action.remote.close');
 		}
 	}
 

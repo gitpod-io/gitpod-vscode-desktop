@@ -669,7 +669,7 @@ export class RemoteConnector extends Disposable {
 		}
 
 		await this.sessionService.signIn(params.gitpodHost);
-		if (!this.sessionService.isSignedIn()) {
+		if (!this.sessionService.isSignedIn() || new URL(this.hostService.gitpodHost).host !== new URL(params.gitpodHost).host /* remote window case so host didn't update*/) {
 			return;
 		}
 
