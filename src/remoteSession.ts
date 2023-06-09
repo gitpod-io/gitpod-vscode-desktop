@@ -45,7 +45,11 @@ export class RemoteSession extends Disposable {
 
 		this._register(this.sessionService.onDidChangeSession(() => {
 			if (!this.sessionService.isSignedIn()) {
-				this.showSignInDialog();
+				if (new URL(this.hostService.gitpodHost).host !== new URL(connectionInfo.gitpodHost).host) {
+					this.showRevertGitpodHostDialog();
+				} else {
+					this.showSignInDialog();
+				}
 			} else if (new URL(this.hostService.gitpodHost).host !== new URL(connectionInfo.gitpodHost).host) {
 				this.showRevertGitpodHostDialog();
 			}
