@@ -31,6 +31,19 @@ export interface ISessionService {
     didFirstLoad: Promise<void>;
 }
 
+const sessionScopes = [
+    'function:getWorkspaces',
+    'function:getWorkspace',
+    'function:startWorkspace',
+    'function:stopWorkspace',
+    'function:deleteWorkspace',
+    'function:getSSHPublicKeys',
+    'function:sendHeartBeat',
+    'function:getOwnerToken',
+    'function:getLoggedInUser',
+    'resource:default'
+];
+
 export class SessionService extends Disposable implements ISessionService {
 
     private readonly _onDidChangeSession = this._register(new vscode.EventEmitter<void>());
@@ -115,14 +128,6 @@ export class SessionService extends Disposable implements ISessionService {
         try {
             if (this.session && !force) {
                 return;
-            }
-
-            const gitpodVersion = await this.hostService.getVersion();
-            const sessionScopes = ['function:getWorkspace', 'function:getOwnerToken', 'function:getLoggedInUser', 'resource:default'];
-            if (await isOauthInspectSupported(this.hostService.gitpodHost) || isFeatureSupported(gitpodVersion, 'SSHPublicKeys') /* && isFeatureSupported('', 'sendHeartBeat') */) {
-                sessionScopes.push('function:getSSHPublicKeys', 'function:sendHeartBeat');
-            } else {
-                this.logger.warn(`function:getSSHPublicKeys and function:sendHeartBeat session scopes not supported in ${this.hostService.gitpodHost}, using version ${gitpodVersion.raw}`);
             }
 
             this.session = await vscode.authentication.getSession(
