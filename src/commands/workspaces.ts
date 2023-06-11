@@ -30,7 +30,11 @@ export class ConnectInCurrentWindowCommandInternal implements Command {
 					wsState = new WorkspaceState(workspaceId, this.sessionService, this.logService);
 					await wsState.initialize();
 
-					if (!wsState.isWorkspaceStopped) {
+					if (wsState.isWorkspaceRunning) {
+						return true;
+					}
+
+					if (wsState.isWorkspaceStopping) {
 						return false;
 					}
 
