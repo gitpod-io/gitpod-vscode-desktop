@@ -136,7 +136,16 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
                 clearTimeout(stopTimer);
                 await timeout(1000);
                 if (isDisposed) { return; }
-                [stream, stopTimer] = this._streamWorkspaceStatus(workspaceId, emitter, onStreamEnd);
+                this.grpcWorkspaceClient.getWorkspace({ workspaceId }, (err, resp) => {
+                    if (isDisposed) { return; }
+                    if (err) {
+                        this.logger.error(`Error in streamWorkspaceStatus(getWorkspace) for ${workspaceId}`, err);
+                        onStreamEnd();
+                        return;
+                    }
+                    emitter.fire(resp.result!.status!);
+                    [stream, stopTimer] = this._streamWorkspaceStatus(workspaceId, emitter, onStreamEnd);
+                });
             };
             let [stream, stopTimer] = this._streamWorkspaceStatus(workspaceId, emitter, onStreamEnd);
 
@@ -170,7 +179,7 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
             onStreamEnd();
         });
         stream.on('error', (err) => {
-            this.logger.trace(`Error in streamWorkspaceStatus for ${workspaceId}`, err);
+            this.logger.error(`Error in streamWorkspaceStatus for ${workspaceId}`, err);
         });
 
         // force reconnect after 7m to avoid unexpected 10m reconnection (internal error)
