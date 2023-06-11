@@ -44,7 +44,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	const extensionId = context.extension.id;
 	const packageJSON = context.extension.packageJSON;
 
-	let remoteConnectionInfo: { remoteAuthority: string; connectionInfo: SSHConnectionParams } | undefined;
+	let remoteConnectionInfo: { connectionInfo: SSHConnectionParams; remoteUri: vscode.Uri; sshDestStr: string } | undefined;
 	let success = false;
 	try {
 		logger = vscode.window.createOutputChannel('Gitpod', { log: true });
