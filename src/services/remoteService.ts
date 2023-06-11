@@ -234,7 +234,7 @@ export class RemoteService extends Disposable implements IRemoteService {
         this.logService.error(msg);
 
         const startWorkspace: vscode.MessageItem = { title: 'Start workspace' };
-        const resp = await this.notificationService.showErrorMessage(msg, { id: 'ws_not_running', flow, modal: true }, startWorkspace);
+        const resp = await this.notificationService.showErrorMessage(msg, { id: 'ws_not_running', flow }, startWorkspace);
         if (resp === startWorkspace) {
             vscode.commands.executeCommand('gitpod.workspaces.connectInCurrentWindow', workspaceId, gitpodHost, vscode.Uri.parse(remoteUri));
         }
