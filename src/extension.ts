@@ -134,7 +134,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		const rawActivateProperties = {
 			gitpodHost: remoteConnectionInfo?.connectionInfo.gitpodHost || Configuration.getGitpodHost(),
 			isRemoteSSH: String(vscode.env.remoteName === 'ssh-remote'),
-			remoteUri: remoteConnectionInfo?.remoteUri,
+			remoteUri: remoteConnectionInfo?.remoteUri?.toString(),
 			workspaceId: remoteConnectionInfo?.connectionInfo.workspaceId || '',
 			instanceId: remoteConnectionInfo?.connectionInfo.instanceId || '',
 			debugWorkspace: remoteConnectionInfo ? String(!!remoteConnectionInfo.connectionInfo.debugWorkspace) : '',
