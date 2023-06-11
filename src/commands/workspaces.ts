@@ -53,7 +53,7 @@ export class ConnectInCurrentWindowCommandInternal implements Command {
 		} else {
 			const retry = 'Retry';
 			const cancel = 'Cancel';
-			const resp = await vscode.window.showInformationMessage(`Cannot start workspace ${workspaceId}. Please wait until the previous instance is completely stopped and try again`, retry, cancel);
+			const resp = await vscode.window.showInformationMessage(`Cannot start workspace ${workspaceId}. Please wait until the previous instance is completely stopped and try again.`, retry, cancel);
 			if (resp === retry) {
 				vscode.commands.executeCommand('gitpod.workspaces.connectInCurrentWindow_internal', workspaceId, gitpodHost, remoteUri);
 			}
