@@ -21,7 +21,8 @@ import { CommandManager } from './commandManager';
 import { SignInCommand } from './commands/account';
 import { ExportLogsCommand } from './commands/logs';
 import { Configuration } from './configuration';
-import { LocalSSHService } from './services/localSSHService';
+import { RemoteService } from './services/remoteService';
+import { ConnectInCurrentWindowCommandInternal } from './commands/workspaces';
 
 // connect-web uses fetch api, so we need to polyfill it
 if (!global.fetch) {
@@ -38,7 +39,6 @@ const FIRST_INSTALL_KEY = 'gitpod-desktop.firstInstall';
 let telemetryService: TelemetryService | undefined;
 let remoteSession: RemoteSession | undefined;
 let logger: vscode.LogOutputChannel | undefined;
-let hostService: HostService | undefined;
 
 export async function activate(context: vscode.ExtensionContext) {
 	const extensionId = context.extension.id;
@@ -76,14 +76,14 @@ export async function activate(context: vscode.ExtensionContext) {
 		const authProvider = new GitpodAuthenticationProvider(context, logger, telemetryService, notificationService);
 		context.subscriptions.push(authProvider);
 
-		hostService = new HostService(context, notificationService, logger);
+		const hostService = new HostService(context, notificationService, logger);
 		context.subscriptions.push(hostService);
 
 		const sessionService = new SessionService(hostService, logger);
 		context.subscriptions.push(sessionService);
 
-		const localSSHService = new LocalSSHService(context, hostService, telemetryService, sessionService, logger);
-		context.subscriptions.push(localSSHService);
+		const remoteService = new RemoteService(context, hostService, notificationService, telemetryService, sessionService, logger);
+		context.subscriptions.push(remoteService);
 
 		const experiments = new ExperimentalSettings(packageJSON.configcatKey, packageJSON.version, context, sessionService, hostService, logger);
 		context.subscriptions.push(experiments);
@@ -91,7 +91,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		const settingsSync = new SettingsSync(commandManager, logger, telemetryService, notificationService);
 		context.subscriptions.push(settingsSync);
 
-		const remoteConnector = new RemoteConnector(context, sessionService, hostService, experiments, logger, telemetryService, notificationService, localSSHService);
+		const remoteConnector = new RemoteConnector(context, sessionService, hostService, experiments, logger, telemetryService, notificationService, remoteService);
 		context.subscriptions.push(remoteConnector);
 
 		context.subscriptions.push(vscode.window.registerUriHandler({
@@ -108,6 +108,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		// Register global commands
 		commandManager.register(new SignInCommand(sessionService));
 		commandManager.register(new ExportLogsCommand(context.logUri, notificationService, telemetryService, logger, hostService));
+		commandManager.register(new ConnectInCurrentWindowCommandInternal(sessionService, logger));
 
 		if (!context.globalState.get<boolean>(FIRST_INSTALL_KEY, false)) {
 			context.globalState.update(FIRST_INSTALL_KEY, true);
@@ -120,15 +121,18 @@ export async function activate(context: vscode.ExtensionContext) {
 			if (remoteConnectionInfo) {
 				commandManager.register({ id: 'gitpod.api.autoTunnel', execute: () => remoteConnector.autoTunnelCommand });
 
-				remoteSession = new RemoteSession(remoteConnectionInfo.remoteAuthority, remoteConnectionInfo.connectionInfo, context, hostService!, sessionService, settingsSync, experiments, logger!, telemetryService!, notificationService);
+				remoteSession = new RemoteSession(remoteConnectionInfo.connectionInfo, context, hostService, sessionService, settingsSync, experiments, logger!, telemetryService!, notificationService, remoteService);
 				await remoteSession.initialize();
+			} else if (sessionService.isSignedIn()) {
+				const restartFlow = { flow: 'restart_workspace', userId: sessionService.getUserId(), gitpodHost: hostService.gitpodHost };
+				remoteService.checkForStoppedWorkspaces(restartFlow);
 			}
 		});
 
 		success = true;
 	} finally {
 		const rawActivateProperties = {
-			gitpodHost: remoteConnectionInfo?.connectionInfo.gitpodHost || hostService?.gitpodHost || Configuration.getGitpodHost(),
+			gitpodHost: remoteConnectionInfo?.connectionInfo.gitpodHost || Configuration.getGitpodHost(),
 			isRemoteSSH: String(vscode.env.remoteName === 'ssh-remote'),
 			remoteUri: vscode.workspace.workspaceFile?.toString() || vscode.workspace.workspaceFolders?.[0].uri.toString() || '',
 			workspaceId: remoteConnectionInfo?.connectionInfo.workspaceId || '',

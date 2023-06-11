@@ -33,7 +33,8 @@ function isTelemetryEnabled(): boolean {
 }
 
 export interface IGitpodAPI {
-    getWorkspace(workspaceId: string): Promise<Workspace | undefined>;
+    getWorkspace(workspaceId: string): Promise<Workspace>;
+    startWorkspace(workspaceId: string): Promise<Workspace>;
     getOwnerToken(workspaceId: string): Promise<string>;
     getSSHKeys(): Promise<SSHKey[]>;
     sendHeartbeat(workspaceId: string): Promise<void>;
@@ -91,10 +92,14 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
             this.metricsReporter.startReporting();
         }
     }
-
-    async getWorkspace(workspaceId: string): Promise<Workspace | undefined> {
+    async getWorkspace(workspaceId: string): Promise<Workspace> {
         const response = await this.workspaceService.getWorkspace({ workspaceId });
-        return response.result;
+        return response.result!;
+    }
+
+    async startWorkspace(workspaceId: string): Promise<Workspace> {
+        const response = await this.workspaceService.startWorkspace({ workspaceId });
+        return response.result!;
     }
 
     async getOwnerToken(workspaceId: string): Promise<string> {

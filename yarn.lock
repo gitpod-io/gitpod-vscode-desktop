@@ -108,22 +108,25 @@
     minimatch "^3.1.2"
     strip-json-comments "^3.1.1"
 
-"@gitpod/gitpod-protocol@main":
-  version "0.1.5-main.4288"
-  resolved "https://registry.yarnpkg.com/@gitpod/gitpod-protocol/-/gitpod-protocol-0.1.5-main.4288.tgz#94eef0b19d7ab2d9bd0d7e66b403178a456f31bb"
-  integrity sha512-MlFKLCbO+F/uwZFsawx2NiFJTjs1nKX3l+NMEGmgpAJ5mBa4N9DxWtGyxg5bnu78DHytr0T8wNyl9yOd3muRiw==
+"@gitpod/gitpod-protocol@main-gha":
+  version "0.1.5-main-gha.11049"
+  resolved "https://registry.yarnpkg.com/@gitpod/gitpod-protocol/-/gitpod-protocol-0.1.5-main-gha.11049.tgz#1b6f3672c790e882d0863ee336e5729d6b5f06e8"
+  integrity sha512-Ka9V2igg7/IjRp2BaddSHxJrdAXxBei4062VmhP983oMqNdERIr/GNPJle3J3oDPAGNojDTHWoR9OaK6lnegMA==
   dependencies:
     "@types/react" "17.0.32"
+    abort-controller-x "^0.4.0"
     ajv "^6.5.4"
     analytics-node "^6.0.0"
     configcat-node "^8.0.0"
     cookie "^0.4.2"
     express "^4.17.3"
-    google-protobuf "^3.18.0-rc.2"
+    google-protobuf "^3.19.1"
     inversify "^5.1.1"
     jaeger-client "^3.18.1"
     js-yaml "^3.10.0"
+    nice-grpc-common "^2.0.0"
     opentracing "^0.14.5"
+    parse-duration "^1.0.3"
     prom-client "^13.2.0"
     random-number-csprng "^1.0.2"
     react "17.0.2"
@@ -138,37 +141,37 @@
     vscode-ws-jsonrpc "^0.2.0"
     ws "^7.4.6"
 
-"@gitpod/local-app-api-grpcweb@main":
-  version "0.1.5-main.3370"
-  resolved "https://registry.yarnpkg.com/@gitpod/local-app-api-grpcweb/-/local-app-api-grpcweb-0.1.5-main.3370.tgz#38558265d8bf8ca2b1d6259d62ed9af5b74ec0a3"
-  integrity sha512-uVS/WQlzUkmoNR+GopgA94sXdqNqCTk99coAUEDsohiLTZ1iF2CNzbVXerZl1/oKg6+aucEFsxL75UAD9p+KBg==
+"@gitpod/local-app-api-grpcweb@main-gha":
+  version "0.1.5-main-gha.11049"
+  resolved "https://registry.yarnpkg.com/@gitpod/local-app-api-grpcweb/-/local-app-api-grpcweb-0.1.5-main-gha.11049.tgz#3b8d1bac06ebca576e22acf7b63ff25661290d26"
+  integrity sha512-LYKxbBhJZCljo281vPbXL+Qb/LIMcFSK7i5tMxxzfNMrKPtqkjoVAlAQCvXhG/6Vtdh3yuivgsrY5pOBGE5Y7A==
   dependencies:
-    "@gitpod/supervisor-api-grpcweb" "0.1.5-main.3370"
+    "@gitpod/supervisor-api-grpcweb" "0.1.5-main-gha.11049"
     "@improbable-eng/grpc-web" "0.14.0"
     google-protobuf "^3.19.1"
 
-"@gitpod/public-api@^0.1.5-main.6530":
-  version "0.1.5-main.6530"
-  resolved "https://registry.yarnpkg.com/@gitpod/public-api/-/public-api-0.1.5-main.6530.tgz#715eea09fb916c4c3d066ef277907f87feea5cca"
-  integrity sha512-dEccJwbIUHIx3lYsMX7knIs5j110sXK9Kt1SVZzR2gzpK8voI8efggC7TJuEzHVNZNgvr88HsxKp5BfSwTB7hQ==
+"@gitpod/public-api@main-gha":
+  version "0.1.5-main-gha.11049"
+  resolved "https://registry.yarnpkg.com/@gitpod/public-api/-/public-api-0.1.5-main-gha.11049.tgz#03b2efc3fae449f1fb598303d112b27780a5a5b7"
+  integrity sha512-MlWod/spJgbMTiLPHFUZj8EJEXNwt8zWF8+tWyB/8qx5YcZX8HHpQ5PdbQQM5+PWEdi6EhgnZsMNFKD3i458/w==
   dependencies:
     "@bufbuild/connect-web" "^0.2.1"
     "@bufbuild/protobuf" "^0.1.1"
     "@bufbuild/protoc-gen-connect-web" "^0.2.1"
     "@bufbuild/protoc-gen-es" "^0.1.1"
 
-"@gitpod/supervisor-api-grpc@0.1.5-main.6711":
-  version "0.1.5-main.6711"
-  resolved "https://registry.yarnpkg.com/@gitpod/supervisor-api-grpc/-/supervisor-api-grpc-0.1.5-main.6711.tgz#09511aa55f345029a5c3d529c7e799a3b744d321"
-  integrity sha512-lwJtneN/08JXb+HuYPbjnWOvtP7NKwMiferjzLRasJ83H+P1ngL8ubFZYqJT0gK2/uSnLerYLXaEaPhcxAlvLw==
+"@gitpod/supervisor-api-grpc@main-gha":
+  version "0.1.5-main-gha.11049"
+  resolved "https://registry.yarnpkg.com/@gitpod/supervisor-api-grpc/-/supervisor-api-grpc-0.1.5-main-gha.11049.tgz#1917887380068691fb1f5ed0136e9c444a39a9e5"
+  integrity sha512-Ldrh8a8lWr4us+vzG/mYveY1bj1ZHKHArNZB51n7gnPiK+RWC8PVk1wZunWC82NJQpsNxjkr2x4tFeJDpEXeAA==
   dependencies:
     "@grpc/grpc-js" "^1.3.7"
     google-protobuf "^3.19.1"
 
-"@gitpod/supervisor-api-grpcweb@0.1.5-main.3370":
-  version "0.1.5-main.3370"
-  resolved "https://registry.yarnpkg.com/@gitpod/supervisor-api-grpcweb/-/supervisor-api-grpcweb-0.1.5-main.3370.tgz#02959d689137c02709609399d2caf8410a845908"
-  integrity sha512-qo5I6u5zH3VuGtMhOhJeBIOq0vitJvITSNSXzc6tic3fDXDPsKSiSRXtn1P0AWH+d5L4FKvWkQThbLs6SZwXxQ==
+"@gitpod/supervisor-api-grpcweb@0.1.5-main-gha.11049":
+  version "0.1.5-main-gha.11049"
+  resolved "https://registry.yarnpkg.com/@gitpod/supervisor-api-grpcweb/-/supervisor-api-grpcweb-0.1.5-main-gha.11049.tgz#4b9d75db7c298e675f8aaca93019e44e6ae92e36"
+  integrity sha512-p26m9TqWptvfktWmlVOohJ4lLadbg18yMDhYwztwy/J2ike3dOgos4gIvrvzx6fIbHeiTmwsSjRt4ReV0ipQlw==
   dependencies:
     "@improbable-eng/grpc-web" "^0.14.0"
 
@@ -2185,7 +2188,7 @@ globby@^13.1.1:
     merge2 "^1.4.1"
     slash "^4.0.0"
 
-google-protobuf@^3.18.0-rc.2, google-protobuf@^3.19.1:
+google-protobuf@^3.19.1:
   version "3.21.0"
   resolved "https://registry.yarnpkg.com/google-protobuf/-/google-protobuf-3.21.0.tgz#8dfa3fca16218618d373d414d3c1139e28034d6e"
   integrity sha512-byR7MBTK4tZ5PZEb+u5ZTzpt4SfrTxv5682MjPlHN16XeqgZE2/8HOIWeiXe8JKnT9OVbtBGhbq8mtvkK8cd5g==
@@ -2865,10 +2868,10 @@ neo-async@^2.6.2:
   resolved "https://registry.yarnpkg.com/neo-async/-/neo-async-2.6.2.tgz#b4aafb93e3aeb2d8174ca53cf163ab7d7308305f"
   integrity sha512-Yd3UES5mWCSqR+qNT93S3UoYUkqAZ9lLg8a7g9rimsWmYGK8cVToA4/sF3RrshdyV3sAGMXVUmpMYOw+dLpOuw==
 
-nice-grpc-common@^2.0.1:
-  version "2.0.1"
-  resolved "https://registry.yarnpkg.com/nice-grpc-common/-/nice-grpc-common-2.0.1.tgz#2291d3d9c321eb9829a48d6e1c061b29363bc283"
-  integrity sha512-QbQ8nAALQagN4VukmTGwEWKzVtgQr3YwWP9okIzoMCmx0mLTswBFpyOUbKlG4cOm7NDaIFmbmtleQR9EWmNtrw==
+nice-grpc-common@^2.0.0, nice-grpc-common@^2.0.1:
+  version "2.0.2"
+  resolved "https://registry.yarnpkg.com/nice-grpc-common/-/nice-grpc-common-2.0.2.tgz#e6aeebb2bd19d87114b351e291e30d79dd38acf7"
+  integrity sha512-7RNWbls5kAL1QVUOXvBsv1uO0wPQK3lHv+cY1gwkTzirnG1Nop4cBJZubpgziNbaVc/bl9QJcyvsf/NQxa3rjQ==
   dependencies:
     ts-error "^1.0.6"
 
@@ -3056,6 +3059,11 @@ parent-module@^1.0.0:
   integrity sha512-GQ2EWRpQV8/o+Aw8YqtfZZPfNRWZYkbidE9k5rpl/hC3vtHHBfGm2Ifi6qWV+coDGkrUKZAxE3Lot5kcsRlh+g==
   dependencies:
     callsites "^3.0.0"
+
+parse-duration@^1.0.3:
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/parse-duration/-/parse-duration-1.1.0.tgz#5192084c5d8f2a3fd676d04a451dbd2e05a1819c"
+  integrity sha512-z6t9dvSJYaPoQq7quMzdEagSFtpGu+utzHqqxmpVWNNZRIXnvqyCvn9XsTdh7c/w0Bqmdz3RB3YnRaKtpRtEXQ==
 
 parse-semver@^1.1.1:
   version "1.1.1"

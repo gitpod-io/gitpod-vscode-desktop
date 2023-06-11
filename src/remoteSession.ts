@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { v4 as uuid } from 'uuid';
-import { NoRunningInstanceError, SSHConnectionParams, SSH_DEST_KEY, showWsNotRunningDialog } from './remote';
+import { NoRunningInstanceError, SSHConnectionParams, SSH_DEST_KEY, getGitpodRemoteWindowConnectionInfo } from './remote';
 import { Disposable } from './common/dispose';
 import { HeartbeatManager } from './heartbeat';
 import { WorkspaceState } from './workspaceState';
@@ -20,6 +20,7 @@ import { ISessionService } from './services/sessionService';
 import { IHostService } from './services/hostService';
 import { ILogService } from './services/logService';
 import { ExtensionServiceServer } from './local-ssh/ipc/extensionServiceServer';
+import { IRemoteService } from './services/remoteService';
 
 export class RemoteSession extends Disposable {
 
@@ -30,7 +31,6 @@ export class RemoteSession extends Disposable {
 	private extensionServiceServer: ExtensionServiceServer | undefined;
 
 	constructor(
-		private readonly remoteAuthority: string,
 		private connectionInfo: SSHConnectionParams,
 		private readonly context: vscode.ExtensionContext,
 		private readonly hostService: IHostService,
@@ -40,6 +40,7 @@ export class RemoteSession extends Disposable {
 		private readonly logService: ILogService,
 		private readonly telemetryService: ITelemetryService,
 		private readonly notificationService: INotificationService,
+		private readonly remoteService: IRemoteService,
 	) {
 		super();
 
@@ -73,28 +74,36 @@ export class RemoteSession extends Disposable {
 			this.usePublicApi = await this.experiments.getUsePublicAPI(this.connectionInfo.gitpodHost);
 			this.logService.info(`Going to use ${this.usePublicApi ? 'public' : 'server'} API`);
 
-			const workspaceInfo = await withServerApi(this.sessionService.getGitpodToken(), this.connectionInfo.gitpodHost, service => service.server.getWorkspace(this.connectionInfo.workspaceId), this.logService);
-			if (!workspaceInfo.latestInstance || workspaceInfo.latestInstance?.status?.phase === 'stopping' || workspaceInfo.latestInstance?.status?.phase === 'stopped') {
-				throw new NoRunningInstanceError(this.connectionInfo.workspaceId, workspaceInfo.latestInstance?.status?.phase);
-			}
-			if (workspaceInfo.latestInstance.id !== this.connectionInfo.instanceId) {
-				this.logService.info(`Updating workspace ${this.connectionInfo.workspaceId} latest instance id ${this.connectionInfo.instanceId} => ${workspaceInfo.latestInstance.id}`);
-				this.connectionInfo.instanceId = workspaceInfo.latestInstance.id;
-			}
-
-			const [, sshDestStr] = this.remoteAuthority.split('+');
-			await this.context.globalState.update(`${SSH_DEST_KEY}${sshDestStr}`, { ...this.connectionInfo } as SSHConnectionParams);
-
-			const gitpodVersion = await this.hostService.getVersion();
-
+			let instanceId: string;
 			if (this.usePublicApi) {
 				this.workspaceState = new WorkspaceState(this.connectionInfo.workspaceId, this.sessionService, this.logService);
 				await this.workspaceState.initialize();
-				this._register(this.workspaceState.onWorkspaceStopped(async () => {
-					const remoteFlow: UserFlowTelemetryProperties = { ...this.connectionInfo, userId: this.sessionService.getUserId(), flow: 'remote_window', phase: 'stopped' };
-					showWsNotRunningDialog(this.connectionInfo.workspaceId, this.connectionInfo.gitpodHost, remoteFlow, this.notificationService, this.logService);
+				if (!this.workspaceState.instanceId || !this.workspaceState.isWorkspaceRunning) {
+					throw new NoRunningInstanceError(this.connectionInfo.workspaceId, this.workspaceState.phase);
+				}
+
+				this._register(this.workspaceState.onWorkspaceWillStop(async () => {
+					await this.remoteService.saveRestartInfo();
+					vscode.commands.executeCommand('workbench.action.remote.close');
 				}));
+				instanceId = this.workspaceState.instanceId;
+			} else {
+				const workspaceInfo = await withServerApi(this.sessionService.getGitpodToken(), this.connectionInfo.gitpodHost, service => service.server.getWorkspace(this.connectionInfo.workspaceId), this.logService);
+				if (!workspaceInfo.latestInstance || workspaceInfo.latestInstance?.status?.phase === 'stopping' || workspaceInfo.latestInstance?.status?.phase === 'stopped') {
+					throw new NoRunningInstanceError(this.connectionInfo.workspaceId, workspaceInfo.latestInstance?.status?.phase);
+				}
+				instanceId = workspaceInfo.latestInstance.id;
 			}
+
+			if (instanceId !== this.connectionInfo.instanceId) {
+				this.logService.info(`Updating workspace ${this.connectionInfo.workspaceId} latest instance id ${this.connectionInfo.instanceId} => ${instanceId}`);
+				this.connectionInfo.instanceId = instanceId;
+			}
+
+			const { sshDestStr } = getGitpodRemoteWindowConnectionInfo(this.context)!;
+			await this.context.globalState.update(`${SSH_DEST_KEY}${sshDestStr}`, { ...this.connectionInfo } as SSHConnectionParams);
+
+			const gitpodVersion = await this.hostService.getVersion();
 
 			const heartbeatSupported = this.sessionService.getScopes().includes(ScopeFeature.LocalHeartbeat);
 			if (heartbeatSupported) {
@@ -105,18 +114,18 @@ export class RemoteSession extends Disposable {
 
 			const syncExtFlow = { ...this.connectionInfo, gitpodVersion: gitpodVersion.raw, userId: this.sessionService.getUserId(), flow: 'sync_local_extensions' };
 			this.initializeRemoteExtensions({ ...syncExtFlow, quiet: true, flowId: uuid() });
-			this.context.subscriptions.push(vscode.commands.registerCommand('gitpod.installLocalExtensions', () => {
+			this._register(vscode.commands.registerCommand('gitpod.installLocalExtensions', () => {
 				this.initializeRemoteExtensions({ ...syncExtFlow, quiet: false, flowId: uuid() });
 			}));
 
 			vscode.commands.executeCommand('setContext', 'gitpod.inWorkspace', true);
 		} catch (e) {
-			const remoteFlow: UserFlowTelemetryProperties = { ...this.connectionInfo, userId: this.sessionService.getUserId(), flow: 'remote_window' };
 			if (e instanceof NoRunningInstanceError) {
-				remoteFlow['phase'] = e.phase;
-				showWsNotRunningDialog(this.connectionInfo.workspaceId, this.connectionInfo.gitpodHost, remoteFlow, this.notificationService, this.logService);
+				await this.remoteService.saveRestartInfo();
+				vscode.commands.executeCommand('workbench.action.remote.close');
 				return;
 			}
+
 			e.message = `Failed to resolve whole gitpod remote connection process: ${e.message}`;
 			this.logService.error(e);
 			this.telemetryService.sendTelemetryException(e, {
@@ -125,6 +134,8 @@ export class RemoteSession extends Disposable {
 				instanceId: this.connectionInfo.instanceId,
 				userId: this.sessionService.getUserId()
 			});
+
+			const remoteFlow: UserFlowTelemetryProperties = { ...this.connectionInfo, userId: this.sessionService.getUserId(), flow: 'remote_window' };
 
 			this.logService.show();
 			const retry = 'Retry';
