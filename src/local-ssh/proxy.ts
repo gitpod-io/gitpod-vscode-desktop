@@ -139,11 +139,11 @@ class WebSocketSSHProxy {
                     pipePromise = session.pipe(pipeSession);
                     return {};
                 }).catch(async err => {
-                    let sendErrorReport = true
+                    let sendErrorReport = true;
                     if (err instanceof FailedToProxyError) {
                         this.flow.failureCode = err.failureCode;
                         if (IgnoredFailedCodes.includes(err.failureCode)) {
-                            sendErrorReport = false
+                            sendErrorReport = false;
                         }
                     }
                     await Promise.allSettled([

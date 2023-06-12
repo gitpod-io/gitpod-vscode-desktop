@@ -77,7 +77,7 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
         try {
             if (new URL(this.hostService.gitpodHost).host !== new URL(request.gitpodHost).host) {
                 this.logService.error(`gitpod host mismatch, actual: ${this.hostService.gitpodHost} target: ${request.gitpodHost}`);
-                throw new ServerError(Status.FAILED_PRECONDITION, 'gitpod host mismatch')
+                throw new ServerError(Status.FAILED_PRECONDITION, 'gitpod host mismatch');
             }
             const accessToken = this.sessionService.getGitpodToken();
             if (!accessToken) {
