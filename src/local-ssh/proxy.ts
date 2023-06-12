@@ -7,7 +7,7 @@ import { SshClient } from '@microsoft/dev-tunnels-ssh-tcp';
 import { NodeStream, SshClientCredentials, SshClientSession, SshDisconnectReason, SshServerSession, SshSessionConfiguration, Stream, WebSocketStream } from '@microsoft/dev-tunnels-ssh';
 import { importKey, importKeyBytes } from '@microsoft/dev-tunnels-ssh-keys';
 import { ExtensionServiceDefinition, GetWorkspaceAuthInfoResponse } from '../proto/typescript/ipc/v1/ipc';
-import { Client, createChannel, createClient } from 'nice-grpc';
+import { Client, ClientError, Status, createChannel, createClient } from 'nice-grpc';
 import { retry } from '../common/async';
 import { WebSocket } from 'ws';
 import * as stream from 'stream';
@@ -41,7 +41,7 @@ function getClientOptions(): ClientOptions {
     };
 }
 
-type FailedToProxyCode = 'SSH.AuthenticationFailed' | 'TUNNEL.AuthenticateSSHKeyFailed' | 'NoRunningInstance' | 'FailedToGetAuthInfo';
+type FailedToProxyCode = 'SSH.AuthenticationFailed' | 'TUNNEL.AuthenticateSSHKeyFailed' | 'NoRunningInstance' | 'FailedToGetAuthInfo' | 'GitpodHostMismatch' | 'NoAccessTokenFound';
 
 // IgnoredFailedCodes contains the failreCode that don't need to send error report
 const IgnoredFailedCodes: FailedToProxyCode[] = ['NoRunningInstance'];
@@ -236,6 +236,13 @@ class WebSocketSSHProxy {
     async retryGetWorkspaceInfo(username: string) {
         return retry(async () => {
             return this.extensionIpc.getWorkspaceAuthInfo({ workspaceId: username, gitpodHost: this.options.host }).catch(e => {
+                if (e instanceof ClientError) {
+                    if (e.code === Status.FAILED_PRECONDITION && e.message.includes('gitpod host mismatch')) {
+                        throw new FailedToProxyError('GitpodHostMismatch', e);
+                    } else if (e.code === Status.INTERNAL && e.message.includes('no access token found')) {
+                        throw new FailedToProxyError('NoAccessTokenFound', e);
+                    }
+                }
                 throw new FailedToProxyError('FailedToGetAuthInfo', e);
             });
         }, 200, 50);
