@@ -9,80 +9,80 @@ import { INotificationService } from './services/notificationService';
 import { ILogService } from './services/logService';
 
 export interface SSHConnectionParams {
-    workspaceId: string;
-    instanceId: string;
-    gitpodHost: string;
-    debugWorkspace?: boolean;
-    connType?: 'local-app' | 'local-ssh' | 'ssh-gateway';
+	workspaceId: string;
+	instanceId: string;
+	gitpodHost: string;
+	debugWorkspace?: boolean;
+	connType?: 'local-app' | 'local-ssh' | 'ssh-gateway';
 }
 
 export interface WorkspaceRestartInfo {
-    workspaceId: string;
-    gitpodHost: string;
+	workspaceId: string;
+	gitpodHost: string;
 }
 
 export class NoRunningInstanceError extends Error {
 	code = 'NoRunningInstanceError';
-    constructor(readonly workspaceId: string, readonly phase?: string) {
-        super(`Failed to connect to ${workspaceId} Gitpod workspace, workspace not running: ${phase}`);
-    }
+	constructor(readonly workspaceId: string, readonly phase?: string) {
+		super(`Failed to connect to ${workspaceId} Gitpod workspace, workspace not running: ${phase}`);
+	}
 }
 
 export class NoSSHGatewayError extends Error {
 	code = 'NoSSHGatewayError';
-    constructor(readonly host: string) {
-        super(`SSH gateway not configured for this Gitpod Host ${host}`);
-    }
+	constructor(readonly host: string) {
+		super(`SSH gateway not configured for this Gitpod Host ${host}`);
+	}
 }
 
 export class NoExtensionIPCServerError extends Error {
-    code = 'NoExtensionIPCServer';
-    constructor() {
-        super('NoExtensionIPCServer');
-    }
+	code = 'NoExtensionIPCServer';
+	constructor() {
+		super('NoExtensionIPCServer');
+	}
 }
 
 export class NoLocalSSHSupportError extends Error {
-    code = 'NoLocalSSHSupport';
-    constructor() {
-        super('NoLocalSSHSupport');
-    }
+	code = 'NoLocalSSHSupport';
+	constructor() {
+		super('NoLocalSSHSupport');
+	}
 }
 
 export const SSH_DEST_KEY = 'ssh-dest:';
 
 export function getGitpodRemoteWindowConnectionInfo(context: vscode.ExtensionContext): { remoteAuthority: string; connectionInfo: SSHConnectionParams } | undefined {
-    const remoteUri = vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.[0].uri;
-    if (vscode.env.remoteName === 'ssh-remote' && context.extension.extensionKind === vscode.ExtensionKind.UI && remoteUri) {
-        const [, sshDestStr] = remoteUri.authority.split('+');
-        const connectionInfo = context.globalState.get<SSHConnectionParams>(`${SSH_DEST_KEY}${sshDestStr}`);
-        if (connectionInfo) {
-            return { remoteAuthority: remoteUri.authority, connectionInfo };
-        }
-    }
+	const remoteUri = vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.[0].uri;
+	if (vscode.env.remoteName === 'ssh-remote' && context.extension.extensionKind === vscode.ExtensionKind.UI && remoteUri) {
+		const [, sshDestStr] = remoteUri.authority.split('+');
+		const connectionInfo = context.globalState.get<SSHConnectionParams>(`${SSH_DEST_KEY}${sshDestStr}`);
+		if (connectionInfo) {
+			return { remoteAuthority: remoteUri.authority, connectionInfo };
+		}
+	}
 
-    return undefined;
+	return undefined;
 }
 
 export async function showWsNotRunningDialog(workspaceId: string, gitpodHost: string, flow: UserFlowTelemetryProperties, notificationService: INotificationService, logService: ILogService) {
-    const msg = `Workspace ${workspaceId} is not running. Please restart the workspace.`;
-    logService.error(msg);
+	const msg = `Workspace ${workspaceId} is not running. Please restart the workspace.`;
+	logService.error(msg);
 
-    const workspaceUrl = new URL(gitpodHost);
-    workspaceUrl.pathname = '/start';
-    workspaceUrl.hash = workspaceId;
+	const workspaceUrl = new URL(gitpodHost);
+	workspaceUrl.pathname = '/start';
+	workspaceUrl.hash = workspaceId;
 
-    const openUrl = 'Restart workspace';
-    const resp = await notificationService.showErrorMessage(msg, { id: 'ws_not_running', flow, modal: true }, openUrl);
-    if (resp === openUrl) {
-        const opened = await vscode.env.openExternal(vscode.Uri.parse(workspaceUrl.toString()));
-        if (opened) {
-            vscode.commands.executeCommand('workbench.action.closeWindow');
-        }
-    }
+	const openUrl = 'Restart workspace';
+	const resp = await notificationService.showErrorMessage(msg, { id: 'ws_not_running', flow, modal: true }, openUrl);
+	if (resp === openUrl) {
+		const opened = await vscode.env.openExternal(vscode.Uri.parse(workspaceUrl.toString()));
+		if (opened) {
+			vscode.commands.executeCommand('workbench.action.closeWindow');
+		}
+	}
 }
 
 export function getLocalSSHDomain(gitpodHost: string): string {
-    const scope = vscode.env.appName.includes('Insiders') ? 'vsi' : 'vss';
-    return `${scope}.` + (new URL(gitpodHost)).hostname;
+	const scope = vscode.env.appName.includes('Insiders') ? 'vsi' : 'vss';
+	return `${scope}.` + (new URL(gitpodHost)).hostname;
 }
