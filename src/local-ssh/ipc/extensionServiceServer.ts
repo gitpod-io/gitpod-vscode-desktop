@@ -75,6 +75,10 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
 
     async getWorkspaceAuthInfo(request: GetWorkspaceAuthInfoRequest, _context: CallContext): Promise<GetWorkspaceAuthInfoResponse> {
         try {
+            if (new URL(this.hostService.gitpodHost).host !== new URL(request.gitpodHost).host) {
+                this.logService.error(`gitpod host mismatch, actual: ${this.hostService.gitpodHost} target: ${request.gitpodHost}`);
+                throw new ServerError(Status.FAILED_PRECONDITION, 'gitpod host mismatch');
+            }
             const accessToken = this.sessionService.getGitpodToken();
             if (!accessToken) {
                 throw new ServerError(Status.INTERNAL, 'no access token found');
@@ -113,6 +117,9 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
             };
         } catch (e) {
             this.logService.error(e, 'failed to get workspace auth info');
+            if (e instanceof ServerError) {
+                throw e;
+            }
             throw new ServerError(Status.UNAVAILABLE, e.toString());
         }
     }
