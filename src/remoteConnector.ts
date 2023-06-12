@@ -717,7 +717,7 @@ export class RemoteConnector extends Disposable {
 						const { destination } = await this.getLocalSSHWorkspaceSSHDestination(params);
 						params.connType = 'local-ssh';
 						sshDestination = destination;
-						
+
 						this.telemetryService.sendUserFlowStatus('connected', localSSHFlow);
 					} catch (e) {
 						const reason = (typeof e?.code === 'string') ? e.code : 'Unknown';
