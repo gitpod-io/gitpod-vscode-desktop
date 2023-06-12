@@ -136,7 +136,7 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
                 clearTimeout(stopTimer);
                 await timeout(1000);
                 if (isDisposed) { return; }
-                this.grpcWorkspaceClient.getWorkspace({ workspaceId }, (err, resp) => {
+                this.grpcWorkspaceClient.getWorkspace({ workspaceId }, this.grpcMetadata, (err, resp) => {
                     if (isDisposed) { return; }
                     if (err) {
                         this.logger.error(`Error in streamWorkspaceStatus(getWorkspace) for ${workspaceId}`, err);
