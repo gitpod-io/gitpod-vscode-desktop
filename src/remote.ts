@@ -22,14 +22,30 @@ export interface WorkspaceRestartInfo {
 }
 
 export class NoRunningInstanceError extends Error {
+	code = 'NoRunningInstanceError';
     constructor(readonly workspaceId: string, readonly phase?: string) {
         super(`Failed to connect to ${workspaceId} Gitpod workspace, workspace not running: ${phase}`);
     }
 }
 
 export class NoSSHGatewayError extends Error {
+	code = 'NoSSHGatewayError';
     constructor(readonly host: string) {
         super(`SSH gateway not configured for this Gitpod Host ${host}`);
+    }
+}
+
+export class NoExtensionIPCServerError extends Error {
+    code = 'NoExtensionIPCServer';
+    constructor() {
+        super('NoExtensionIPCServer');
+    }
+}
+
+export class NoLocalSSHSupportError extends Error {
+    code = 'NoLocalSSHSupport';
+    constructor() {
+        super('NoLocalSSHSupport');
     }
 }
 

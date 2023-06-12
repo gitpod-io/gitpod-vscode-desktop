@@ -33,7 +33,7 @@ import { getAgentSock, SSHError, testSSHConnection } from './sshTestConnection';
 import { gatherIdentityFiles } from './ssh/identityFiles';
 import { isWindows } from './common/platform';
 import SSHDestination from './ssh/sshDestination';
-import { NoRunningInstanceError, NoSSHGatewayError, SSHConnectionParams, SSH_DEST_KEY, getLocalSSHDomain } from './remote';
+import { NoExtensionIPCServerError, NoLocalSSHSupportError, NoRunningInstanceError, NoSSHGatewayError, SSHConnectionParams, SSH_DEST_KEY, getLocalSSHDomain } from './remote';
 import { ISessionService } from './services/sessionService';
 import { ILogService } from './services/logService';
 import { IHostService } from './services/hostService';
@@ -86,6 +86,7 @@ function checkRunning(pid: number): true | Error {
 }
 
 class LocalAppError extends Error {
+	code = 'LocalAppError';
 	constructor(cause: Error, readonly logPath?: string) {
 		super();
 		this.name = cause.name;
@@ -706,10 +707,10 @@ export class RemoteConnector extends Disposable {
 							this.localSSHService.extensionServerReady()
 						]);
 						if (!isExtensionServerReady) {
-							throw new Error('NoExtensionIPCServer')
+							throw new NoExtensionIPCServerError();
 						}
 						if (!isSupportLocalSSH) {
-							throw new Error('NoLocalSSHSupport')
+							throw new NoLocalSSHSupportError();
 						}
 						this.logService.info('Going to use lssh');
 
@@ -719,7 +720,11 @@ export class RemoteConnector extends Disposable {
 						
 						this.telemetryService.sendUserFlowStatus('connected', localSSHFlow);
 					} catch (e) {
-						this.telemetryService.sendUserFlowStatus('failed', { ...localSSHFlow, reason: e.toString() });
+						const reason = (typeof e?.code === 'string') ? e.code : 'Unknown';
+						if (reason === 'Unknown') {
+							this.telemetryService.sendTelemetryException(e, { ...localSSHFlow });
+						}
+						this.telemetryService.sendUserFlowStatus('failed', { ...localSSHFlow, reason });
 						this.logService.error(`Local SSH: failed to connect to ${params.workspaceId} Gitpod workspace:`, e);
 					}
 				}
@@ -743,7 +748,11 @@ export class RemoteConnector extends Disposable {
 
 						this.telemetryService.sendUserFlowStatus('connected', gatewayFlow);
 					} catch (e) {
-						this.telemetryService.sendUserFlowStatus('failed', { ...gatewayFlow, reason: e.toString() });
+						const reason = (typeof e?.code === 'string') ? e.code : 'Unknown';
+						if (reason === 'Unknown') {
+							this.telemetryService.sendTelemetryException(e, { ...gatewayFlow });
+						}
+						this.telemetryService.sendUserFlowStatus('failed', { ...gatewayFlow, reason });
 						if (e instanceof NoSSHGatewayError) {
 							this.logService.error('No SSH gateway:', e);
 							const ok = 'OK';
@@ -795,7 +804,11 @@ export class RemoteConnector extends Disposable {
 
 						this.telemetryService.sendUserFlowStatus('connected', localAppFlow);
 					} catch (e) {
-						this.telemetryService.sendUserFlowStatus('failed', { reason: e.toString(), ...localAppFlow });
+						const reason = (typeof e?.code === 'string') ? e.code : 'Unknown';
+						if (reason === 'Unknown') {
+							this.telemetryService.sendTelemetryException(e, { ...localAppFlow });
+						}
+						this.telemetryService.sendUserFlowStatus('failed', { reason, ...localAppFlow });
 						this.logService.error(`Failed to connect ${params.workspaceId} Gitpod workspace:`, e);
 						if (e instanceof LocalAppError) {
 							const seeLogs = 'See Logs';
