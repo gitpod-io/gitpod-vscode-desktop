@@ -251,7 +251,9 @@ class WebSocketSSHProxy {
     }
 
     async sendUserStatusFlow(status: 'connected' | 'connecting' | 'failed') {
-        this.metricsReporter.reportConnectionStatus(status, this.flow.failureCode);
+        this.metricsReporter.reportConnectionStatus(status, this.flow.failureCode).catch(_e => {
+            // ignore
+        });
         this.telemetryService.sendUserFlowStatus(status, this.flow);
     }
 
