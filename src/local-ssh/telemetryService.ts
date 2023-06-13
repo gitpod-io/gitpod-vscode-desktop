@@ -34,8 +34,6 @@ export class TelemetryService implements ITelemetryService {
 	sendEventData(eventName: string, data?: Record<string, any>) {
 		const properties = mixin(cleanData(data ?? {}, this.cleanupPatterns, isTrustedValue), this.commonProperties);
 
-		this.logService.trace('Local event report', eventName, properties);
-
 		if (!this.segmentClient) {
 			return;
 		}
@@ -51,12 +49,8 @@ export class TelemetryService implements ITelemetryService {
 		});
 	}
 
-	async flush() {
-		try {
-			await this.segmentClient?.closeAndFlush({ timeout: 3000 });
-		} catch (e: any) {
-			this.logService.error('Failed to flush app analytics!', e);
-		}
+	flush() {
+		// Noop, we disabled buffering
 	}
 
 	sendTelemetryEvent(eventName: string, properties?: TelemetryEventProperties): void {

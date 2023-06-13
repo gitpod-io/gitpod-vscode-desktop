@@ -148,11 +148,13 @@ class WebSocketSSHProxy {
                             sendErrorReport = false;
                         }
                     }
-                    await Promise.allSettled([
-                        this.sendUserStatusFlow('failed'),
-                        sendErrorReport ? this.sendErrorReport(this.flow, err, 'failed to authenticate proxy with username: ' + e.username ?? '') : undefined,
-                    ]);
-                    this.logService.error(err, 'failed to authenticate proxy with username: ' + e.username ?? '');
+
+                    this.sendUserStatusFlow('failed');
+                    if (sendErrorReport) {
+                        this.sendErrorReport(this.flow, err, 'failed to authenticate proxy with username: ' + e.username ?? '');
+                    }
+
+                    this.logService.error('failed to authenticate proxy with username: ' + e.username ?? '', err);
                     await session.close(SshDisconnectReason.byApplication, err.toString(), err instanceof Error ? err : undefined);
                     return null;
                 });
@@ -165,7 +167,7 @@ class WebSocketSSHProxy {
                 return;
             }
             this.logService.error(e, 'failed to connect to client');
-            await this.sendErrorReport(this.flow, e, 'failed to connect to client');
+            this.sendErrorReport(this.flow, e, 'failed to connect to client');
             await session.close(SshDisconnectReason.byApplication, e.toString(), e instanceof Error ? e : undefined);
         }
     }
@@ -250,14 +252,12 @@ class WebSocketSSHProxy {
         }, 200, 50);
     }
 
-    async sendUserStatusFlow(status: 'connected' | 'connecting' | 'failed') {
-        this.metricsReporter.reportConnectionStatus(this.flow.gitpodHost, status, this.flow.failureCode).catch(e => {
-            this.logService.error('Failed to report connection status', e);
-        });
+    sendUserStatusFlow(status: 'connected' | 'connecting' | 'failed') {
+        this.metricsReporter.reportConnectionStatus(this.flow.gitpodHost, status, this.flow.failureCode);
         this.telemetryService.sendUserFlowStatus(status, this.flow);
     }
 
-    async sendErrorReport(info: UserFlowTelemetryProperties, err: Error | any, message: string) {
+    sendErrorReport(info: UserFlowTelemetryProperties, err: Error | any, message: string) {
         const properties = {
             gitpodHost: info.gitpodHost,
             userId: info.userId,

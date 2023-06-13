@@ -12,21 +12,24 @@ export class LocalSSHMetricsReporter {
         private readonly logService: ILogService,
     ) { }
 
-    async reportConfigStatus(gitpodHost: string | undefined, status: 'success' | 'failure', failureCode?: string): Promise<void> {
+    reportConfigStatus(gitpodHost: string, status: 'success' | 'failure', failureCode?: string) {
         if (status === 'success') {
             failureCode = 'None';
         }
-        return addCounter(gitpodHost, 'vscode_desktop_local_ssh_config_total', { status, failure_code: failureCode ?? 'Unknown' }, 1, this.logService);
+        addCounter(gitpodHost, 'vscode_desktop_local_ssh_config_total', { status, failure_code: failureCode ?? 'Unknown' }, 1, this.logService)
+            .catch(e => this.logService.error('Error while reporting metrics', e));
     }
 
-    async reportPingExtensionStatus(gitpodHost: string | undefined, status: 'success' | 'failure'): Promise<void> {
-        return addCounter(gitpodHost, 'vscode_desktop_ping_extension_server_total', { status }, 1, this.logService);
+    reportPingExtensionStatus(gitpodHost: string | undefined, status: 'success' | 'failure') {
+        addCounter(gitpodHost, 'vscode_desktop_ping_extension_server_total', { status }, 1, this.logService)
+            .catch(e => this.logService.error('Error while reporting metrics', e));
     }
 
-    async reportConnectionStatus(gitpodHost: string | undefined, phase: 'connected' | 'connecting' | 'failed', failureCode?: string): Promise<void> {
+    reportConnectionStatus(gitpodHost: string, phase: 'connected' | 'connecting' | 'failed', failureCode?: string) {
         if (phase === 'connecting' || phase === 'connected') {
             failureCode = 'None';
         }
-        return addCounter(gitpodHost, 'vscode_desktop_local_ssh_total', { phase, failure_code: failureCode ?? 'Unknown' }, 1, this.logService);
+        addCounter(gitpodHost, 'vscode_desktop_local_ssh_total', { phase, failure_code: failureCode ?? 'Unknown' }, 1, this.logService)
+            .catch(e => this.logService.error('Error while reporting metrics', e));
     }
 }
