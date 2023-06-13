@@ -46,9 +46,9 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
         private readonly logService: ILogService,
     ) {
         super();
-        this.metricsReporter = new LocalSSHMetricsReporter(hostService.gitpodHost);
+        this.metricsReporter = new LocalSSHMetricsReporter(hostService.gitpodHost, logService);
         hostService.onDidChangeHost(() => {
-            this.metricsReporter = new LocalSSHMetricsReporter(hostService.gitpodHost);
+            this.metricsReporter = new LocalSSHMetricsReporter(hostService.gitpodHost, logService);
         });
     }
 

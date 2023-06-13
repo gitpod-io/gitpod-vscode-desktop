@@ -295,7 +295,7 @@ const telemetryService = new TelemetryService(
     logService
 );
 
-const metricsReporter = new LocalSSHMetricsReporter(options.host);
+const metricsReporter = new LocalSSHMetricsReporter(options.host, logService);
 
 const proxy = new WebSocketSSHProxy(options, telemetryService, metricsReporter, logService);
 proxy.start().catch(() => {
