@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ILogService } from '../services/logService';
+import { isBuiltFromGHA } from './utils';
 
 export async function addCounter(metricsHost: string, name: string, labels: Record<string, string>, value: number, logService: ILogService) {
     const data = {
@@ -11,7 +12,10 @@ export async function addCounter(metricsHost: string, name: string, labels: Reco
         labels,
         value,
     };
-    logService.trace('Local metrics add counter', data);
+    if (!isBuiltFromGHA) {
+        logService.trace('Local metrics add counter', data);
+        return;
+    }
     const resp = await fetch(
         `https://${metricsHost}/metrics-api/metrics/counter/add/${name}`,
         {
@@ -37,7 +41,10 @@ export async function addHistogram(metricsHost: string, name: string, labels: Re
         sum,
         buckets,
     };
-    logService.trace('Local metrics add histogram', data);
+    if (!isBuiltFromGHA) {
+        logService.trace('Local metrics add histogram', data);
+        return;
+    }
     const resp = await fetch(
         `https://${metricsHost}/metrics-api/metrics/histogram/add/${name}`,
         {
