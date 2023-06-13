@@ -34,6 +34,7 @@ const prodConfig = {
 		"node-rsa": "node-rsa"
 	},
 	resolve: {
+		mainFields: ['main'],
 		extensions: ['.ts', '.js']
 	},
 	module: {
@@ -52,6 +53,7 @@ const prodConfig = {
 		new webpack.IgnorePlugin({
 			resourceRegExp: /cpu-features/,
 		}),
+		new webpack.IgnorePlugin({ contextRegExp: /node-fetch/, resourceRegExp: /^encoding$/ }),
 		new CopyPlugin({
 			patterns: [
 				{ from: 'src/local-ssh/proxylauncher.bat', to: 'local-ssh/proxylauncher.bat' },
@@ -81,6 +83,7 @@ const devConfig = {
 		"node-rsa": "node-rsa"
 	},
 	resolve: {
+		mainFields: ['main'],
 		extensions: ['.ts', '.js']
 	},
 	module: {
@@ -93,6 +96,7 @@ const devConfig = {
 		}]
 	},
 	plugins: [
+		new webpack.IgnorePlugin({ contextRegExp: /node-fetch/, resourceRegExp: /^encoding$/ }),
 		new CopyPlugin({
 			patterns: [
 				{ from: 'src/local-ssh/proxylauncher.bat', to: 'local-ssh/proxylauncher.bat' },
