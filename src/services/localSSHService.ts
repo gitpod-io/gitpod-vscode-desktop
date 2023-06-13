@@ -17,6 +17,7 @@ import { ITelemetryService, UserFlowTelemetryProperties } from '../common/teleme
 import { ISessionService } from './sessionService';
 import { WrapError } from '../common/utils';
 import { canExtensionServiceServerWork } from '../local-ssh/ipc/extensionServiceServer';
+import { LocalSSHMetricsReporter } from './localSSHMetrics';
 
 export interface ILocalSSHService {
     flow?: UserFlowTelemetryProperties;
@@ -35,6 +36,8 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
 
     public flow?: UserFlowTelemetryProperties;
 
+    private metricsReporter: LocalSSHMetricsReporter;
+
     constructor(
         private readonly context: vscode.ExtensionContext,
         private readonly hostService: IHostService,
@@ -43,6 +46,7 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
         private readonly logService: ILogService,
     ) {
         super();
+        this.metricsReporter = new LocalSSHMetricsReporter(logService);
     }
 
     async initialize(): Promise<boolean> {
@@ -75,6 +79,7 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
     async extensionServerReady(): Promise<boolean> {
         try {
             await canExtensionServiceServerWork();
+            this.metricsReporter.reportPingExtensionStatus(this.flow?.gitpodHost, 'success');
             return true;
         } catch (e) {
             const failureCode = 'ExtensionServerUnavailable';
@@ -93,6 +98,7 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
                 workspaceId: flow.workspaceId,
             });
             this.telemetryService.sendUserFlowStatus('failure', flow);
+            this.metricsReporter.reportPingExtensionStatus(flow.gitpodHost, 'failure');
             return false;
         }
     }
@@ -107,6 +113,7 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
                 await this.configureSettings(locations);
             });
 
+            this.metricsReporter.reportConfigStatus(flowData.gitpodHost, 'success');
             this.telemetryService.sendUserFlowStatus('success', flowData);
             return true;
         } catch (e) {
@@ -122,9 +129,10 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
                 e.message = `Failed to initialize: ${e.message}`;
             }
             if (sendErrorReport) {
-                this.telemetryService.sendTelemetryException(e, { gitpodHost: this.hostService.gitpodHost, useLocalAPP: String(Configuration.getUseLocalApp()) });
+                this.telemetryService.sendTelemetryException(e, { gitpodHost: flowData.gitpodHost, useLocalAPP: String(Configuration.getUseLocalApp()) });
             }
 
+            this.metricsReporter.reportConfigStatus(flowData.gitpodHost, 'failure', failureCode);
             this.telemetryService.sendUserFlowStatus('failure', { ...flowData, failureCode });
             return false;
         }

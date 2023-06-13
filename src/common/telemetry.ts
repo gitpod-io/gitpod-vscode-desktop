@@ -6,10 +6,7 @@
 import * as os from 'os';
 import { Analytics, AnalyticsSettings } from '@segment/analytics-node';
 import { ILogService } from '../services/logService';
-import { cloneAndChange, escapeRegExpCharacters, mixin } from '../common/utils';
-
-export const ProductionUntrustedSegmentKey = 'untrusted-dummy-key';
-
+import { cloneAndChange, escapeRegExpCharacters, isBuiltFromGHA, mixin } from '../common/utils';
 
 export const TRUSTED_VALUES = new Set([
 	'gitpodHost'
@@ -51,7 +48,7 @@ export function createSegmentAnalyticsClient(settings: AnalyticsSettings, gitpod
 		host: 'https://api.segment.io',
 		path: '/v1/batch'
 	};
-	if (updatedSettings.writeKey === ProductionUntrustedSegmentKey) {
+	if (isBuiltFromGHA) {
 		updatedSettings.host = gitpodHost;
 		updatedSettings.path = '/analytics/v1/batch';
 	} else {
@@ -75,6 +72,11 @@ export function commonSendEventData(logService: ILogService, segmentClient: Anal
 	const properties = data ?? {};
 
 	delete properties['gitpodHost'];
+
+	if (!isBuiltFromGHA) {
+		logService.trace('Local event report', eventName, properties);
+		return;
+	}
 
 	segmentClient.track({
 		anonymousId: machineId,
@@ -108,7 +110,7 @@ export function getCleanupPatterns(piiPaths: string[]) {
 	return cleanupPatterns;
 }
 
-export function commonSendErrorData(logService: ILogService, segmentKey: string, defaultGitpodHost: string, error: Error, data: any | undefined, options: SendErrorDataOptions) {
+export function commonSendErrorData(logService: ILogService, defaultGitpodHost: string, error: Error, data: any | undefined, options: SendErrorDataOptions) {
 	const { cleanupPatterns, commonProperties, isTrustedValue } = options;
 	let properties = cleanData(data ?? {}, cleanupPatterns, isTrustedValue);
 	properties = mixin(properties, commonProperties);
@@ -141,7 +143,7 @@ export function commonSendErrorData(logService: ILogService, segmentKey: string,
 		properties,
 	};
 
-	if (segmentKey !== ProductionUntrustedSegmentKey) {
+	if (!isBuiltFromGHA) {
 		logService.trace('Local error report', jsonData);
 		return;
 	}

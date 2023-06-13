@@ -8,6 +8,7 @@ import { Registry, Counter, Histogram, metric } from 'prom-client';
 import { MethodKind } from '@bufbuild/protobuf';
 import { StreamResponse, UnaryResponse, Code, connectErrorFromReason, Interceptor, StreamRequest, UnaryRequest } from '@bufbuild/connect';
 import { ILogService } from './services/logService';
+import { addCounter, addHistogram } from './common/metrics';
 
 export type GrpcMethodType = 'unary' | 'client_stream' | 'server_stream' | 'bidi_stream';
 
@@ -255,16 +256,12 @@ export function getGrpcMetricsInterceptor(): grpc.Interceptor {
 export class MetricsReporter {
     private static readonly REPORT_INTERVAL = 60000;
 
-    private metricsHost: string;
     private intervalHandler: NodeJS.Timer | undefined;
 
     constructor(
-        gitpodHost: string,
+        private readonly gitpodHost: string,
         private readonly logger: ILogService
-    ) {
-        const serviceUrl = new URL(gitpodHost);
-        this.metricsHost = `ide.${serviceUrl.hostname}`;
-    }
+    ) { }
 
     startReporting() {
         if (this.intervalHandler) {
@@ -295,7 +292,7 @@ export class MetricsReporter {
         const counterMetric = metric as metric & { values: [{ value: number; labels: Record<string, string> }] };
         for (const { value, labels } of counterMetric.values) {
             if (value > 0) {
-                await this.doAddCounter(counterMetric.name, labels, value);
+                await addCounter(this.gitpodHost, counterMetric.name, labels, value, this.logger);
             }
         }
     }
@@ -316,61 +313,11 @@ export class MetricsReporter {
                 sum = value;
             } else if (metricName.endsWith('_count')) {
                 if (value > 0) {
-                    await this.doAddHistogram(histogramMetric.name, labels, value, sum, buckets);
+                    await addHistogram(this.gitpodHost, histogramMetric.name, labels, value, sum, buckets, this.logger);
                 }
                 sum = 0;
                 buckets = [];
             }
-        }
-    }
-
-    private async doAddCounter(name: string, labels: Record<string, string>, value: number) {
-        const data = {
-            name,
-            labels,
-            value,
-        };
-
-        const resp = await fetch(
-            `https://${this.metricsHost}/metrics-api/metrics/counter/add/${name}`,
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Client': 'vscode-desktop-extension'
-                },
-                body: JSON.stringify(data)
-            }
-        );
-
-        if (!resp.ok) {
-            throw new Error(`Metrics endpoint responded with ${resp.status} ${resp.statusText}`);
-        }
-    }
-
-    private async doAddHistogram(name: string, labels: Record<string, string>, count: number, sum: number, buckets: number[]) {
-        const data = {
-            name,
-            labels,
-            count,
-            sum,
-            buckets,
-        };
-
-        const resp = await fetch(
-            `https://${this.metricsHost}/metrics-api/metrics/histogram/add/${name}`,
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Client': 'vscode-desktop-extension'
-                },
-                body: JSON.stringify(data)
-            }
-        );
-
-        if (!resp.ok) {
-            throw new Error(`Metrics endpoint responded with ${resp.status} ${resp.statusText}`);
         }
     }
 

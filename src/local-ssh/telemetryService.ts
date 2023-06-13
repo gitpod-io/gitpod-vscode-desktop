@@ -44,7 +44,7 @@ export class TelemetryService implements ITelemetryService {
 	}
 
 	sendErrorData(error: Error, data?: Record<string, any>) {
-		commonSendErrorData(this.logService, this.segmentKey, this.gitpodHost, error, data, {
+		commonSendErrorData(this.logService, this.gitpodHost, error, data, {
 			cleanupPatterns: this.cleanupPatterns,
 			commonProperties: this.commonProperties,
 			isTrustedValue

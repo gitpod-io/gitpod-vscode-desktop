@@ -14,6 +14,7 @@ import * as stream from 'stream';
 import { ILogService } from '../services/logService';
 import { TelemetryService } from './telemetryService';
 import { ITelemetryService, UserFlowTelemetryProperties } from '../common/telemetry';
+import { LocalSSHMetricsReporter } from '../services/localSSHMetrics';
 
 // This public key is safe to be public since we only use it to verify local-ssh connections.
 const HOST_KEY = 'LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ1QwcXg1eEJUVmc4TUVJbUUKZmN4RXRZN1dmQVVsM0JYQURBK2JYREsyaDZlaFJBTkNBQVJlQXo0RDVVZXpqZ0l1SXVOWXpVL3BCWDdlOXoxeApvZUN6UklqcGdCUHozS0dWRzZLYXV5TU5YUm95a21YSS9BNFpWaW9nd2Vjb0FUUjRUQ2FtWm1ScAotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg==';
@@ -77,6 +78,7 @@ class WebSocketSSHProxy {
     constructor(
         private readonly options: ClientOptions,
         private readonly telemetryService: ITelemetryService,
+        private readonly metricsReporter: LocalSSHMetricsReporter,
         private readonly logService: ILogService
     ) {
         this.flow = {
@@ -249,6 +251,9 @@ class WebSocketSSHProxy {
     }
 
     async sendUserStatusFlow(status: 'connected' | 'connecting' | 'failed') {
+        this.metricsReporter.reportConnectionStatus(this.flow.gitpodHost, status, this.flow.failureCode).catch(e => {
+            this.logService.error('Failed to report connection status', e);
+        });
         this.telemetryService.sendUserFlowStatus(status, this.flow);
     }
 
@@ -292,7 +297,9 @@ const telemetryService = new TelemetryService(
     logService
 );
 
-const proxy = new WebSocketSSHProxy(options, telemetryService, logService);
+const metricsReporter = new LocalSSHMetricsReporter(logService);
+
+const proxy = new WebSocketSSHProxy(options, telemetryService, metricsReporter, logService);
 proxy.start().catch(() => {
     // Noop, catch everything in start method pls
 });
