@@ -8,7 +8,7 @@ import { NodeStream, SshClientCredentials, SshClientSession, SshDisconnectReason
 import { importKey, importKeyBytes } from '@microsoft/dev-tunnels-ssh-keys';
 import { ExtensionServiceDefinition, GetWorkspaceAuthInfoResponse } from '../proto/typescript/ipc/v1/ipc';
 import { Client, ClientError, Status, createChannel, createClient } from 'nice-grpc';
-import { retry } from '../common/async';
+import { retry, timeout } from '../common/async';
 import { WebSocket } from 'ws';
 import * as stream from 'stream';
 import { ILogService } from '../services/logService';
@@ -153,6 +153,9 @@ class WebSocketSSHProxy {
                     if (sendErrorReport) {
                         this.sendErrorReport(this.flow, err, 'failed to authenticate proxy with username: ' + e.username ?? '');
                     }
+
+                    // Await a few seconds to delay showing ssh extension error modal dialog
+                    await timeout(5000);
 
                     this.logService.error('failed to authenticate proxy with username: ' + e.username ?? '', err);
                     await session.close(SshDisconnectReason.byApplication, err.toString(), err instanceof Error ? err : undefined);
