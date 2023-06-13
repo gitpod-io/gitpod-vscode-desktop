@@ -9,12 +9,16 @@ import fetch from 'node-fetch-commonjs';
 
 const metricsHostMap = new Map<string, string>();
 
-export async function addCounter(gitpodHost: string, name: string, labels: Record<string, string>, value: number, logService: ILogService) {
+export async function addCounter(gitpodHost: string | undefined, name: string, labels: Record<string, string>, value: number, logService: ILogService) {
     const data = {
         name,
         labels,
         value,
     };
+    if (!gitpodHost) {
+        logService.error('Missing \'gitpodHost\' in metrics add counter');
+        return;
+    }
     if (!isBuiltFromGHA) {
         logService.trace('Local metrics add counter', data);
         return;
@@ -37,7 +41,7 @@ export async function addCounter(gitpodHost: string, name: string, labels: Recor
     }
 }
 
-export async function addHistogram(gitpodHost: string, name: string, labels: Record<string, string>, count: number, sum: number, buckets: number[], logService: ILogService) {
+export async function addHistogram(gitpodHost: string | undefined, name: string, labels: Record<string, string>, count: number, sum: number, buckets: number[], logService: ILogService) {
     const data = {
         name,
         labels,
@@ -45,6 +49,10 @@ export async function addHistogram(gitpodHost: string, name: string, labels: Rec
         sum,
         buckets,
     };
+    if (!gitpodHost) {
+        logService.error('Missing \'gitpodHost\' in metrics add histogram');
+        return;
+    }
     if (!isBuiltFromGHA) {
         logService.trace('Local metrics add histogram', data);
         return;

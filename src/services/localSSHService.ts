@@ -79,7 +79,7 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
     async extensionServerReady(): Promise<boolean> {
         try {
             await canExtensionServiceServerWork();
-            this.metricsReporter.reportPingExtensionStatus(this.hostService.gitpodHost, 'success');
+            this.metricsReporter.reportPingExtensionStatus(this.flow?.gitpodHost, 'success');
             return true;
         } catch (e) {
             const failureCode = 'ExtensionServerUnavailable';
@@ -98,7 +98,7 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
                 workspaceId: flow.workspaceId,
             });
             this.telemetryService.sendUserFlowStatus('failure', flow);
-            this.metricsReporter.reportPingExtensionStatus(this.hostService.gitpodHost, 'failure');
+            this.metricsReporter.reportPingExtensionStatus(flow.gitpodHost, 'failure');
             return false;
         }
     }
@@ -113,7 +113,7 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
                 await this.configureSettings(locations);
             });
 
-            this.metricsReporter.reportConfigStatus(this.hostService.gitpodHost, 'success');
+            this.metricsReporter.reportConfigStatus(flowData.gitpodHost, 'success');
             this.telemetryService.sendUserFlowStatus('success', flowData);
             return true;
         } catch (e) {
@@ -129,10 +129,10 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
                 e.message = `Failed to initialize: ${e.message}`;
             }
             if (sendErrorReport) {
-                this.telemetryService.sendTelemetryException(e, { gitpodHost: this.hostService.gitpodHost, useLocalAPP: String(Configuration.getUseLocalApp()) });
+                this.telemetryService.sendTelemetryException(e, { gitpodHost: flowData.gitpodHost, useLocalAPP: String(Configuration.getUseLocalApp()) });
             }
 
-            this.metricsReporter.reportConfigStatus(this.hostService.gitpodHost, 'failure', failureCode);
+            this.metricsReporter.reportConfigStatus(flowData.gitpodHost, 'failure', failureCode);
             this.telemetryService.sendUserFlowStatus('failure', { ...flowData, failureCode });
             return false;
         }

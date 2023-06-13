@@ -12,18 +12,18 @@ export class LocalSSHMetricsReporter {
         private readonly logService: ILogService,
     ) { }
 
-    async reportConfigStatus(gitpodHost: string, status: 'success' | 'failure', failureCode?: string): Promise<void> {
+    async reportConfigStatus(gitpodHost: string | undefined, status: 'success' | 'failure', failureCode?: string): Promise<void> {
         if (status === 'success') {
             failureCode = 'None';
         }
         return addCounter(gitpodHost, 'vscode_desktop_local_ssh_config_total', { status, failure_code: failureCode ?? 'Unknown' }, 1, this.logService);
     }
 
-    async reportPingExtensionStatus(gitpodHost: string, status: 'success' | 'failure'): Promise<void> {
+    async reportPingExtensionStatus(gitpodHost: string | undefined, status: 'success' | 'failure'): Promise<void> {
         return addCounter(gitpodHost, 'vscode_desktop_ping_extension_server_total', { status }, 1, this.logService);
     }
 
-    async reportConnectionStatus(gitpodHost: string, phase: 'connected' | 'connecting' | 'failed', failureCode?: string): Promise<void> {
+    async reportConnectionStatus(gitpodHost: string | undefined, phase: 'connected' | 'connecting' | 'failed', failureCode?: string): Promise<void> {
         if (phase === 'connecting' || phase === 'connected') {
             failureCode = 'None';
         }
