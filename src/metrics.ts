@@ -256,16 +256,12 @@ export function getGrpcMetricsInterceptor(): grpc.Interceptor {
 export class MetricsReporter {
     private static readonly REPORT_INTERVAL = 60000;
 
-    private metricsHost: string;
     private intervalHandler: NodeJS.Timer | undefined;
 
     constructor(
-        gitpodHost: string,
+        private readonly gitpodHost: string,
         private readonly logger: ILogService
-    ) {
-        const serviceUrl = new URL(gitpodHost);
-        this.metricsHost = `ide.${serviceUrl.hostname}`;
-    }
+    ) { }
 
     startReporting() {
         if (this.intervalHandler) {
@@ -296,7 +292,7 @@ export class MetricsReporter {
         const counterMetric = metric as metric & { values: [{ value: number; labels: Record<string, string> }] };
         for (const { value, labels } of counterMetric.values) {
             if (value > 0) {
-                await addCounter(this.metricsHost, counterMetric.name, labels, value, this.logger);
+                await addCounter(this.gitpodHost, counterMetric.name, labels, value, this.logger);
             }
         }
     }
@@ -317,7 +313,7 @@ export class MetricsReporter {
                 sum = value;
             } else if (metricName.endsWith('_count')) {
                 if (value > 0) {
-                    await addHistogram(this.metricsHost, histogramMetric.name, labels, value, sum, buckets, this.logger);
+                    await addHistogram(this.gitpodHost, histogramMetric.name, labels, value, sum, buckets, this.logger);
                 }
                 sum = 0;
                 buckets = [];

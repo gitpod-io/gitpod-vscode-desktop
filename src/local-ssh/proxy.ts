@@ -252,7 +252,7 @@ class WebSocketSSHProxy {
     }
 
     async sendUserStatusFlow(status: 'connected' | 'connecting' | 'failed') {
-        this.metricsReporter.reportConnectionStatus(status, this.flow.failureCode).catch(_e => {
+        this.metricsReporter.reportConnectionStatus(this.options.host, status, this.flow.failureCode).catch(_e => {
             // ignore
         });
         this.telemetryService.sendUserFlowStatus(status, this.flow);
@@ -298,7 +298,7 @@ const telemetryService = new TelemetryService(
     logService
 );
 
-const metricsReporter = new LocalSSHMetricsReporter(options.host, logService);
+const metricsReporter = new LocalSSHMetricsReporter(logService);
 
 const proxy = new WebSocketSSHProxy(options, telemetryService, metricsReporter, logService);
 proxy.start().catch(() => {
