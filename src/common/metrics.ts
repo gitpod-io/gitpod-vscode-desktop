@@ -5,6 +5,7 @@
 
 import { ILogService } from '../services/logService';
 import { isBuiltFromGHA } from './utils';
+import fetch from 'node-fetch-commonjs';
 
 const metricsHostMap = new Map<string, string>();
 
