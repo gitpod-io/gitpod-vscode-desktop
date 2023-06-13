@@ -12,7 +12,7 @@ import { ILogService } from './logService';
 import { ITelemetryService, TelemetryEventProperties, UserFlowTelemetryProperties, createSegmentAnalyticsClient, getBaseProperties, commonSendErrorData, commonSendEventData, getCleanupPatterns, TRUSTED_VALUES } from '../common/telemetry';
 
 export class TelemetryService extends Disposable implements ITelemetryService {
-	private analitycsClients: Map<string, Analytics> = new Map();
+	private analitycsClients: Map<string, Analytics | undefined> = new Map();
 	private telemetryLogger: vscode.TelemetryLogger;
 
 	constructor(extensionId: string, extensionVersion: string, segmentKey: string, piiPaths: string[], private readonly logService: ILogService) {
@@ -42,7 +42,7 @@ export class TelemetryService extends Disposable implements ITelemetryService {
 					commonSendEventData(logService, analyticsClient, vscode.env.machineId, eventName, data);
 				},
 				sendErrorData: (error, data) => {
-					commonSendErrorData(logService, segmentKey, Configuration.getGitpodHost(), error, data, {
+					commonSendErrorData(logService, Configuration.getGitpodHost(), error, data, {
 						cleanupPatterns,
 						commonProperties,
 						isTrustedValue: isVSCodeTrustedValue,
@@ -51,7 +51,7 @@ export class TelemetryService extends Disposable implements ITelemetryService {
 				flush: async () => {
 					try {
 						const promises: Promise<void>[] = [];
-						this.analitycsClients.forEach((c) => promises.push(c.closeAndFlush({ timeout: 3000 })));
+						this.analitycsClients.forEach((c) => c && promises.push(c.closeAndFlush({ timeout: 3000 })));
 						await Promise.allSettled(promises);
 					} catch (e: any) {
 						logService.error('Failed to flush app analytics!', e);
@@ -71,12 +71,9 @@ export class TelemetryService extends Disposable implements ITelemetryService {
 	private getSegmentAnalyticsClient(gitpodHost: string, segmentKey: string): Analytics | undefined {
 		const serviceUrl = new URL(gitpodHost);
 		if (this.analitycsClients.has(serviceUrl.host)) {
-			return this.analitycsClients.get(serviceUrl.host)!;
+			return this.analitycsClients.get(serviceUrl.host);
 		}
 		const client = createSegmentAnalyticsClient({ writeKey: segmentKey }, gitpodHost, this.logService);
-		if (!client) {
-			return undefined;
-		}
 		this.analitycsClients.set(serviceUrl.host, client);
 		return client;
 	}

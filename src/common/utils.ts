@@ -126,3 +126,6 @@ export class WrapError extends Error {
 		this.code = code ? code : err.code;
 	}
 }
+
+const ProductionUntrustedSegmentKey = 'untrusted-dummy-key';
+export const isBuiltFromGHA = process.env.SEGMENT_KEY === ProductionUntrustedSegmentKey;
