@@ -12,12 +12,11 @@ import { Configuration } from '../configuration';
 import { IHostService } from './hostService';
 import SSHConfiguration from '../ssh/sshConfig';
 import { isWindows } from '../common/platform';
-import { WORKSPACE_STOPPED_PREFIX, WorkspaceRestartInfo, getGitpodRemoteWindowConnectionInfo, getLocalSSHDomain } from '../remote';
+import { getLocalSSHDomain } from '../remote';
 import { ITelemetryService, UserFlowTelemetryProperties } from '../common/telemetry';
 import { ISessionService } from './sessionService';
 import { WrapError } from '../common/utils';
 import { canExtensionServiceServerWork } from '../local-ssh/ipc/extensionServiceServer';
-import { INotificationService } from './notificationService';
 import { LocalSSHMetricsReporter } from './localSSHMetrics';
 
 export interface IRemoteService {
@@ -25,9 +24,6 @@ export interface IRemoteService {
 
     setupSSHProxy: () => Promise<boolean>;
     extensionServerReady: () => Promise<boolean>;
-
-    saveRestartInfo(): Promise<void>;
-    checkForStoppedWorkspaces(flow: UserFlowTelemetryProperties): void;
 }
 
 type FailedToInitializeCode = 'Unknown' | 'LockFailed' | string;
@@ -45,7 +41,6 @@ export class RemoteService extends Disposable implements IRemoteService {
     constructor(
         private readonly context: vscode.ExtensionContext,
         private readonly hostService: IHostService,
-        private readonly notificationService: INotificationService,
         private readonly telemetryService: ITelemetryService,
         private readonly sessionService: ISessionService,
         private readonly logService: ILogService,
@@ -205,38 +200,6 @@ export class RemoteService extends Disposable implements IRemoteService {
             throw e;
         } finally {
             await release();
-        }
-    }
-
-    async saveRestartInfo() {
-        const connInfo = getGitpodRemoteWindowConnectionInfo(this.context);
-        if (!connInfo) {
-            return;
-        }
-
-        await this.context.globalState.update(`${WORKSPACE_STOPPED_PREFIX}${connInfo.sshDestStr}`, { workspaceId: connInfo.connectionInfo.workspaceId, gitpodHost: connInfo.connectionInfo.gitpodHost, remoteUri: connInfo.remoteUri.toString() } as WorkspaceRestartInfo);
-    }
-
-    checkForStoppedWorkspaces(flow: UserFlowTelemetryProperties) {
-        const keys = this.context.globalState.keys();
-        const stopped_ws_keys = keys.filter(k => k.startsWith(WORKSPACE_STOPPED_PREFIX));
-        for (const k of stopped_ws_keys) {
-            const ws = this.context.globalState.get<WorkspaceRestartInfo>(k)!;
-            this.context.globalState.update(k, undefined);
-            if (new URL(flow.gitpodHost).host === new URL(ws.gitpodHost).host) {
-                this.showWsNotRunningDialog(ws, { ...flow, workspaceId: ws.workspaceId, gitpodHost: ws.gitpodHost });
-            }
-        }
-    }
-
-    private async showWsNotRunningDialog({ workspaceId, gitpodHost, remoteUri }: WorkspaceRestartInfo, flow: UserFlowTelemetryProperties) {
-        const msg = `Workspace ${workspaceId} is not running. Please restart the workspace.`;
-        this.logService.error(msg);
-
-        const startWorkspace: vscode.MessageItem = { title: 'Start workspace' };
-        const resp = await this.notificationService.showErrorMessage(msg, { id: 'ws_not_running', flow }, startWorkspace);
-        if (resp === startWorkspace) {
-            vscode.commands.executeCommand('gitpod.workspaces.connectInCurrentWindow_internal', workspaceId, gitpodHost, vscode.Uri.parse(remoteUri));
         }
     }
 }

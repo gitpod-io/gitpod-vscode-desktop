@@ -20,7 +20,6 @@ import { ISessionService } from './services/sessionService';
 import { IHostService } from './services/hostService';
 import { ILogService } from './services/logService';
 import { ExtensionServiceServer } from './local-ssh/ipc/extensionServiceServer';
-import { IRemoteService } from './services/remoteService';
 
 export class RemoteSession extends Disposable {
 
@@ -39,8 +38,7 @@ export class RemoteSession extends Disposable {
 		private readonly experiments: ExperimentalSettings,
 		private readonly logService: ILogService,
 		private readonly telemetryService: ITelemetryService,
-		private readonly notificationService: INotificationService,
-		private readonly remoteService: IRemoteService,
+		private readonly notificationService: INotificationService
 	) {
 		super();
 
@@ -83,7 +81,6 @@ export class RemoteSession extends Disposable {
 				}
 
 				this._register(this.workspaceState.onWorkspaceWillStop(async () => {
-					await this.remoteService.saveRestartInfo();
 					vscode.commands.executeCommand('workbench.action.remote.close');
 				}));
 				instanceId = this.workspaceState.instanceId;
@@ -121,7 +118,6 @@ export class RemoteSession extends Disposable {
 			vscode.commands.executeCommand('setContext', 'gitpod.inWorkspace', true);
 		} catch (e) {
 			if (e instanceof NoRunningInstanceError) {
-				await this.remoteService.saveRestartInfo();
 				vscode.commands.executeCommand('workbench.action.remote.close');
 				return;
 			}

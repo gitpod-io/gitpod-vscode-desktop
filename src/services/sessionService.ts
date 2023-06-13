@@ -31,15 +31,11 @@ export interface ISessionService {
 }
 
 const sessionScopes = [
-    'function:getWorkspaces',
     'function:getWorkspace',
-    'function:startWorkspace',
-    'function:stopWorkspace',
-    'function:deleteWorkspace',
-    'function:getSSHPublicKeys',
-    'function:sendHeartBeat',
     'function:getOwnerToken',
     'function:getLoggedInUser',
+    'function:getSSHPublicKeys',
+    'function:sendHeartBeat',
     'resource:default'
 ];
 

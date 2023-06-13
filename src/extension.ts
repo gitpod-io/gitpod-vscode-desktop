@@ -22,7 +22,6 @@ import { SignInCommand } from './commands/account';
 import { ExportLogsCommand } from './commands/logs';
 import { Configuration } from './configuration';
 import { RemoteService } from './services/remoteService';
-import { ConnectInCurrentWindowCommandInternal } from './commands/workspaces';
 
 // connect-web uses fetch api, so we need to polyfill it
 if (!global.fetch) {
@@ -82,7 +81,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		const sessionService = new SessionService(hostService, logger);
 		context.subscriptions.push(sessionService);
 
-		const remoteService = new RemoteService(context, hostService, notificationService, telemetryService, sessionService, logger);
+		const remoteService = new RemoteService(context, hostService, telemetryService, sessionService, logger);
 		context.subscriptions.push(remoteService);
 
 		const experiments = new ExperimentalSettings(packageJSON.configcatKey, packageJSON.version, context, sessionService, hostService, logger);
@@ -108,7 +107,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		// Register global commands
 		commandManager.register(new SignInCommand(sessionService));
 		commandManager.register(new ExportLogsCommand(context.logUri, notificationService, telemetryService, logger, hostService));
-		commandManager.register(new ConnectInCurrentWindowCommandInternal(sessionService, logger));
 
 		if (!context.globalState.get<boolean>(FIRST_INSTALL_KEY, false)) {
 			context.globalState.update(FIRST_INSTALL_KEY, true);
@@ -121,11 +119,8 @@ export async function activate(context: vscode.ExtensionContext) {
 			if (remoteConnectionInfo) {
 				commandManager.register({ id: 'gitpod.api.autoTunnel', execute: () => remoteConnector.autoTunnelCommand });
 
-				remoteSession = new RemoteSession(remoteConnectionInfo.connectionInfo, context, hostService, sessionService, settingsSync, experiments, logger!, telemetryService!, notificationService, remoteService);
+				remoteSession = new RemoteSession(remoteConnectionInfo.connectionInfo, context, hostService, sessionService, settingsSync, experiments, logger!, telemetryService!, notificationService);
 				await remoteSession.initialize();
-			} else if (sessionService.isSignedIn()) {
-				const restartFlow = { flow: 'restart_workspace', userId: sessionService.getUserId(), gitpodHost: hostService.gitpodHost };
-				remoteService.checkForStoppedWorkspaces(restartFlow);
 			}
 		});
 

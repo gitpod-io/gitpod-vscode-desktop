@@ -42,7 +42,6 @@ export class NoLocalSSHSupportError extends Error {
 }
 
 export const SSH_DEST_KEY = 'ssh-dest:';
-export const WORKSPACE_STOPPED_PREFIX = 'stopped_workspace:';
 
 export function getGitpodRemoteWindowConnectionInfo(context: vscode.ExtensionContext): { connectionInfo: SSHConnectionParams; remoteUri: vscode.Uri; sshDestStr:string } | undefined {
 	const remoteUri = vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.[0].uri;
@@ -55,12 +54,6 @@ export function getGitpodRemoteWindowConnectionInfo(context: vscode.ExtensionCon
 	}
 
 	return undefined;
-}
-
-export interface WorkspaceRestartInfo {
-	workspaceId: string;
-	gitpodHost: string;
-	remoteUri: string;
 }
 
 export function getLocalSSHDomain(gitpodHost: string): string {
