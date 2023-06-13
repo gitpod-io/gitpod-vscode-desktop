@@ -82,7 +82,7 @@ export class LocalSSHService extends Disposable implements ILocalSSHService {
     async extensionServerReady(): Promise<boolean> {
         try {
             await canExtensionServiceServerWork();
-            this.metricsReporter.reportPingExtensionStatus('succeed');
+            this.metricsReporter.reportPingExtensionStatus('success');
             return true;
         } catch (e) {
             const failureCode = 'ExtensionServerUnavailable';

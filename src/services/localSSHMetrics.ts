@@ -24,7 +24,7 @@ export class LocalSSHMetricsReporter {
         return addCounter(this.metricsHost, 'vscode_desktop_local_ssh_config_total', { status, failure_code: failureCode ?? 'Unknown' }, 1, this.logService);
     }
 
-    reportPingExtensionStatus(status: 'succeed' | 'failure') {
+    reportPingExtensionStatus(status: 'success' | 'failure') {
         return addCounter(this.metricsHost, 'vscode_desktop_ping_extension_server_total', { status }, 1, this.logService);
     }
 
