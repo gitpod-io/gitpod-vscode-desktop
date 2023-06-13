@@ -296,7 +296,7 @@ export class MetricsReporter {
         const counterMetric = metric as metric & { values: [{ value: number; labels: Record<string, string> }] };
         for (const { value, labels } of counterMetric.values) {
             if (value > 0) {
-                await addCounter(this.metricsHost, counterMetric.name, labels, value);
+                await addCounter(this.metricsHost, counterMetric.name, labels, value, this.logger);
             }
         }
     }
@@ -317,7 +317,7 @@ export class MetricsReporter {
                 sum = value;
             } else if (metricName.endsWith('_count')) {
                 if (value > 0) {
-                    await addHistogram(this.metricsHost, histogramMetric.name, labels, value, sum, buckets);
+                    await addHistogram(this.metricsHost, histogramMetric.name, labels, value, sum, buckets, this.logger);
                 }
                 sum = 0;
                 buckets = [];

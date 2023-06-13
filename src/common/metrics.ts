@@ -3,13 +3,15 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-export async function addCounter(metricsHost: string, name: string, labels: Record<string, string>, value: number) {
+import { ILogService } from '../services/logService';
+
+export async function addCounter(metricsHost: string, name: string, labels: Record<string, string>, value: number, logService: ILogService) {
     const data = {
         name,
         labels,
         value,
     };
-
+    logService.trace('Local metrics add counter', data);
     const resp = await fetch(
         `https://${metricsHost}/metrics-api/metrics/counter/add/${name}`,
         {
@@ -27,7 +29,7 @@ export async function addCounter(metricsHost: string, name: string, labels: Reco
     }
 }
 
-export async function addHistogram(metricsHost: string, name: string, labels: Record<string, string>, count: number, sum: number, buckets: number[]) {
+export async function addHistogram(metricsHost: string, name: string, labels: Record<string, string>, count: number, sum: number, buckets: number[], logService: ILogService) {
     const data = {
         name,
         labels,
@@ -35,7 +37,7 @@ export async function addHistogram(metricsHost: string, name: string, labels: Re
         sum,
         buckets,
     };
-
+    logService.trace('Local metrics add histogram', data);
     const resp = await fetch(
         `https://${metricsHost}/metrics-api/metrics/histogram/add/${name}`,
         {
