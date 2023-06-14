@@ -15,7 +15,6 @@ import { ITelemetryService, UserFlowTelemetryProperties } from './common/telemet
 import { INotificationService } from './services/notificationService';
 import { retry } from './common/async';
 import { withServerApi } from './internalApi';
-import { ScopeFeature } from './featureSupport';
 import { ISessionService } from './services/sessionService';
 import { IHostService } from './services/hostService';
 import { ILogService } from './services/logService';
@@ -100,16 +99,9 @@ export class RemoteSession extends Disposable {
 			const { sshDestStr } = getGitpodRemoteWindowConnectionInfo(this.context)!;
 			await this.context.globalState.update(`${SSH_DEST_KEY}${sshDestStr}`, { ...this.connectionInfo } as SSHConnectionParams);
 
-			const gitpodVersion = await this.hostService.getVersion();
+			this.heartbeatManager = new HeartbeatManager(this.connectionInfo, this.workspaceState, this.sessionService, this.logService, this.telemetryService);
 
-			const heartbeatSupported = this.sessionService.getScopes().includes(ScopeFeature.LocalHeartbeat);
-			if (heartbeatSupported) {
-				this.heartbeatManager = new HeartbeatManager(this.connectionInfo, this.workspaceState, this.sessionService, this.logService, this.telemetryService);
-			} else {
-				this.logService.error(`Local heartbeat not supported in ${this.connectionInfo.gitpodHost}, using version ${gitpodVersion.raw}`);
-			}
-
-			const syncExtFlow = { ...this.connectionInfo, gitpodVersion: gitpodVersion.raw, userId: this.sessionService.getUserId(), flow: 'sync_local_extensions' };
+			const syncExtFlow = { ...this.connectionInfo, userId: this.sessionService.getUserId(), flow: 'sync_local_extensions' };
 			this.initializeRemoteExtensions({ ...syncExtFlow, quiet: true, flowId: uuid() });
 			this._register(vscode.commands.registerCommand('gitpod.installLocalExtensions', () => {
 				this.initializeRemoteExtensions({ ...syncExtFlow, quiet: false, flowId: uuid() });

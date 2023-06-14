@@ -22,7 +22,6 @@ export interface UserFlowTelemetryProperties {
 	flow: string;
 
 	gitpodHost: string;
-	gitpodVersion?: string;
 
 	workspaceId?: string;
 	instanceId?: string;

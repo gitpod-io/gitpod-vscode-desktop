@@ -5,7 +5,6 @@
 
 import * as vscode from 'vscode';
 import { Disposable } from '../common/dispose';
-import { GitpodVersion, getGitpodVersion } from '../featureSupport';
 import { INotificationService } from './notificationService';
 import { getGitpodRemoteWindowConnectionInfo } from '../remote';
 import { UserFlowTelemetryProperties } from '../common/telemetry';
@@ -18,13 +17,11 @@ export interface IHostService {
     onDidChangeHost: vscode.Event<void>;
 
     changeHost(newHost: string, force?: boolean): Promise<boolean>;
-    getVersion(): Promise<GitpodVersion>;
 }
 
 export class HostService extends Disposable implements IHostService {
 
     private _gitpodHost: string;
-    private _version: GitpodVersion | undefined;
 
     private readonly _onDidChangeHost = this._register(new vscode.EventEmitter<void>());
     public readonly onDidChangeHost = this._onDidChangeHost.event;
@@ -53,7 +50,6 @@ export class HostService extends Disposable implements IHostService {
                 const newGitpodHost = Configuration.getGitpodHost();
                 if (new URL(this._gitpodHost).host !== new URL(newGitpodHost).host) {
                     this._gitpodHost = newGitpodHost;
-                    this._version = undefined;
                     this._onDidChangeHost.fire();
                 }
             }
@@ -81,12 +77,5 @@ export class HostService extends Disposable implements IHostService {
             this.logService.info(`Updated 'gitpod.host' setting to '${newHost}'`);
         }
         return true;
-    }
-
-    async getVersion() {
-        if (!this._version) {
-            this._version = await getGitpodVersion(this._gitpodHost, this.logService);
-        }
-        return this._version;
     }
 }

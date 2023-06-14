@@ -507,8 +507,7 @@ export class RemoteConnector extends Disposable {
 			if (identityKeys.length) {
 				user = `${user}#${ownerToken}`;
 			}
-			const gitpodVersion = await this.hostService.getVersion();
-			this.logService.warn(`Registered SSH public keys not supported in ${gitpodHost}, using version ${gitpodVersion.raw}`);
+			this.logService.warn(`Registered SSH public keys not supported in ${gitpodHost}`);
 		}
 
 		return {
@@ -675,7 +674,6 @@ export class RemoteConnector extends Disposable {
 		}
 
 		sshFlow.userId = this.sessionService.getUserId();
-		sshFlow.gitpodVersion = (await this.hostService.getVersion()).raw;
 
 		this.logService.info('Opening Gitpod workspace', uri.toString());
 
