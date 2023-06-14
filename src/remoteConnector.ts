@@ -38,7 +38,7 @@ import { ISessionService } from './services/sessionService';
 import { ILogService } from './services/logService';
 import { IHostService } from './services/hostService';
 import { Configuration } from './configuration';
-import { getServiceURL } from './common/utils';
+import { WrapError, getServiceURL } from './common/utils';
 import { ILocalSSHService } from './services/localSSHService';
 
 interface LocalAppConfig {
@@ -720,9 +720,9 @@ export class RemoteConnector extends Disposable {
 
 						this.telemetryService.sendUserFlowStatus('connected', localSSHFlow);
 					} catch (e) {
-						const reason = (typeof e?.code === 'string') ? e.code : 'Unknown';
+						const reason = e?.code ? e.code : 'Unknown';
 						if (reason === 'Unknown') {
-							this.telemetryService.sendTelemetryException(e, { ...localSSHFlow });
+							this.telemetryService.sendTelemetryException(new WrapError('Local SSH: failed to connect to workspace', e, 'Unknown'), { ...localSSHFlow });
 						}
 						this.telemetryService.sendUserFlowStatus('failed', { ...localSSHFlow, reason });
 						this.logService.error(`Local SSH: failed to connect to ${params.workspaceId} Gitpod workspace:`, e);
@@ -748,9 +748,9 @@ export class RemoteConnector extends Disposable {
 
 						this.telemetryService.sendUserFlowStatus('connected', gatewayFlow);
 					} catch (e) {
-						const reason = (typeof e?.code === 'string') ? e.code : 'Unknown';
+						const reason = e?.code ? e.code : 'Unknown';
 						if (reason === 'Unknown') {
-							this.telemetryService.sendTelemetryException(e, { ...gatewayFlow });
+							this.telemetryService.sendTelemetryException(new WrapError('Gateway: failed to connect to workspace', e, 'Unknown'), { ...gatewayFlow });
 						}
 						this.telemetryService.sendUserFlowStatus('failed', { ...gatewayFlow, reason });
 						if (e instanceof NoSSHGatewayError) {
@@ -804,9 +804,9 @@ export class RemoteConnector extends Disposable {
 
 						this.telemetryService.sendUserFlowStatus('connected', localAppFlow);
 					} catch (e) {
-						const reason = (typeof e?.code === 'string') ? e.code : 'Unknown';
+						const reason = e?.code ? e.code : 'Unknown';
 						if (reason === 'Unknown') {
-							this.telemetryService.sendTelemetryException(e, { ...localAppFlow });
+							this.telemetryService.sendTelemetryException(new WrapError('Local APP: failed to connect to workspace', e, 'Unknown'), { ...localAppFlow });
 						}
 						this.telemetryService.sendUserFlowStatus('failed', { reason, ...localAppFlow });
 						this.logService.error(`Failed to connect ${params.workspaceId} Gitpod workspace:`, e);
