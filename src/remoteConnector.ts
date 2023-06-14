@@ -39,7 +39,7 @@ import { ILogService } from './services/logService';
 import { IHostService } from './services/hostService';
 import { Configuration } from './configuration';
 import { WrapError, getServiceURL } from './common/utils';
-import { ILocalSSHService } from './services/localSSHService';
+import { IRemoteService } from './services/remoteService';
 
 interface LocalAppConfig {
 	gitpodHost: string;
@@ -110,7 +110,7 @@ export class RemoteConnector extends Disposable {
 		private readonly logService: ILogService,
 		private readonly telemetryService: ITelemetryService,
 		private readonly notificationService: INotificationService,
-		private readonly localSSHService: ILocalSSHService,
+		private readonly remoteService: IRemoteService,
 	) {
 		super();
 
@@ -701,10 +701,10 @@ export class RemoteConnector extends Disposable {
 						// If needed, revert local-app changes first
 						await this.updateRemoteSSHConfig(true, undefined);
 
-						this.localSSHService.flow = sshFlow;
+						this.remoteService.flow = sshFlow;
 						const [isSupportLocalSSH, isExtensionServerReady] = await Promise.all([
-							this.localSSHService.initialize(),
-							this.localSSHService.extensionServerReady()
+							this.remoteService.setupSSHProxy(),
+							this.remoteService.extensionServerReady()
 						]);
 						if (!isExtensionServerReady) {
 							throw new NoExtensionIPCServerError();

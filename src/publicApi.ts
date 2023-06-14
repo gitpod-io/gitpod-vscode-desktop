@@ -14,6 +14,7 @@ import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
 import { WorkspacesServiceClient, WorkspaceStatus } from './lib/gitpod/experimental/v1/workspaces.pb';
 import * as grpc from '@grpc/grpc-js';
+import { getErrorCode } from '@grpc/grpc-js/build/src/error';
 import { timeout } from './common/async';
 import { MetricsReporter, getConnectMetricsInterceptor, getGrpcMetricsInterceptor } from './metrics';
 import { ILogService } from './services/logService';
@@ -33,7 +34,8 @@ function isTelemetryEnabled(): boolean {
 }
 
 export interface IGitpodAPI {
-    getWorkspace(workspaceId: string): Promise<Workspace | undefined>;
+    getWorkspace(workspaceId: string): Promise<Workspace>;
+    startWorkspace(workspaceId: string): Promise<Workspace>;
     getOwnerToken(workspaceId: string): Promise<string>;
     getSSHKeys(): Promise<SSHKey[]>;
     sendHeartbeat(workspaceId: string): Promise<void>;
@@ -91,10 +93,14 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
             this.metricsReporter.startReporting();
         }
     }
-
-    async getWorkspace(workspaceId: string): Promise<Workspace | undefined> {
+    async getWorkspace(workspaceId: string): Promise<Workspace> {
         const response = await this.workspaceService.getWorkspace({ workspaceId });
-        return response.result;
+        return response.result!;
+    }
+
+    async startWorkspace(workspaceId: string): Promise<Workspace> {
+        const response = await this.workspaceService.startWorkspace({ workspaceId });
+        return response.result!;
     }
 
     async getOwnerToken(workspaceId: string): Promise<string> {
@@ -131,7 +137,16 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
                 clearTimeout(stopTimer);
                 await timeout(1000);
                 if (isDisposed) { return; }
-                [stream, stopTimer] = this._streamWorkspaceStatus(workspaceId, emitter, onStreamEnd);
+                this.grpcWorkspaceClient.getWorkspace({ workspaceId }, this.grpcMetadata, (err, resp) => {
+                    if (isDisposed) { return; }
+                    if (err) {
+                        this.logger.error(`Error in streamWorkspaceStatus(getWorkspace) for ${workspaceId}`, err);
+                        onStreamEnd();
+                        return;
+                    }
+                    emitter.fire(resp.result!.status!);
+                    [stream, stopTimer] = this._streamWorkspaceStatus(workspaceId, emitter, onStreamEnd);
+                });
             };
             let [stream, stopTimer] = this._streamWorkspaceStatus(workspaceId, emitter, onStreamEnd);
 
@@ -165,7 +180,9 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
             onStreamEnd();
         });
         stream.on('error', (err) => {
-            this.logger.trace(`Error in streamWorkspaceStatus for ${workspaceId}`, err);
+            if (getErrorCode(err) !== grpc.status.CANCELLED) {
+                this.logger.error(`Error in streamWorkspaceStatus for ${workspaceId}`, err);
+            }
         });
 
         // force reconnect after 7m to avoid unexpected 10m reconnection (internal error)

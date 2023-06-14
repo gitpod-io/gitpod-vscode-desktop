@@ -21,7 +21,7 @@ import { CommandManager } from './commandManager';
 import { SignInCommand } from './commands/account';
 import { ExportLogsCommand } from './commands/logs';
 import { Configuration } from './configuration';
-import { LocalSSHService } from './services/localSSHService';
+import { RemoteService } from './services/remoteService';
 
 // connect-web uses fetch api, so we need to polyfill it
 if (!global.fetch) {
@@ -38,13 +38,12 @@ const FIRST_INSTALL_KEY = 'gitpod-desktop.firstInstall';
 let telemetryService: TelemetryService | undefined;
 let remoteSession: RemoteSession | undefined;
 let logger: vscode.LogOutputChannel | undefined;
-let hostService: HostService | undefined;
 
 export async function activate(context: vscode.ExtensionContext) {
 	const extensionId = context.extension.id;
 	const packageJSON = context.extension.packageJSON;
 
-	let remoteConnectionInfo: { remoteAuthority: string; connectionInfo: SSHConnectionParams } | undefined;
+	let remoteConnectionInfo: { connectionInfo: SSHConnectionParams; remoteUri: vscode.Uri; sshDestStr: string } | undefined;
 	let success = false;
 	try {
 		logger = vscode.window.createOutputChannel('Gitpod', { log: true });
@@ -76,14 +75,14 @@ export async function activate(context: vscode.ExtensionContext) {
 		const authProvider = new GitpodAuthenticationProvider(context, logger, telemetryService, notificationService);
 		context.subscriptions.push(authProvider);
 
-		hostService = new HostService(context, notificationService, logger);
+		const hostService = new HostService(context, notificationService, logger);
 		context.subscriptions.push(hostService);
 
 		const sessionService = new SessionService(hostService, logger);
 		context.subscriptions.push(sessionService);
 
-		const localSSHService = new LocalSSHService(context, hostService, telemetryService, sessionService, logger);
-		context.subscriptions.push(localSSHService);
+		const remoteService = new RemoteService(context, hostService, telemetryService, sessionService, logger);
+		context.subscriptions.push(remoteService);
 
 		const experiments = new ExperimentalSettings(packageJSON.configcatKey, packageJSON.version, context, sessionService, hostService, logger);
 		context.subscriptions.push(experiments);
@@ -91,7 +90,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		const settingsSync = new SettingsSync(commandManager, logger, telemetryService, notificationService);
 		context.subscriptions.push(settingsSync);
 
-		const remoteConnector = new RemoteConnector(context, sessionService, hostService, experiments, logger, telemetryService, notificationService, localSSHService);
+		const remoteConnector = new RemoteConnector(context, sessionService, hostService, experiments, logger, telemetryService, notificationService, remoteService);
 		context.subscriptions.push(remoteConnector);
 
 		context.subscriptions.push(vscode.window.registerUriHandler({
@@ -120,7 +119,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			if (remoteConnectionInfo) {
 				commandManager.register({ id: 'gitpod.api.autoTunnel', execute: () => remoteConnector.autoTunnelCommand });
 
-				remoteSession = new RemoteSession(remoteConnectionInfo.remoteAuthority, remoteConnectionInfo.connectionInfo, context, hostService!, sessionService, settingsSync, experiments, logger!, telemetryService!, notificationService);
+				remoteSession = new RemoteSession(remoteConnectionInfo.connectionInfo, context, hostService, sessionService, settingsSync, experiments, logger!, telemetryService!, notificationService);
 				await remoteSession.initialize();
 			}
 		});
@@ -128,9 +127,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		success = true;
 	} finally {
 		const rawActivateProperties = {
-			gitpodHost: remoteConnectionInfo?.connectionInfo.gitpodHost || hostService?.gitpodHost || Configuration.getGitpodHost(),
+			gitpodHost: remoteConnectionInfo?.connectionInfo.gitpodHost || Configuration.getGitpodHost(),
 			isRemoteSSH: String(vscode.env.remoteName === 'ssh-remote'),
-			remoteUri: vscode.workspace.workspaceFile?.toString() || vscode.workspace.workspaceFolders?.[0].uri.toString() || '',
+			remoteUri: remoteConnectionInfo?.remoteUri?.toString(),
 			workspaceId: remoteConnectionInfo?.connectionInfo.workspaceId || '',
 			instanceId: remoteConnectionInfo?.connectionInfo.instanceId || '',
 			debugWorkspace: remoteConnectionInfo ? String(!!remoteConnectionInfo.connectionInfo.debugWorkspace) : '',

@@ -9,24 +9,61 @@ import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
 import { ISessionService } from './services/sessionService';
 import { ILogService } from './services/logService';
-import { filterEvent } from './common/event';
+import { filterEvent, onceEvent } from './common/event';
+
+export type WorkspacePhase = 'unspecified' | 'preparing' | 'imagebuild' | 'pending' | 'creating' | 'initializing' | 'running' | 'interrupted' | 'stopping' | 'stopped';
 
 export class WorkspaceState extends Disposable {
     private workspaceState: WorkspaceStatus | undefined;
+    private _contextUrl: string | undefined;
 
     private _onWorkspaceStateChanged = this._register(new vscode.EventEmitter<void>());
     readonly onWorkspaceStateChanged = this._onWorkspaceStateChanged.event;
 
-    readonly onWorkspaceStopped = filterEvent(this.onWorkspaceStateChanged, () => this.workspaceState?.instance?.status?.phase === WorkspaceInstanceStatus_Phase.STOPPING); // assuming stopping state is never skipped
+    readonly onWorkspaceRunning = onceEvent(filterEvent(this.onWorkspaceStateChanged, () => this.isWorkspaceRunning));
+    readonly onWorkspaceWillStop = onceEvent(filterEvent(this.onWorkspaceStateChanged, () => this.isWorkspaceStopping));
+    readonly onWorkspaceStopped = onceEvent(filterEvent(this.onWorkspaceStateChanged, () => this.isWorkspaceStopped));
+
+    public get isWorkspaceStopping() {
+        const phase = this.workspaceState?.instance?.status?.phase;
+        return phase === WorkspaceInstanceStatus_Phase.STOPPING;
+    }
+
+    public get isWorkspaceStopped() {
+        const phase = this.workspaceState?.instance?.status?.phase;
+        return phase === WorkspaceInstanceStatus_Phase.STOPPED;
+    }
+
+    public get isWorkspaceRunning() {
+        const phase = this.workspaceState?.instance?.status?.phase;
+        return phase === WorkspaceInstanceStatus_Phase.RUNNING;
+    }
+
+    public get workspaceUrl() {
+        return this.workspaceState?.instance?.status?.url;
+    }
+
+    public get instanceId() {
+        return this.workspaceState?.instance?.instanceId;
+    }
+
+    public get contextUrl() {
+        return this._contextUrl;
+    }
+
+    public get phase(): WorkspacePhase {
+        const phase = this.workspaceState?.instance?.status?.phase;
+        return WorkspaceInstanceStatus_Phase[phase ?? WorkspaceInstanceStatus_Phase.UNSPECIFIED].toLowerCase() as WorkspacePhase;
+    }
 
     constructor(
-        readonly workspaceId: string,
+        public readonly workspaceId: string,
         private readonly sessionService: ISessionService,
-        private readonly logger: ILogService,
+        private readonly logService: ILogService,
     ) {
         super();
 
-        this.logger.trace(`WorkspaceState manager for workspace ${workspaceId} started`);
+        this.logService.trace(`WorkspaceState manager for workspace ${workspaceId} started`);
 
         const { onStatusChanged, dispose } = this.sessionService.getAPI().workspaceStatusStreaming(workspaceId);
         this._register(onStatusChanged(u => this.checkWorkspaceState(this.toWorkspaceStatus(u))));
@@ -35,23 +72,9 @@ export class WorkspaceState extends Disposable {
 
     public async initialize() {
         const ws = await this.sessionService.getAPI().getWorkspace(this.workspaceId);
-        if (!this.workspaceState) {
-            this.workspaceState = ws?.status;
-        }
-    }
-
-    public isWorkspaceStopped() {
-        const phase = this.workspaceState?.instance?.status?.phase;
-        return phase === WorkspaceInstanceStatus_Phase.STOPPED || phase === WorkspaceInstanceStatus_Phase.STOPPING;
-    }
-
-    public isWorkspaceRunning() {
-        const phase = this.workspaceState?.instance?.status?.phase;
-        return phase === WorkspaceInstanceStatus_Phase.RUNNING;
-    }
-
-    public workspaceUrl() {
-        return this.workspaceState?.instance?.status?.url;
+        this._contextUrl = ws.context?.contextUrl;
+        this.workspaceState ??= ws?.status;
+        this.logService.trace(`WorkspaceState: initial state`, WorkspaceInstanceStatus_Phase[this.workspaceState!.instance!.status!.phase]);
     }
 
     private async checkWorkspaceState(workspaceState: WorkspaceStatus | undefined) {
@@ -59,6 +82,7 @@ export class WorkspaceState extends Disposable {
         const oldPhase = this.workspaceState?.instance?.status?.phase;
         this.workspaceState = workspaceState;
         if (phase && oldPhase && phase !== oldPhase) {
+            this.logService.trace(`WorkspaceState: update state`, WorkspaceInstanceStatus_Phase[this.workspaceState!.instance!.status!.phase]);
             this._onWorkspaceStateChanged.fire();
         }
     }
