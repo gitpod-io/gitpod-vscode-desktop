@@ -134,17 +134,22 @@ Include "code_gitpod.d/config"
                 throw new WrapError(`Could not read ssh config file at ${configPath}`, e);
             }
         }
+        let hasIncludeTarget = false;
         const oldContent = content;
         const scopeRegex = new RegExp(`## START GITPOD INTEGRATION.+END GITPOD INTEGRATION`, 'sg');
         const matchResult = content.match(scopeRegex);
         if (matchResult) {
-            const matchContent = matchResult[0];
-            if (matchContent !== gitpodIncludeSection) {
-                content = content.replace(scopeRegex, gitpodIncludeSection);
-                // try to check and delete old file
-                tryDeleteOldMatch(matchContent, gitpodHeader);
+            for (const matchContent of matchResult) {
+                if (matchContent !== gitpodIncludeSection) {
+                    content = content.replace(matchContent, '');
+                    // try to check and delete old file
+                    tryDeleteOldMatch(matchContent, gitpodHeader);
+                } else {
+                    hasIncludeTarget = true;
+                }
             }
-        } else {
+        }
+        if (!hasIncludeTarget) {
             content = `${gitpodIncludeSection}\n\n${content}`;
         }
         if (content !== oldContent) {
