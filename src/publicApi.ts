@@ -14,6 +14,7 @@ import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
 import { WorkspacesServiceClient, WorkspaceStatus } from './lib/gitpod/experimental/v1/workspaces.pb';
 import * as grpc from '@grpc/grpc-js';
+import { getErrorCode } from '@grpc/grpc-js/build/src/error';
 import { timeout } from './common/async';
 import { MetricsReporter, getConnectMetricsInterceptor, getGrpcMetricsInterceptor } from './metrics';
 import { ILogService } from './services/logService';
@@ -179,7 +180,9 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
             onStreamEnd();
         });
         stream.on('error', (err) => {
-            this.logger.error(`Error in streamWorkspaceStatus for ${workspaceId}`, err);
+            if (getErrorCode(err) !== grpc.status.CANCELLED) {
+                this.logger.error(`Error in streamWorkspaceStatus for ${workspaceId}`, err);
+            }
         });
 
         // force reconnect after 7m to avoid unexpected 10m reconnection (internal error)
