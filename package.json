@@ -139,7 +139,7 @@
 				"command": "gitpod.workspaces.openInBrowser",
 				"category": "Gitpod",
 				"title": "Open in Browser"
-			},
+			}
 		],
 		"menus": {
 			"statusBar/remoteIndicator": [
@@ -211,7 +211,7 @@
 				{
 					"id": "gitpod-view",
 					"title": "Gitpod",
-					"icon": "$(squirrel)"
+					"icon": "resources/explorer.svg"
 				}
 			]
 		},
