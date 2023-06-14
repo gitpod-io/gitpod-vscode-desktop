@@ -134,11 +134,12 @@ export function commonSendErrorData(logService: ILogService, defaultGitpodHost: 
 	delete properties['userId'];
 
 	// make sure all properties are strings
-	for (const key in properties) {
-		if (typeof properties[key] !== 'string') {
-			properties[key] = JSON.stringify(properties[key]);
+	properties = cloneAndChange(properties, value => {
+		if (typeof value !== 'string') {
+			return JSON.stringify(value);
 		}
-	}
+		return value;
+	});
 
 	const jsonData = {
 		component: 'vscode-desktop-extension',
