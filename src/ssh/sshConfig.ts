@@ -14,7 +14,7 @@ import { WrapError } from '../common/utils';
 
 const systemSSHConfig = isWindows ? path.resolve(process.env.ALLUSERSPROFILE || 'C:\\ProgramData', 'ssh\\ssh_config') : '/etc/ssh/ssh_config';
 const defaultSSHConfigPath = path.resolve(os.homedir(), '.ssh/config');
-const gitpodSSHConfigPath = path.resolve(os.homedir(), '.ssh/gitpod/config');
+const gitpodSSHConfigPath = path.resolve(os.homedir(), '.ssh/code_gitpod.d/config');
 
 export function getSSHConfigPath() {
     const sshConfigPath = vscode.workspace.getConfiguration('remote.SSH').get<string>('configFile');
@@ -54,6 +54,29 @@ function normalizeSSHConfig(config: SSHConfig) {
         if (isHostSection(line)) {
             normalizeSSHConfig(line.config);
         }
+    }
+}
+
+// TODO: Delete me
+async function tryDeleteOldMatch(matchContent: string, gitpodHeader: string) {
+    try {
+        const match = matchContent.match(/Include "(?<oldTarget>.*?)"/);
+        if (!match) {
+            return;
+        }
+        const location = path.resolve(os.homedir(), '.ssh/' + match.groups!.oldTarget);
+        const content = (await fs.promises.readFile(location, 'utf8')).trim();
+        if (content.includes(gitpodHeader)) {
+            await fs.promises.unlink(location);
+            // check if folder is empty if so delete it
+            const folder = path.dirname(location);
+            const files = await fs.promises.readdir(folder);
+            if (files.length === 0) {
+                await fs.promises.rmdir(folder);
+            }
+        }
+    } catch (e) {
+        // ignore
     }
 }
 
@@ -100,7 +123,7 @@ export default class SSHConfiguration {
     static async ensureIncludeGitpodSSHConfig(): Promise<void> {
         const gitpodIncludeSection = `## START GITPOD INTEGRATION
 ## This section is managed by Gitpod. Any manual changes will be lost.
-Include "gitpod/config"
+Include "code_gitpod.d/config"
 ## END GITPOD INTEGRATION`;
 
         const gitpodHeader = `### This file is managed by Gitpod. Any manual changes will be lost.`;
@@ -114,11 +137,20 @@ Include "gitpod/config"
                 throw new WrapError(`Could not read ssh config file at ${configPath}`, e);
             }
         }
-
-        const scopeRegex = new RegExp(`START GITPOD INTEGRATION.+Include "gitpod/config".+END GITPOD INTEGRATION`, 's');
-        if (!scopeRegex.test(content)) {
+        const oldContent = content;
+        const scopeRegex = new RegExp(`## START GITPOD INTEGRATION.+END GITPOD INTEGRATION`, 'sg');
+        const matchResult = content.match(scopeRegex);
+        if (matchResult) {
+            const matchContent = matchResult[0];
+            if (matchContent !== gitpodIncludeSection) {
+                content = content.replace(scopeRegex, gitpodIncludeSection);
+                // try to check and delete old file
+                tryDeleteOldMatch(matchContent, gitpodHeader);
+            }
+        } else {
             content = `${gitpodIncludeSection}\n\n${content}`;
-
+        }
+        if (content !== oldContent) {
             const configFileDir = path.dirname(configPath);
             // must be dir
             if (!(await exists(configFileDir))) {
