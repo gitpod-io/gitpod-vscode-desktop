@@ -132,5 +132,5 @@ function categorizeRPCError(err?: ResponseError<any>): Code | undefined {
 	if (err.code >= 400 && err.code < 500) {
 		return Code.InvalidArgument;
 	}
-	return;
+	return Code.Internal;
 }
