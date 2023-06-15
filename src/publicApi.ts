@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createConnectTransport } from '@bufbuild/connect-node';
-import { createPromiseClient, Interceptor, PromiseClient } from '@bufbuild/connect';
+import { createPromiseClient, Interceptor, PromiseClient, ConnectError, Code } from '@bufbuild/connect';
 import { WorkspacesService } from '@gitpod/public-api/lib/gitpod/experimental/v1/workspaces_connectweb';
 import { IDEClientService } from '@gitpod/public-api/lib/gitpod/experimental/v1/ide_client_connectweb';
 import { UserService } from '@gitpod/public-api/lib/gitpod/experimental/v1/user_connectweb';
@@ -17,6 +17,7 @@ import * as grpc from '@grpc/grpc-js';
 import { timeout } from './common/async';
 import { MetricsReporter, getConnectMetricsInterceptor, getGrpcMetricsInterceptor } from './metrics';
 import { ILogService } from './services/logService';
+import { WrapError } from './common/utils';
 
 function isTelemetryEnabled(): boolean {
     const TELEMETRY_CONFIG_ID = 'telemetry';
@@ -66,11 +67,24 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
             return await next(req);
         };
         const metricsInterceptor = getConnectMetricsInterceptor();
+        const errorWrapInterceptor: Interceptor = (next) => async (req) => {
+            try {
+                return await next(req);
+            } catch (err) {
+                if (err instanceof ConnectError) {
+                    // https://github.com/gitpod-io/gitpod/blob/d41a38ba83939856e5292e30912f52e749787db1/components/public-api-server/pkg/auth/middleware.go#L73
+                    // https://github.com/gitpod-io/gitpod/blob/d41a38ba83939856e5292e30912f52e749787db1/components/public-api-server/pkg/proxy/errors.go#L30
+                    // NOTE: WrapError will omit error's other properties
+                    throw new WrapError('Failed to call public API', err, 'PublicAPI:' + Code[err.code]);
+                }
+                throw err;
+            }
+        };
 
         const transport = createConnectTransport({
             baseUrl: serviceUrl.toString(),
             httpVersion: '2',
-            interceptors: [authInterceptor, metricsInterceptor],
+            interceptors: [errorWrapInterceptor, authInterceptor, metricsInterceptor],
             useBinaryFormat: true,
         });
 

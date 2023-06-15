@@ -176,7 +176,7 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 				this.logService.info(`Verified session with the following scopes: ${scopesStr}`);
 			} catch (e) {
 				// Remove sessions that return unauthorized response
-				if (e.message === 'Unexpected server response: 401') {
+				if (e.message.includes('Unexpected server response: 401')) {
 					return undefined;
 				}
 				this.logService.error(`Error while verifying session with the following scopes: ${scopesStr}`, e);

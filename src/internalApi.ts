@@ -5,11 +5,13 @@
 
 import { GitpodClient, GitpodServer, GitpodServiceImpl } from '@gitpod/gitpod-protocol/lib/gitpod-service';
 import { JsonRpcProxyFactory } from '@gitpod/gitpod-protocol/lib/messaging/proxy-factory';
-import { listen as doListen } from 'vscode-ws-jsonrpc';
+import { listen as doListen, ResponseError } from 'vscode-ws-jsonrpc';
 import WebSocket, { ErrorEvent } from 'ws';
 import ReconnectingWebSocket from 'reconnecting-websocket';
 import * as vscode from 'vscode';
 import { ILogService } from './services/logService';
+import { Code } from '@bufbuild/connect';
+import { WrapError } from './common/utils';
 
 type UsedGitpodFunction = ['getLoggedInUser', 'getWorkspace', 'getOwnerToken', 'getSSHPublicKeys', 'sendHeartBeat'];
 type Union<Tuple extends any[], Union = never> = Tuple[number] | Union;
@@ -58,6 +60,11 @@ class GitpodServerApi extends vscode.Disposable {
 		});
 		webSocket.onerror = (e: ErrorEvent) => {
 			if (webSocket.retryCount >= maxRetries) {
+				// https://github.com/gitpod-io/gitpod/blob/d41a38ba83939856e5292e30912f52e749787db1/components/server/src/server.ts#L193-L195
+				if (e.error.message === 'Unexpected server response: 401') {
+					this.onErrorEmitter.fire(new WrapError('Failed to call server API', e.error, 'ServerAPI:'+Code[Code.Unauthenticated]));
+					return;
+				}
 				this.onErrorEmitter.fire(e.error);
 			}
 		};
@@ -84,9 +91,46 @@ class GitpodServerApi extends vscode.Disposable {
 export function withServerApi<T>(accessToken: string, serviceUrl: string, cb: (service: GitpodConnection) => Promise<T>, logger: ILogService): Promise<T> {
 	const api = new GitpodServerApi(accessToken, serviceUrl, logger);
 	return Promise.race([
-		cb(api.service),
+		new Promise<T>((resolve, reject) => cb(api.service).then(resolve).catch(err => {
+			if (err instanceof ResponseError) {
+				const code = categorizeRPCError(err);
+				const codeStr = code ? Code[code] : 'Unknown';
+				reject(new WrapError('Failed to call server API', err, 'ServerAPI:' + codeStr));
+				return;
+			}
+			reject(err);
+		})),
 		new Promise<T>((_, reject) => api.onError(error => {
 			reject(error);
 		}))
 	]).finally(() => api.dispose());
+}
+
+// Should align with https://github.com/gitpod-io/gitpod/blob/d41a38ba83939856e5292e30912f52e749787db1/components/public-api-server/pkg/proxy/errors.go#LL25C1-L26C1
+function categorizeRPCError(err?: ResponseError<any>): Code | undefined {
+	if (!err) {
+		return;
+	}
+	switch (err.code) {
+		case 400:
+			return Code.InvalidArgument;
+		case 401:
+			return Code.Unauthenticated;
+		case 403:
+			return Code.PermissionDenied;
+		case 404:
+			return Code.NotFound;
+		case 409:
+			return Code.AlreadyExists;
+		case 429:
+			return Code.ResourceExhausted;
+		case 470:
+			return Code.PermissionDenied;
+		case -32603:
+			return Code.Internal;
+	}
+	if (err.code >= 400 && err.code < 500) {
+		return Code.InvalidArgument;
+	}
+	return;
 }
