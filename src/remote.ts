@@ -43,8 +43,10 @@ export class NoLocalSSHSupportError extends Error {
 
 export const SSH_DEST_KEY = 'ssh-dest:';
 
-export function getGitpodRemoteWindowConnectionInfo(context: vscode.ExtensionContext): { connectionInfo: SSHConnectionParams; remoteUri: vscode.Uri; sshDestStr:string } | undefined {
-	const remoteUri = vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.[0].uri;
+export function getGitpodRemoteWindowConnectionInfo(context: vscode.ExtensionContext): { connectionInfo: SSHConnectionParams; remoteUri: vscode.Uri; sshDestStr: string } | undefined {
+	const remoteUri = vscode.workspace.workspaceFile?.scheme !== 'untitled'
+		? vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.[0].uri
+		: vscode.workspace.workspaceFolders?.[0].uri;
 	if (vscode.env.remoteName === 'ssh-remote' && context.extension.extensionKind === vscode.ExtensionKind.UI && remoteUri) {
 		const [, sshDestStr] = remoteUri.authority.split('+');
 		const connectionInfo = context.globalState.get<SSHConnectionParams>(`${SSH_DEST_KEY}${sshDestStr}`);
