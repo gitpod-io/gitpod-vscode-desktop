@@ -173,12 +173,11 @@
 		"webpack-cli": "^4.7.2"
 	},
 	"dependencies": {
-		"@bufbuild/connect-node": "^0.8.4",
+		"@bufbuild/connect-node": "^0.10.0",
 		"@gitpod/gitpod-protocol": "main-gha",
 		"@gitpod/local-app-api-grpcweb": "main-gha",
 		"@gitpod/public-api": "main-gha",
 		"@gitpod/supervisor-api-grpc": "main-gha",
-		"@grpc/grpc-js": "^1.8.8",
 		"@improbable-eng/grpc-web-node-http-transport": "^0.14.0",
 		"@microsoft/dev-tunnels-ssh": "^3.11.8",
 		"@microsoft/dev-tunnels-ssh-keys": "^3.11.8",

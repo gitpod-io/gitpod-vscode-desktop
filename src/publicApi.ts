@@ -8,15 +8,12 @@ import { createPromiseClient, Interceptor, PromiseClient, ConnectError, Code } f
 import { WorkspacesService } from '@gitpod/public-api/lib/gitpod/experimental/v1/workspaces_connectweb';
 import { IDEClientService } from '@gitpod/public-api/lib/gitpod/experimental/v1/ide_client_connectweb';
 import { UserService } from '@gitpod/public-api/lib/gitpod/experimental/v1/user_connectweb';
-import { Workspace } from '@gitpod/public-api/lib/gitpod/experimental/v1/workspaces_pb';
+import { Workspace, WorkspaceStatus } from '@gitpod/public-api/lib/gitpod/experimental/v1/workspaces_pb';
 import { SSHKey, User } from '@gitpod/public-api/lib/gitpod/experimental/v1/user_pb';
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
-import { WorkspacesServiceClient, WorkspaceStatus } from './lib/gitpod/experimental/v1/workspaces.pb';
-import * as grpc from '@grpc/grpc-js';
-import { getErrorCode } from '@grpc/grpc-js/build/src/error';
 import { timeout } from './common/async';
-import { MetricsReporter, getConnectMetricsInterceptor, getGrpcMetricsInterceptor } from './metrics';
+import { MetricsReporter, getConnectMetricsInterceptor } from './metrics';
 import { ILogService } from './services/logService';
 import { WrapError } from './common/utils';
 
@@ -51,9 +48,6 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
     private userService!: PromiseClient<typeof UserService>;
     private ideClientService!: PromiseClient<typeof IDEClientService>;
 
-    private grpcWorkspaceClient!: WorkspacesServiceClient;
-    private grpcMetadata: grpc.Metadata;
-
     private metricsReporter: MetricsReporter;
 
     private workspaceStatusStreamMap = new Map<string, { onStatusChanged: vscode.Event<WorkspaceStatus>; dispose: (force?: boolean) => void; increment: () => void }>();
@@ -69,38 +63,18 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
             return await next(req);
         };
         const metricsInterceptor = getConnectMetricsInterceptor();
-        const errorWrapInterceptor: Interceptor = (next) => async (req) => {
-            try {
-                return await next(req);
-            } catch (err) {
-                if (err instanceof ConnectError) {
-                    // https://github.com/gitpod-io/gitpod/blob/d41a38ba83939856e5292e30912f52e749787db1/components/public-api-server/pkg/auth/middleware.go#L73
-                    // https://github.com/gitpod-io/gitpod/blob/d41a38ba83939856e5292e30912f52e749787db1/components/public-api-server/pkg/proxy/errors.go#L30
-                    // NOTE: WrapError will omit error's other properties
-                    throw new WrapError('Failed to call public API', err, 'PublicAPI:' + Code[err.code]);
-                }
-                throw err;
-            }
-        };
 
         const transport = createConnectTransport({
             baseUrl: serviceUrl.toString(),
             httpVersion: '2',
-            interceptors: [errorWrapInterceptor, authInterceptor, metricsInterceptor],
+            interceptors: [authInterceptor, metricsInterceptor],
             useBinaryFormat: true,
+            pingIntervalMs: 120000
         });
 
         this.workspaceService = createPromiseClient(WorkspacesService, transport);
         this.userService = createPromiseClient(UserService, transport);
         this.ideClientService = createPromiseClient(IDEClientService, transport);
-
-        this.grpcWorkspaceClient = new WorkspacesServiceClient(`${serviceUrl.hostname}:443`, grpc.credentials.createSsl(), {
-            'grpc.keepalive_time_ms': 120000,
-            interceptors: [getGrpcMetricsInterceptor()]
-        });
-        this.grpcMetadata = new grpc.Metadata();
-        this.grpcMetadata.add('Authorization', `Bearer ${accessToken}`);
-
 
         this.metricsReporter = new MetricsReporter(gitpodHost, logger);
         if (isTelemetryEnabled()) {
@@ -108,36 +82,50 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
         }
     }
     async getWorkspace(workspaceId: string): Promise<Workspace> {
-        const response = await this.workspaceService.getWorkspace({ workspaceId });
-        return response.result!;
+        return this._wrapError(async () => {
+            const response = await this.workspaceService.getWorkspace({ workspaceId });
+            return response.result!;
+        });
     }
 
     async startWorkspace(workspaceId: string): Promise<Workspace> {
-        const response = await this.workspaceService.startWorkspace({ workspaceId });
-        return response.result!;
+        return this._wrapError(async () => {
+            const response = await this.workspaceService.startWorkspace({ workspaceId });
+            return response.result!;
+        });
     }
 
     async getOwnerToken(workspaceId: string): Promise<string> {
-        const response = await this.workspaceService.getOwnerToken({ workspaceId });
-        return response.token;
+        return this._wrapError(async () => {
+            const response = await this.workspaceService.getOwnerToken({ workspaceId });
+            return response.token;
+        });
     }
 
     async getSSHKeys(): Promise<SSHKey[]> {
-        const response = await this.userService.listSSHKeys({});
-        return response.keys;
+        return this._wrapError(async () => {
+            const response = await this.userService.listSSHKeys({});
+            return response.keys;
+        });
     }
 
     async sendHeartbeat(workspaceId: string): Promise<void> {
-        await this.ideClientService.sendHeartbeat({ workspaceId });
+        return this._wrapError(async () => {
+            await this.ideClientService.sendHeartbeat({ workspaceId });
+        });
     }
 
     async sendDidClose(workspaceId: string): Promise<void> {
-        await this.ideClientService.sendDidClose({ workspaceId });
+        return this._wrapError(async () => {
+            await this.ideClientService.sendDidClose({ workspaceId });
+        });
     }
 
     async getAuthenticatedUser(): Promise<User | undefined> {
-        const response = await this.userService.getAuthenticatedUser({});
-        return response.user;
+        return this._wrapError(async () => {
+            const response = await this.userService.getAuthenticatedUser({});
+            return response.user;
+        });
     }
 
     workspaceStatusStreaming(workspaceId: string) {
@@ -146,23 +134,30 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
             let counter = 0;
             let isDisposed = false;
 
-            const onStreamEnd = async () => {
+            const onStreamEnd: () => Promise<void> = async () => {
                 if (isDisposed) { return; }
                 clearTimeout(stopTimer);
                 await timeout(1000);
                 if (isDisposed) { return; }
-                this.grpcWorkspaceClient.getWorkspace({ workspaceId }, this.grpcMetadata, (err, resp) => {
+
+                try {
+                    const resp = await this.workspaceService.getWorkspace({ workspaceId });
                     if (isDisposed) { return; }
-                    if (err) {
-                        this.logger.error(`Error in streamWorkspaceStatus(getWorkspace) for ${workspaceId}`, err);
-                        onStreamEnd();
-                        return;
-                    }
                     emitter.fire(resp.result!.status!);
-                    [stream, stopTimer] = this._streamWorkspaceStatus(workspaceId, emitter, onStreamEnd);
-                });
+                } catch (err) {
+                    if (isDisposed) { return; }
+                    this.logger.error(`Error in streamWorkspaceStatus(getWorkspace) for ${workspaceId}`, err);
+                    return onStreamEnd();
+                }
+
+                controller = new AbortController();
+                stopTimer = setTimeout(() => controller.abort(), 7 * 60 * 1000 /* 7 min */);
+                return this._streamWorkspaceStatus(workspaceId, emitter, controller.signal).then(onStreamEnd);
             };
-            let [stream, stopTimer] = this._streamWorkspaceStatus(workspaceId, emitter, onStreamEnd);
+
+            let controller = new AbortController();
+            let stopTimer = setTimeout(() => controller.abort(), 7 * 60 * 1000 /* 7 min */);
+            this._streamWorkspaceStatus(workspaceId, emitter, controller.signal).then(onStreamEnd);
 
             this.workspaceStatusStreamMap.set(workspaceId, {
                 onStatusChanged: emitter.event,
@@ -172,7 +167,7 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
                     isDisposed = true;
                     emitter.dispose();
                     clearTimeout(stopTimer);
-                    stream.cancel();
+                    controller.abort();
                     this.workspaceStatusStreamMap.delete(workspaceId);
                 },
                 increment: () => { ++counter; },
@@ -184,28 +179,30 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
         return result;
     }
 
-    private _streamWorkspaceStatus(workspaceId: string, onWorkspaceStatusUpdate: vscode.EventEmitter<WorkspaceStatus>, onStreamEnd: () => void) {
-        const stream = this.grpcWorkspaceClient.streamWorkspaceStatus({ workspaceId }, this.grpcMetadata);
-        stream.on('data', (res) => {
-            onWorkspaceStatusUpdate.fire(res.result!);
-        });
-        stream.on('end', () => {
-            this.logger.trace(`End streamWorkspaceStatus for ${workspaceId}`);
-            onStreamEnd();
-        });
-        stream.on('error', (err) => {
-            if (getErrorCode(err) !== grpc.status.CANCELLED) {
-                this.logger.error(`Error in streamWorkspaceStatus for ${workspaceId}`, err);
+    private async _streamWorkspaceStatus(workspaceId: string, onWorkspaceStatusUpdate: vscode.EventEmitter<WorkspaceStatus>, signal: AbortSignal) {
+        try {
+            for await (const res of this.workspaceService.streamWorkspaceStatus({ workspaceId }, { signal })) {
+                onWorkspaceStatusUpdate.fire(res.result!);
             }
-        });
+            this.logger.trace(`End streamWorkspaceStatus for ${workspaceId}`);
+        } catch (e) {
+            if (ConnectError.from(e).code === Code.Canceled) {
+                return;
+            }
+            this.logger.error(`Error in streamWorkspaceStatus for ${workspaceId}`, e);
+        }
+    }
 
-        // force reconnect after 7m to avoid unexpected 10m reconnection (internal error)
-        let stopTimer = setTimeout(() => {
-            this.logger.trace(`streamWorkspaceStatus forcing cancel after 7 minutes`);
-            stream.cancel();
-        }, 7 * 60 * 1000 /* 7 min */);
-
-        return [stream, stopTimer] as const;
+    private async _wrapError<T>(callback: () => Promise<T>): Promise<T> {
+        try {
+            return await callback();
+        } catch (e) {
+            const err = ConnectError.from(e);
+            // https://github.com/gitpod-io/gitpod/blob/d41a38ba83939856e5292e30912f52e749787db1/components/public-api-server/pkg/auth/middleware.go#L73
+            // https://github.com/gitpod-io/gitpod/blob/d41a38ba83939856e5292e30912f52e749787db1/components/public-api-server/pkg/proxy/errors.go#L30
+            // NOTE: WrapError will omit error's other properties
+            throw new WrapError('Failed to call public API', err, 'PublicAPI:' + Code[err.code]);
+        }
     }
 
     public override dispose() {

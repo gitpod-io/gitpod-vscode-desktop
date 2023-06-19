@@ -3,10 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as grpc from '@grpc/grpc-js';
 import { Registry, Counter, Histogram, metric } from 'prom-client';
 import { MethodKind } from '@bufbuild/protobuf';
-import { StreamResponse, UnaryResponse, Code, connectErrorFromReason, Interceptor, StreamRequest, UnaryRequest } from '@bufbuild/connect';
+import { StreamResponse, UnaryResponse, Code, ConnectError, Interceptor, StreamRequest, UnaryRequest } from '@bufbuild/connect';
 import { ILogService } from './services/logService';
 import { addCounter, addHistogram } from './common/metrics';
 
@@ -136,7 +135,7 @@ export function getConnectMetricsInterceptor(): Interceptor {
                     yield item;
                 }
             } catch (e) {
-                const err = connectErrorFromReason(e, Code.Internal);
+                const err = ConnectError.from(e);
                 status = err.code;
                 throw e;
             } finally {
@@ -180,76 +179,15 @@ export function getConnectMetricsInterceptor(): Interceptor {
             return response;
         } catch (e) {
             settled = true;
-            const err = connectErrorFromReason(e, Code.Internal);
+            const err = ConnectError.from(e);
             status = err.code;
-            throw err;
+            throw e;
         } finally {
             if (settled) {
                 stopTimer({ grpc_code: status ? Code[status] : 'OK' });
                 GRPCMetrics.handled({ ...labels, code: status ? Code[status] : 'OK' });
             }
         }
-    };
-}
-
-export function getGrpcMetricsInterceptor(): grpc.Interceptor {
-    const getLabels = (path: string, requestStream: boolean, responseStream: boolean): IGrpcCallMetricsLabels => {
-        const method = path.substring(path.lastIndexOf('/') + 1);
-        const service = path.substring(1, path.length - method.length - 1);
-        let type: GrpcMethodType;
-        if (requestStream) {
-            if (responseStream) {
-                type = 'bidi_stream';
-            } else {
-                type = 'client_stream';
-            }
-        } else {
-            if (responseStream) {
-                type = 'server_stream';
-            } else {
-                type = 'unary';
-            }
-        }
-        return {
-            type,
-            service,
-            method,
-        };
-    };
-    const formatErrorCode = (str: string): string => {
-        return str.toUpperCase() === 'OK' ? str.toUpperCase() : str[0].toUpperCase() + str.substring(1).toLowerCase().replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
-    };
-
-    return (options, nextCall): grpc.InterceptingCall => {
-        const methodDef = options.method_definition;
-        const labels = getLabels(methodDef.path, methodDef.requestStream, methodDef.responseStream);
-        const requester = new grpc.RequesterBuilder()
-            .withStart((metadata, _listener, next) => {
-                const newListener = new grpc.ListenerBuilder()
-                    .withOnReceiveStatus((status, next) => {
-                        GRPCMetrics.handled({
-                            ...labels,
-                            code: formatErrorCode(grpc.status[status.code]),
-                        });
-                        stopTimer({ grpc_code: formatErrorCode(grpc.status[status.code]) });
-                        next(status);
-                    })
-                    .withOnReceiveMessage((message, next) => {
-                        GRPCMetrics.received(labels);
-                        next(message);
-                    })
-                    .build();
-
-                GRPCMetrics.started(labels);
-                const stopTimer = GRPCMetrics.startHandleTimer(labels);
-                next(metadata, newListener);
-            })
-            .withSendMessage((message, next) => {
-                GRPCMetrics.sent(labels);
-                next(message);
-            })
-            .build();
-        return new grpc.InterceptingCall(nextCall(options), requester);
     };
 }
 

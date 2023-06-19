@@ -44,12 +44,12 @@
     "@bufbuild/buf-win32-arm64" "1.15.0-1"
     "@bufbuild/buf-win32-x64" "1.15.0-1"
 
-"@bufbuild/connect-node@^0.8.4":
-  version "0.8.4"
-  resolved "https://registry.yarnpkg.com/@bufbuild/connect-node/-/connect-node-0.8.4.tgz#3e8bc897e9a761202c6aa015c162421121b8434e"
-  integrity sha512-i2C5Q/BiVA29Uj9msn7hiFvlzPp0jiU+P+MBfZVf3vg2PmklnAoA9UETt3MNjpOHd54fvJkAK964koc7iVyCKA==
+"@bufbuild/connect-node@^0.10.0":
+  version "0.10.0"
+  resolved "https://registry.yarnpkg.com/@bufbuild/connect-node/-/connect-node-0.10.0.tgz#4c02dd6db714dde6708be8949400bcba74482558"
+  integrity sha512-5n/dHbxjur6LA7aFZR9pcA9V3dErxxdfzK36UrHLfjCn+T9f8rMs60hYFabP5pja2gPSWmCewJbwgG5wT7sQpw==
   dependencies:
-    "@bufbuild/connect" "0.8.4"
+    "@bufbuild/connect" "0.10.0"
     headers-polyfill "^3.1.2"
 
 "@bufbuild/connect-web@^0.2.1":
@@ -57,10 +57,10 @@
   resolved "https://registry.yarnpkg.com/@bufbuild/connect-web/-/connect-web-0.2.1.tgz#a7ee2914bf1b77d640fc4ee3c3a89d626f3015fa"
   integrity sha512-L580cL9VZCXcjwXMCvIvdFBqdQofVBQcL+jmSis7m8ZxPj5NQ4p7fUhQRTsZMWHkyWINdlZnr7WsHQL0BT7wPQ==
 
-"@bufbuild/connect@0.8.4":
-  version "0.8.4"
-  resolved "https://registry.yarnpkg.com/@bufbuild/connect/-/connect-0.8.4.tgz#6ba938c0b9bc8345f0e04947967bcc03d0810ce4"
-  integrity sha512-99FwsvhEDTUJAXLJEyqdKhAle/MuFrRtkRBdRFLH2oNdI5Tv0Qaa7oMcQXKPFPQDfRdJEZe+dt8scmRVN55njA==
+"@bufbuild/connect@0.10.0":
+  version "0.10.0"
+  resolved "https://registry.yarnpkg.com/@bufbuild/connect/-/connect-0.10.0.tgz#20fb53569927a1b72a130e9fe54bb2b52df56d27"
+  integrity sha512-psNHc7R0DDZ2Dl/HVPw1MF5hGMTEjnRROPSqs9YPCjy+ztCNF97wPOUH3S4Qud2nNw9Hn+vqZd+Y4v9G5J+d1A==
 
 "@bufbuild/protobuf@0.1.1", "@bufbuild/protobuf@^0.1.1":
   version "0.1.1"
@@ -179,14 +179,6 @@
   version "1.8.11"
   resolved "https://registry.yarnpkg.com/@grpc/grpc-js/-/grpc-js-1.8.11.tgz#f113f7bc197e8d6f3d3f0c6b02925c7a5da1aec4"
   integrity sha512-f/xC+6Z2QKsRJ+VSSFlt4hA5KSRm+PKvMWV8kMPkMgGlFidR6PeIkXrOasIY2roe+WROM6GFQLlgDKfeEZo2YQ==
-  dependencies:
-    "@grpc/proto-loader" "^0.7.0"
-    "@types/node" ">=12.12.47"
-
-"@grpc/grpc-js@^1.8.8":
-  version "1.8.9"
-  resolved "https://registry.yarnpkg.com/@grpc/grpc-js/-/grpc-js-1.8.9.tgz#84e9167dc80b0c3a98608e14b839458bf0df684d"
-  integrity sha512-xzsl2HamhovnZddS/2pMF4Q+FgwINaBvxoFGQ+G54Lo7Xsge36VvfDO/TDkL7FofmrRK/X5weRvwlJh7rKwN4w==
   dependencies:
     "@grpc/proto-loader" "^0.7.0"
     "@types/node" ">=12.12.47"
