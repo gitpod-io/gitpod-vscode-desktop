@@ -111,12 +111,10 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.commands.executeCommand('setContext', 'gitpod.remoteConnection', !!remoteConnectionInfo);
 
 		const workspacesExplorerView = new WorkspacesExplorerView(commandManager, sessionService, hostService);
-		context.subscriptions.push(vscode.window.createTreeView('gitpod-workspaces', { treeDataProvider: workspacesExplorerView }));
 		context.subscriptions.push(workspacesExplorerView);
 
 		if (remoteConnectionInfo) {
 			const workspaceView = new WorkspaceView(remoteConnectionInfo.connectionInfo.workspaceId, sessionService);
-			context.subscriptions.push(vscode.window.createTreeView('gitpod-workspace', { treeDataProvider: workspaceView }));
 			context.subscriptions.push(workspaceView);
 		}
 

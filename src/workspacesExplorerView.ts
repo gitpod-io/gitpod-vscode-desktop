@@ -17,10 +17,13 @@ class RepoOwnerTreeItem {
         public readonly provider: string,
         public readonly workspaces: WorkspaceTreeItem[],
     ) {
+        workspaces.forEach(ws => ws.setParent(this));
     }
 }
 
 class WorkspaceTreeItem {
+    private _parent!: RepoOwnerTreeItem;
+
     constructor(
         public readonly provider: string,
         public readonly owner: string,
@@ -30,6 +33,9 @@ class WorkspaceTreeItem {
         public readonly isRunning: boolean
     ) {
     }
+
+    setParent(parent: RepoOwnerTreeItem) { this._parent = parent; }
+    getParent() { return this._parent; }
 }
 
 type DataTreeItem = RepoOwnerTreeItem | WorkspaceTreeItem;
@@ -46,6 +52,8 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
     ) {
         super();
 
+        this._register(vscode.window.createTreeView('gitpod-workspaces', { treeDataProvider: this }));
+
         commandManager.register({ id: 'gitpod.workspaces.refresh', execute: () => this.refresh() });
 
         this._register(this.hostService.onDidChangeHost(() => this.refresh()));
@@ -54,7 +62,7 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
     getTreeItem(element: DataTreeItem): vscode.TreeItem {
         if (element instanceof RepoOwnerTreeItem) {
             const treeItem = new vscode.TreeItem(`${element.provider}/${element.owner}`);
-            treeItem.collapsibleState = element.workspaces.length ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None;
+            treeItem.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
             treeItem.contextValue = 'gitpod-workspaces.repo-owner';
             return treeItem;
         }
@@ -87,6 +95,14 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
             return element.workspaces;
         }
         return [];
+    }
+
+    getParent(element: DataTreeItem): vscode.ProviderResult<DataTreeItem> {
+        if (element instanceof RepoOwnerTreeItem) {
+            return;
+        }
+
+        return element.getParent();
     }
 
     private refresh() {

@@ -35,6 +35,8 @@ export class WorkspaceView extends Disposable implements vscode.TreeDataProvider
         private readonly sessionService: ISessionService,
     ) {
         super();
+
+        this._register(vscode.window.createTreeView('gitpod-workspace', { treeDataProvider: this }));
     }
 
     getTreeItem(element: DataTreeItem): vscode.TreeItem {
