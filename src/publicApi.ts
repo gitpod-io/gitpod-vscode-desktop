@@ -52,14 +52,23 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
 
     private workspaceStatusStreamMap = new Map<string, { onStatusChanged: vscode.Event<WorkspaceStatus>; dispose: (force?: boolean) => void; increment: () => void }>();
 
-    constructor(accessToken: string, gitpodHost: string, private logger: ILogService) {
+    constructor(private accessToken: string, private gitpodHost: string, private logger: ILogService) {
         super();
 
-        const serviceUrl = new URL(gitpodHost);
+        this.createClients();
+
+        this.metricsReporter = new MetricsReporter(gitpodHost, logger);
+        if (isTelemetryEnabled()) {
+            this.metricsReporter.startReporting();
+        }
+    }
+
+    private createClients() {
+        const serviceUrl = new URL(this.gitpodHost);
         serviceUrl.hostname = `api.${serviceUrl.hostname}`;
 
         const authInterceptor: Interceptor = (next) => async (req) => {
-            req.header.set('Authorization', `Bearer ${accessToken}`);
+            req.header.set('Authorization', `Bearer ${this.accessToken}`);
             return await next(req);
         };
         const metricsInterceptor = getConnectMetricsInterceptor();
@@ -75,57 +84,54 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
         this.workspaceService = createPromiseClient(WorkspacesService, transport);
         this.userService = createPromiseClient(UserService, transport);
         this.ideClientService = createPromiseClient(IDEClientService, transport);
-
-        this.metricsReporter = new MetricsReporter(gitpodHost, logger);
-        if (isTelemetryEnabled()) {
-            this.metricsReporter.startReporting();
-        }
     }
+
+
     async getWorkspace(workspaceId: string): Promise<Workspace> {
-        return this._wrapError(async () => {
+        return this._wrapError(this._workaroundGoAwayBug(async () => {
             const response = await this.workspaceService.getWorkspace({ workspaceId });
             return response.result!;
-        });
+        }));
     }
 
     async startWorkspace(workspaceId: string): Promise<Workspace> {
-        return this._wrapError(async () => {
+        return this._wrapError(this._workaroundGoAwayBug(async () => {
             const response = await this.workspaceService.startWorkspace({ workspaceId });
             return response.result!;
-        });
+        }));
     }
 
     async getOwnerToken(workspaceId: string): Promise<string> {
-        return this._wrapError(async () => {
+        return this._wrapError(this._workaroundGoAwayBug(async () => {
             const response = await this.workspaceService.getOwnerToken({ workspaceId });
             return response.token;
-        });
+        }));
     }
 
     async getSSHKeys(): Promise<SSHKey[]> {
-        return this._wrapError(async () => {
+        return this._wrapError(this._workaroundGoAwayBug(async () => {
             const response = await this.userService.listSSHKeys({});
             return response.keys;
-        });
+        }));
     }
 
     async sendHeartbeat(workspaceId: string): Promise<void> {
-        return this._wrapError(async () => {
+        return this._wrapError(this._workaroundGoAwayBug(async () => {
             await this.ideClientService.sendHeartbeat({ workspaceId });
-        });
+        }));
     }
 
     async sendDidClose(workspaceId: string): Promise<void> {
-        return this._wrapError(async () => {
+        return this._wrapError(this._workaroundGoAwayBug(async () => {
             await this.ideClientService.sendDidClose({ workspaceId });
-        });
+        }));
     }
 
     async getAuthenticatedUser(): Promise<User | undefined> {
-        return this._wrapError(async () => {
+        return this._wrapError(this._workaroundGoAwayBug(async () => {
             const response = await this.userService.getAuthenticatedUser({});
             return response.user;
-        });
+        }));
     }
 
     workspaceStatusStreaming(workspaceId: string) {
@@ -141,7 +147,7 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
                 if (isDisposed) { return; }
 
                 try {
-                    const resp = await this.workspaceService.getWorkspace({ workspaceId });
+                    const resp = await this._workaroundGoAwayBug(() => this.workspaceService.getWorkspace({ workspaceId }))();
                     if (isDisposed) { return; }
                     emitter.fire(resp.result!.status!);
                 } catch (err) {
@@ -190,6 +196,14 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
                 return;
             }
             this.logger.error(`Error in streamWorkspaceStatus for ${workspaceId}`, e);
+
+            // Workaround https://github.com/bufbuild/connect-es/issues/680
+            // Remove this once it's fixed upstream
+            const message: string = e.stack || e.message || `${e}`;
+            if (message.includes('New streams cannot be created after receiving a GOAWAY')) {
+                this.logger.error('Got GOAWAY bug, recreating connect client');
+                this.createClients();
+            }
         }
     }
 
@@ -203,6 +217,26 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
             // NOTE: WrapError will omit error's other properties
             throw new WrapError('Failed to call public API', err, 'PublicAPI:' + Code[err.code]);
         }
+    }
+
+    private _workaroundGoAwayBug<T>(callback: () => Promise<T>): () => Promise<T> {
+        return async () => {
+            try {
+                return await callback();
+            } catch (e) {
+                // Workaround https://github.com/bufbuild/connect-es/issues/680
+                // Remove this once it's fixed upstream
+                const message: string = e.stack || e.message || `${e}`;
+                if (message.includes('New streams cannot be created after receiving a GOAWAY')) {
+                    this.logger.error('Got GOAWAY bug, recreating connect client');
+                    this.createClients();
+
+                    return await callback();
+                } else {
+                    throw e;
+                }
+            }
+        };
     }
 
     public override dispose() {
