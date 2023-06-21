@@ -173,7 +173,7 @@
 		"webpack-cli": "^4.7.2"
 	},
 	"dependencies": {
-		"@bufbuild/connect-node": "^0.10.0",
+		"@bufbuild/connect-node": "^0.10.1",
 		"@gitpod/gitpod-protocol": "main-gha",
 		"@gitpod/local-app-api-grpcweb": "main-gha",
 		"@gitpod/public-api": "main-gha",
