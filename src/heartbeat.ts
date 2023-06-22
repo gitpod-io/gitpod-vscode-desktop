@@ -27,7 +27,7 @@ interface IDEHeartbeatTelemetryData {
 
 export class HeartbeatManager extends Disposable {
 
-    static HEARTBEAT_INTERVAL = 30000;
+    static HEARTBEAT_INTERVAL = 60000;
     static IDE_HEARTBEAT_INTERVAL = 900000; // 15 minutes
 
     private lastActivity = new Date().getTime();
