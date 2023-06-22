@@ -7,6 +7,7 @@ import * as os from 'os';
 import { Analytics, AnalyticsSettings } from '@segment/analytics-node';
 import { ILogService } from '../services/logService';
 import { cloneAndChange, escapeRegExpCharacters, isBuiltFromGHA, mixin } from '../common/utils';
+import fetch from 'node-fetch-commonjs';
 
 export const TRUSTED_VALUES = new Set([
 	'gitpodHost'
