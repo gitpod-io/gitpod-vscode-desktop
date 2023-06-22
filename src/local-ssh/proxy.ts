@@ -45,10 +45,10 @@ function getClientOptions(): ClientOptions {
 type FailedToProxyCode = 'SSH.AuthenticationFailed' | 'TUNNEL.AuthenticateSSHKeyFailed' | 'NoRunningInstance' | 'FailedToGetAuthInfo' | 'GitpodHostMismatch' | 'NoAccessTokenFound';
 
 // IgnoredFailedCodes contains the failreCode that don't need to send error report
-const IgnoredFailedCodes: FailedToProxyCode[] = ['NoRunningInstance'];
+const IgnoredFailedCodes: (FailedToProxyCode | string)[] = ['NoRunningInstance'];
 
 class FailedToProxyError extends Error {
-    constructor(public readonly failureCode: FailedToProxyCode, originError?: Error) {
+    constructor(public readonly failureCode: FailedToProxyCode | string, originError?: Error) {
         const msg = 'Failed to proxy connection: ' + failureCode;
         super(originError ? (msg + ': ' + originError.toString()) : msg);
         this.name = 'FailedToProxyError';
@@ -68,7 +68,7 @@ interface SSHUserFlowTelemetry extends UserFlowTelemetryProperties {
     workspaceId: string;
     instanceId?: string;
     userId?: string;
-    failureCode?: FailedToProxyCode;
+    failureCode?: FailedToProxyCode | string;
 }
 
 class WebSocketSSHProxy {
@@ -243,14 +243,16 @@ class WebSocketSSHProxy {
     async retryGetWorkspaceInfo(username: string) {
         return retry(async () => {
             return this.extensionIpc.getWorkspaceAuthInfo({ workspaceId: username, gitpodHost: this.options.host }).catch(e => {
+                let failureCode = 'FailedToGetAuthInfo';
                 if (e instanceof ClientError) {
                     if (e.code === Status.FAILED_PRECONDITION && e.message.includes('gitpod host mismatch')) {
                         throw new FailedToProxyError('GitpodHostMismatch', e);
                     } else if (e.code === Status.INTERNAL && e.message.includes('no access token found')) {
                         throw new FailedToProxyError('NoAccessTokenFound', e);
                     }
+                    failureCode += ':' + Status[e.code];
                 }
-                throw new FailedToProxyError('FailedToGetAuthInfo', e);
+                throw new FailedToProxyError(failureCode, e);
             });
         }, 200, 50);
     }

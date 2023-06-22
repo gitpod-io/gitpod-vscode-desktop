@@ -116,7 +116,12 @@ export function getServiceURL(gitpodHost: string): string {
 
 export class WrapError extends Error {
 	code: string | undefined;
-	constructor(msg: string, err: any, code?: string) {
+	constructor(
+		msg: string,
+		err: any,
+		code?: string,
+		readonly grpcCode?: number
+	) {
 		const isErr = err instanceof Error;
 		super(isErr ? `${msg}: ${err.message}` : msg);
 		if (isErr) {

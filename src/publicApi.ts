@@ -215,7 +215,7 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
             // https://github.com/gitpod-io/gitpod/blob/d41a38ba83939856e5292e30912f52e749787db1/components/public-api-server/pkg/auth/middleware.go#L73
             // https://github.com/gitpod-io/gitpod/blob/d41a38ba83939856e5292e30912f52e749787db1/components/public-api-server/pkg/proxy/errors.go#L30
             // NOTE: WrapError will omit error's other properties
-            throw new WrapError('Failed to call public API', err, 'PublicAPI:' + Code[err.code]);
+            throw new WrapError('Failed to call public API', err, 'PublicAPI:' + Code[err.code], err.code);
         }
     }
 

@@ -25,6 +25,7 @@ import { CreateSSHKeyPairRequest } from '@gitpod/supervisor-api-grpcweb/lib/cont
 import * as ssh2 from 'ssh2';
 import { ParsedKey } from 'ssh2-streams';
 import { isPortUsed } from '../../common/ports';
+import { WrapError } from '../../common/utils';
 
 const phaseMap: Record<WorkspaceInstanceStatus_Phase, WorkspaceInstancePhase | undefined> = {
     [WorkspaceInstanceStatus_Phase.CREATING]: 'pending',
@@ -74,6 +75,8 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
     }
 
     async getWorkspaceAuthInfo(request: GetWorkspaceAuthInfoRequest, _context: CallContext): Promise<GetWorkspaceAuthInfoResponse> {
+        let userId: string | undefined;
+        let instanceId: string | undefined;
         try {
             if (new URL(this.hostService.gitpodHost).host !== new URL(request.gitpodHost).host) {
                 this.logService.error(`gitpod host mismatch, actual: ${this.hostService.gitpodHost} target: ${request.gitpodHost}`);
@@ -83,7 +86,7 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
             if (!accessToken) {
                 throw new ServerError(Status.INTERNAL, 'no access token found');
             }
-            const userId = this.sessionService.getUserId();
+            userId = this.sessionService.getUserId();
             const workspaceId = request.workspaceId;
             // TODO(lssh): Get auth info according to `request.gitpodHost`
             const gitpodHost = this.hostService.gitpodHost;
@@ -101,7 +104,7 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
             }
             const url = new URL(ideUrl);
             const workspaceHost = url.host.substring(url.host.indexOf('.') + 1);
-            const instanceId = (usePublicApi ? (workspace as Workspace).status?.instance?.instanceId : (workspace as WorkspaceInfo).latestInstance?.id) as string;
+            instanceId = (usePublicApi ? (workspace as Workspace).status?.instance?.instanceId : (workspace as WorkspaceInfo).latestInstance?.id) as string;
 
             const sshkey = phase === 'running' ? (await this.getWorkspaceSSHKey(ownerToken, workspaceId, workspaceHost)) : '';
 
@@ -116,11 +119,20 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
                 phase: phase ?? 'unknown',
             };
         } catch (e) {
-            this.logService.error(e, 'failed to get workspace auth info');
-            if (e instanceof ServerError) {
-                throw e;
+            let code = Status.INTERNAL;
+            if (e instanceof WrapError && typeof e.grpcCode === 'number') {
+                code = e.grpcCode
             }
-            throw new ServerError(Status.UNAVAILABLE, e.toString());
+            const wrapErr = new WrapError('failed to get workspace auth info', e);
+            this.logService.error(wrapErr);
+            this.telemetryService.sendTelemetryException(wrapErr, {
+                gitpodHost: request.gitpodHost,
+                workspaceId: request.workspaceId,
+                instanceId,
+                userId,
+            });
+
+            throw new ServerError(code, wrapErr.toString());
         }
     }
 
