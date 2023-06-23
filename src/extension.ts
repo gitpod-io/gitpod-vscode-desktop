@@ -78,7 +78,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		const hostService = new HostService(context, notificationService, logger);
 		context.subscriptions.push(hostService);
 
-		const sessionService = new SessionService(hostService, logger);
+		const sessionService = new SessionService(hostService, logger, telemetryService);
 		context.subscriptions.push(sessionService);
 
 		const remoteService = new RemoteService(context, hostService, telemetryService, sessionService, logger);

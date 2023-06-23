@@ -16,6 +16,7 @@ import { timeout } from './common/async';
 import { MetricsReporter, getConnectMetricsInterceptor } from './metrics';
 import { ILogService } from './services/logService';
 import { WrapError } from './common/utils';
+import { ITelemetryService } from './common/telemetry';
 
 function isTelemetryEnabled(): boolean {
     const TELEMETRY_CONFIG_ID = 'telemetry';
@@ -52,7 +53,12 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
 
     private workspaceStatusStreamMap = new Map<string, { onStatusChanged: vscode.Event<WorkspaceStatus>; dispose: (force?: boolean) => void; increment: () => void }>();
 
-    constructor(private accessToken: string, private gitpodHost: string, private logger: ILogService) {
+    constructor(
+        private readonly accessToken: string,
+        private readonly gitpodHost: string,
+        private readonly logger: ILogService,
+        private readonly telemetryService: ITelemetryService
+    ) {
         super();
 
         this.createClients();
@@ -201,6 +207,7 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
             // Remove this once it's fixed upstream
             const message: string = e.stack || e.message || `${e}`;
             if (message.includes('New streams cannot be created after receiving a GOAWAY')) {
+                this.telemetryService.sendTelemetryException(e);
                 this.logger.error('Got GOAWAY bug, recreating connect client');
                 this.createClients();
             }
@@ -236,6 +243,7 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
                 // Remove this once it's fixed upstream
                 const message: string = e.stack || e.message || `${e}`;
                 if (message.includes('New streams cannot be created after receiving a GOAWAY')) {
+                    this.telemetryService.sendTelemetryException(e);
                     this.logger.error('Got GOAWAY bug, recreating connect client');
                     this.createClients();
 

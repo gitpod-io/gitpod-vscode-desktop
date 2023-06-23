@@ -9,6 +9,7 @@ import { IHostService } from './hostService';
 import { GitpodPublicApi, IGitpodAPI } from '../publicApi';
 import { eventToPromise } from '../common/event';
 import { ILogService } from './logService';
+import { ITelemetryService } from '../common/telemetry';
 
 export class NoSignedInError extends Error {
     constructor() {
@@ -56,7 +57,8 @@ export class SessionService extends Disposable implements ISessionService {
 
     constructor(
         private readonly hostService: IHostService,
-        private readonly logger: ILogService
+        private readonly logger: ILogService,
+        private readonly telemetryService: ITelemetryService
     ) {
         super();
 
@@ -168,7 +170,7 @@ export class SessionService extends Disposable implements ISessionService {
             throw new NoSignedInError();
         }
         if (!this._publicApi) {
-            this._publicApi = new GitpodPublicApi(this.getGitpodToken(), this.hostService.gitpodHost, this.logger);
+            this._publicApi = new GitpodPublicApi(this.getGitpodToken(), this.hostService.gitpodHost, this.logger, this.telemetryService);
         }
         return this._publicApi;
     }
