@@ -88,12 +88,16 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
             }
             userId = this.sessionService.getUserId();
             const workspaceId = request.workspaceId;
+            let actualWorkspaceId = workspaceId;
+            if (workspaceId.startsWith('debug-')) {
+                actualWorkspaceId = workspaceId.substring('debug-'.length);
+            }
             // TODO(lssh): Get auth info according to `request.gitpodHost`
             const gitpodHost = this.hostService.gitpodHost;
             const usePublicApi = await this.experiments.getUsePublicAPI(gitpodHost);
             const [workspace, ownerToken] = await withServerApi(accessToken, gitpodHost, svc => Promise.all([
-                usePublicApi ? this.sessionService.getAPI().getWorkspace(workspaceId) : svc.server.getWorkspace(workspaceId),
-                usePublicApi ? this.sessionService.getAPI().getOwnerToken(workspaceId) : svc.server.getOwnerToken(workspaceId),
+                usePublicApi ? this.sessionService.getAPI().getWorkspace(actualWorkspaceId) : svc.server.getWorkspace(actualWorkspaceId),
+                usePublicApi ? this.sessionService.getAPI().getOwnerToken(actualWorkspaceId) : svc.server.getOwnerToken(actualWorkspaceId),
             ]), this.logService);
 
             const phase = usePublicApi ? phaseMap[(workspace as Workspace).status?.instance?.status?.phase ?? WorkspaceInstanceStatus_Phase.UNSPECIFIED] : (workspace as WorkspaceInfo).latestInstance?.status.phase;

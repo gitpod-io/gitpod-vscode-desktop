@@ -533,9 +533,13 @@ export class RemoteConnector extends Disposable {
 		}
 
 		const domain = getLocalSSHDomain(gitpodHost);
-		const hostname = `${workspaceId}.${domain}`;
+		let hostname = `${workspaceId}.${domain}`;
+		let user = workspaceId;
+		if (debugWorkspace) {
+			hostname = 'debug-' + hostname;
+			user = 'debug-' + workspaceId;
+		}
 
-		const user = debugWorkspace ? ('debug-' + workspaceId) : workspaceId;
 		this.logService.info('connecting with local ssh destination', { domain });
 		return {
 			destination: new SSHDestination(hostname, user),
