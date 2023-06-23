@@ -20,7 +20,7 @@ export class WorkspaceState extends Disposable {
     readonly onWorkspaceStateChanged = this._onWorkspaceStateChanged.event;
 
     readonly onWorkspaceRunning = onceEvent(filterEvent(this.onWorkspaceStateChanged, () => this.isWorkspaceRunning));
-    readonly onWorkspaceWillStop = onceEvent(filterEvent(this.onWorkspaceStateChanged, () => this.isWorkspaceStopping));
+    readonly onWorkspaceWillStop = onceEvent(filterEvent(this.onWorkspaceStateChanged, () => this.isWorkspaceStopping || this.isWorkspaceStopped /* it's not guranteed to get stoppping state so check stopped too */));
     readonly onWorkspaceStopped = onceEvent(filterEvent(this.onWorkspaceStateChanged, () => this.isWorkspaceStopped));
 
     public get isWorkspaceStopping() {

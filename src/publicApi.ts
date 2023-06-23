@@ -208,15 +208,23 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
     }
 
     private async _wrapError<T>(callback: () => Promise<T>): Promise<T> {
-        try {
-            return await callback();
-        } catch (e) {
+        const maxRetries = 5;
+        let retries = 0;
+
+        const onError: (e: any) => Promise<T> = async (e) => {
             const err = ConnectError.from(e);
+            if (retries++ < maxRetries && (err.code === Code.Unavailable || err.code === Code.Aborted)) {
+                await timeout(1000);
+                return callback().catch(onError);
+            }
+
             // https://github.com/gitpod-io/gitpod/blob/d41a38ba83939856e5292e30912f52e749787db1/components/public-api-server/pkg/auth/middleware.go#L73
             // https://github.com/gitpod-io/gitpod/blob/d41a38ba83939856e5292e30912f52e749787db1/components/public-api-server/pkg/proxy/errors.go#L30
             // NOTE: WrapError will omit error's other properties
             throw new WrapError('Failed to call public API', err, 'PublicAPI:' + Code[err.code], err.code);
-        }
+        };
+
+        return callback().catch(onError);
     }
 
     private _workaroundGoAwayBug<T>(callback: () => Promise<T>): () => Promise<T> {

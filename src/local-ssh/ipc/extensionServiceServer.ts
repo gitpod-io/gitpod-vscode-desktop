@@ -121,7 +121,7 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
         } catch (e) {
             let code = Status.INTERNAL;
             if (e instanceof WrapError && typeof e.grpcCode === 'number') {
-                code = e.grpcCode
+                code = e.grpcCode;
             }
             const wrapErr = new WrapError('failed to get workspace auth info', e);
             this.logService.error(wrapErr);
