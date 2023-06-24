@@ -269,15 +269,8 @@ class WebSocketSSHProxy {
             workspaceId: info.workspaceId,
             instanceId: info.instanceId,
         };
-        let error: Error;
-        if (err instanceof Error) {
-            error = new Error(message + ': ' + err.message);
-            error.name = err.name;
-            error.stack = error.stack + '\n\n' + err.stack;
-        } else {
-            error = new Error(message + ': ' + err.toString());
-        }
-        this.telemetryService.sendTelemetryException(err, properties);
+        let error = err instanceof Error ? err : new Error(message + ': ' + err.toString());
+        this.telemetryService.sendTelemetryException(error, properties);
     }
 }
 
