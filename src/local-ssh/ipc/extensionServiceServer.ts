@@ -96,8 +96,8 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
             const gitpodHost = this.hostService.gitpodHost;
             const usePublicApi = await this.experiments.getUsePublicAPI(gitpodHost);
             const [workspace, ownerToken] = await withServerApi(accessToken, gitpodHost, svc => Promise.all([
-                usePublicApi ? this.sessionService.getAPI().getWorkspace(actualWorkspaceId) : svc.server.getWorkspace(actualWorkspaceId),
-                usePublicApi ? this.sessionService.getAPI().getOwnerToken(actualWorkspaceId) : svc.server.getOwnerToken(actualWorkspaceId),
+                usePublicApi ? this.sessionService.getAPI().getWorkspace(actualWorkspaceId, _context.signal) : svc.server.getWorkspace(actualWorkspaceId),
+                usePublicApi ? this.sessionService.getAPI().getOwnerToken(actualWorkspaceId, _context.signal) : svc.server.getOwnerToken(actualWorkspaceId),
             ]), this.logService);
 
             const phase = usePublicApi ? phaseMap[(workspace as Workspace).status?.instance?.status?.phase ?? WorkspaceInstanceStatus_Phase.UNSPECIFIED] : (workspace as WorkspaceInfo).latestInstance?.status.phase;

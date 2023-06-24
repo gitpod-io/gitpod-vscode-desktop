@@ -33,9 +33,9 @@ function isTelemetryEnabled(): boolean {
 }
 
 export interface IGitpodAPI {
-    getWorkspace(workspaceId: string): Promise<Workspace>;
+    getWorkspace(workspaceId: string, signal?: AbortSignal): Promise<Workspace>;
     startWorkspace(workspaceId: string): Promise<Workspace>;
-    getOwnerToken(workspaceId: string): Promise<string>;
+    getOwnerToken(workspaceId: string, signal?: AbortSignal): Promise<string>;
     getSSHKeys(): Promise<SSHKey[]>;
     sendHeartbeat(workspaceId: string): Promise<void>;
     sendDidClose(workspaceId: string): Promise<void>;
@@ -93,11 +93,11 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
     }
 
 
-    async getWorkspace(workspaceId: string): Promise<Workspace> {
+    async getWorkspace(workspaceId: string, signal?: AbortSignal): Promise<Workspace> {
         return this._wrapError(this._workaroundGoAwayBug(async () => {
             const response = await this.workspaceService.getWorkspace({ workspaceId });
             return response.result!;
-        }));
+        }), { signal });
     }
 
     async startWorkspace(workspaceId: string): Promise<Workspace> {
@@ -107,11 +107,11 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
         }));
     }
 
-    async getOwnerToken(workspaceId: string): Promise<string> {
+    async getOwnerToken(workspaceId: string, signal?: AbortSignal): Promise<string> {
         return this._wrapError(this._workaroundGoAwayBug(async () => {
             const response = await this.workspaceService.getOwnerToken({ workspaceId });
             return response.token;
-        }));
+        }), { signal });
     }
 
     async getSSHKeys(): Promise<SSHKey[]> {
@@ -214,13 +214,14 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
         }
     }
 
-    private async _wrapError<T>(callback: () => Promise<T>): Promise<T> {
-        const maxRetries = 5;
+    private async _wrapError<T>(callback: () => Promise<T>, opts?: { maxRetries?: number; signal?: AbortSignal }): Promise<T> {
+        const maxRetries = opts?.maxRetries ?? 5;
         let retries = 0;
 
         const onError: (e: any) => Promise<T> = async (e) => {
             const err = ConnectError.from(e);
-            if (retries++ < maxRetries && (err.code === Code.Unavailable || err.code === Code.Aborted)) {
+            const shouldRetry = opts?.signal ? !opts.signal.aborted : retries++ < maxRetries;
+            if (shouldRetry && (err.code === Code.Unavailable || err.code === Code.Aborted)) {
                 await timeout(1000);
                 return callback().catch(onError);
             }
