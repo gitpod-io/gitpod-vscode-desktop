@@ -269,7 +269,7 @@ class WebSocketSSHProxy {
             workspaceId: info.workspaceId,
             instanceId: info.instanceId,
         };
-        let error = err instanceof Error ? err : new Error(message + ': ' + err.toString());
+        const error = new WrapError(message, err);
         this.telemetryService.sendTelemetryException(error, properties);
     }
 }
