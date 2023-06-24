@@ -5,7 +5,6 @@
 
 import { ExtensionServiceDefinition, ExtensionServiceImplementation, GetWorkspaceAuthInfoRequest, GetWorkspaceAuthInfoResponse, PingRequest, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest } from '../../proto/typescript/ipc/v1/ipc';
 import { Disposable } from '../../common/dispose';
-export { ExtensionServiceDefinition } from '../../proto/typescript/ipc/v1/ipc';
 import { withServerApi } from '../../internalApi';
 import { Workspace, WorkspaceInstanceStatus_Phase } from '@gitpod/public-api/lib/gitpod/experimental/v1';
 import { WorkspaceInfo, WorkspaceInstancePhase } from '@gitpod/gitpod-protocol';
@@ -26,6 +25,7 @@ import * as ssh2 from 'ssh2';
 import { ParsedKey } from 'ssh2-streams';
 import { isPortUsed } from '../../common/ports';
 import { WrapError } from '../../common/utils';
+import { ConnectError } from '@bufbuild/connect';
 
 const phaseMap: Record<WorkspaceInstanceStatus_Phase, WorkspaceInstancePhase | undefined> = {
     [WorkspaceInstanceStatus_Phase.CREATING]: 'pending',
@@ -124,8 +124,8 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
             };
         } catch (e) {
             let code = Status.INTERNAL;
-            if (e instanceof WrapError && typeof e.grpcCode === 'number') {
-                code = e.grpcCode;
+            if (e instanceof WrapError && e.cause instanceof ConnectError) {
+                code = e.cause.code as unknown as Status;
             }
             const wrapErr = new WrapError('failed to get workspace auth info', e);
             this.logService.error(wrapErr);

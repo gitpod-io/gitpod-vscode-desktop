@@ -115,20 +115,18 @@ export function getServiceURL(gitpodHost: string): string {
 }
 
 export class WrapError extends Error {
-	code: string | undefined;
 	constructor(
 		msg: string,
-		err: any,
-		code?: string,
-		readonly grpcCode?: number
+		readonly cause: any,
+		readonly code?: string
 	) {
-		const isErr = err instanceof Error;
-		super(isErr ? `${msg}: ${err.message}` : msg);
+		const isErr = cause instanceof Error;
+		super(isErr ? `${msg}: ${cause.message}` : msg);
 		if (isErr) {
-			this.name = err.name;
-			this.stack = this.stack + '\n\n' + err.stack;
+			this.name = cause.name;
+			this.stack = this.stack + '\n\n' + cause.stack;
 		}
-		this.code = code ? code : err.code;
+		this.code ??= cause.code;
 	}
 }
 
