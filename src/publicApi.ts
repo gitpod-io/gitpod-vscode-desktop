@@ -8,7 +8,7 @@ import { createPromiseClient, Interceptor, PromiseClient, ConnectError, Code } f
 import { WorkspacesService } from '@gitpod/public-api/lib/gitpod/experimental/v1/workspaces_connectweb';
 import { IDEClientService } from '@gitpod/public-api/lib/gitpod/experimental/v1/ide_client_connectweb';
 import { UserService } from '@gitpod/public-api/lib/gitpod/experimental/v1/user_connectweb';
-import { Workspace, WorkspaceStatus } from '@gitpod/public-api/lib/gitpod/experimental/v1/workspaces_pb';
+import { Workspace, WorkspaceInstanceStatus_Phase, WorkspaceStatus } from '@gitpod/public-api/lib/gitpod/experimental/v1/workspaces_pb';
 import { SSHKey, User } from '@gitpod/public-api/lib/gitpod/experimental/v1/user_pb';
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
