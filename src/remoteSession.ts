@@ -79,7 +79,7 @@ export class RemoteSession extends Disposable {
 					throw new NoRunningInstanceError(this.connectionInfo.workspaceId, this.workspaceState.phase);
 				}
 
-				this._register(this.workspaceState.onWorkspaceStopped(() => {
+				this._register(this.workspaceState.onWorkspaceWillStop(() => {
 					vscode.commands.executeCommand('workbench.action.remote.close');
 				}));
 				instanceId = this.workspaceState.instanceId;
