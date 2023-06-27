@@ -118,13 +118,13 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
 
     async stopWorkspace(workspaceId: string): Promise<Workspace> {
         return this._wrapError(this._workaroundGoAwayBug(async () => {
-        const response = await this.workspaceService.stopWorkspace({ workspaceId });
-        return response.result!;
+            const response = await this.workspaceService.stopWorkspace({ workspaceId });
+            return response.result!;
         }));
     }
 
-        async deleteWorkspace(workspaceId: string): Promise<void> {
-            return this._wrapError(this._workaroundGoAwayBug(async () => {
+    async deleteWorkspace(workspaceId: string): Promise<void> {
+        return this._wrapError(this._workaroundGoAwayBug(async () => {
             await this.workspaceService.deleteWorkspace({ workspaceId });
         }));
     }
