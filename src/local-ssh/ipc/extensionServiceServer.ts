@@ -108,10 +108,10 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
             // TODO(lssh): Get auth info according to `request.gitpodHost`
             const gitpodHost = this.hostService.gitpodHost;
 
-            const rawWorkspace = await this.sessionService.getAPI().getWorkspace(actualWorkspaceId);
+            const rawWorkspace = await this.sessionService.getAPI().getWorkspace(actualWorkspaceId, _context.signal);
             const wsData = rawWorkspaceToWorkspaceData(rawWorkspace);
 
-            const ownerToken = await this.sessionService.getAPI().getOwnerToken(actualWorkspaceId);
+            const ownerToken = await this.sessionService.getAPI().getOwnerToken(actualWorkspaceId, _context.signal);
 
             instanceId = rawWorkspace.status!.instance!.instanceId;
             const url = new URL(wsData.workspaceUrl);

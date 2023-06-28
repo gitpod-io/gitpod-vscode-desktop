@@ -12,6 +12,7 @@ class RepoTreeItem {
     constructor(
         public readonly owner: string,
         public readonly repo: string,
+        public readonly description: string,
     ) {
     }
 }
@@ -41,7 +42,7 @@ export class WorkspaceView extends Disposable implements vscode.TreeDataProvider
 
     getTreeItem(element: DataTreeItem): vscode.TreeItem {
         if (element instanceof RepoTreeItem) {
-            const treeItem = new vscode.TreeItem(`${element.owner}/${element.repo}`);
+            const treeItem = new vscode.TreeItem(element.description);
             treeItem.collapsibleState = vscode.TreeItemCollapsibleState.None;
             treeItem.iconPath = new vscode.ThemeIcon('repo');
             treeItem.contextValue = 'gitpod-workspace.repo';
@@ -60,7 +61,7 @@ export class WorkspaceView extends Disposable implements vscode.TreeDataProvider
             let rawWorkspace = await this.sessionService.getAPI().getWorkspace(this.workspaceId);
             const workspace = rawWorkspaceToWorkspaceData(rawWorkspace);
             return [
-                new RepoTreeItem(workspace.owner, workspace.repo),
+                new RepoTreeItem(workspace.owner, workspace.repo, workspace.description),
                 new WorkspaceIdTreeItem(workspace.id),
             ];
         }

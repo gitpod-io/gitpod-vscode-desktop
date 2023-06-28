@@ -6,7 +6,6 @@
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
 import { ISessionService } from './services/sessionService';
-import { groupBy, stringCompare } from './common/utils';
 import { CommandManager } from './commandManager';
 import { rawWorkspaceToWorkspaceData } from './publicApi';
 import { IHostService } from './services/hostService';
@@ -30,7 +29,8 @@ class WorkspaceTreeItem {
         public readonly repo: string,
         public readonly id: string,
         public readonly contextUrl: string,
-        public readonly isRunning: boolean
+        public readonly isRunning: boolean,
+        public readonly description: string
     ) {
     }
 
@@ -67,11 +67,12 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
             return treeItem;
         }
 
-        const treeItem = new vscode.TreeItem(`${element.owner}/${element.repo}`);
+        const treeItem = new vscode.TreeItem(element.description);
         treeItem.description = element.id;
         treeItem.collapsibleState = vscode.TreeItemCollapsibleState.None;
         treeItem.iconPath = new vscode.ThemeIcon(element.isRunning ? 'vm-running' : 'vm-outline');
         treeItem.contextValue = 'gitpod-workspaces.workspace' + (element.isRunning ? '.running' : '');
+        treeItem.tooltip = new vscode.MarkdownString(`$(repo) ${element.description}\n\n $(tag) ${element.id}`, true);
         return treeItem;
     }
 
@@ -85,11 +86,12 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
                     ws.repo,
                     ws.id,
                     ws.contextUrl,
-                    ws.phase === 'running'
+                    ws.phase === 'running',
+                    ws.description
                 );
             });
-            const groupedWorkspaces = groupBy(workspaces, (a, b) => { return stringCompare(a.provider, b.provider) || stringCompare(a.owner, b.owner); });
-            return groupedWorkspaces.map(wsGroup => new RepoOwnerTreeItem(wsGroup[0].owner, wsGroup[0].provider, wsGroup));
+
+            return workspaces;
         }
         if (element instanceof RepoOwnerTreeItem) {
             return element.workspaces;
