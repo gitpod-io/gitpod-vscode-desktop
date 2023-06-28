@@ -30,12 +30,36 @@ class WorkspaceTreeItem {
         public readonly id: string,
         public readonly contextUrl: string,
         public readonly isRunning: boolean,
-        public readonly description: string
+        public readonly description: string,
+        public readonly lastUsed: Date
     ) {
     }
 
     setParent(parent: RepoOwnerTreeItem) { this._parent = parent; }
     getParent() { return this._parent; }
+
+    getLastUsedPretty(): string {
+        const millisecondsPerSecond = 1000;
+        const millisecondsPerMinute = 60 * millisecondsPerSecond;
+        const millisecondsPerHour = 60 * millisecondsPerMinute;
+        const millisecondsPerDay = 24 * millisecondsPerHour;
+
+        const diff = new Date(new Date().getTime() - this.lastUsed.getTime());
+        const days = Math.trunc(diff.getTime() / millisecondsPerDay);
+        if (days > 0) {
+            return `${days} day${days > 1 ? 's' : ''}`;
+        }
+        const hours = Math.trunc(diff.getTime() / millisecondsPerHour);
+        if (hours > 0) {
+            return `${hours} hour${hours > 1 ? 's' : ''}`;
+        }
+        const minutes = Math.trunc(diff.getTime() / millisecondsPerMinute);
+        if (minutes > 0) {
+            return `${minutes} minute${minutes > 1 ? 's' : ''}`;
+        }
+        const seconds = Math.trunc(diff.getTime() / millisecondsPerSecond);
+        return `${seconds} second${seconds > 1 ? 's' : ''}`;
+    }
 }
 
 type DataTreeItem = RepoOwnerTreeItem | WorkspaceTreeItem;
@@ -72,7 +96,7 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
         treeItem.collapsibleState = vscode.TreeItemCollapsibleState.None;
         treeItem.iconPath = new vscode.ThemeIcon(element.isRunning ? 'vm-running' : 'vm-outline');
         treeItem.contextValue = 'gitpod-workspaces.workspace' + (element.isRunning ? '.running' : '');
-        treeItem.tooltip = new vscode.MarkdownString(`$(repo) ${element.description}\n\n $(tag) ${element.id}`, true);
+        treeItem.tooltip = new vscode.MarkdownString(`$(repo) ${element.description}\n\n $(tag) ${element.id}\n\n $(clock) Last used ${element.getLastUsedPretty()} ago`, true);
         return treeItem;
     }
 
@@ -87,7 +111,8 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
                     ws.id,
                     ws.contextUrl,
                     ws.phase === 'running',
-                    ws.description
+                    ws.description,
+                    ws.lastUsed
                 );
             });
 

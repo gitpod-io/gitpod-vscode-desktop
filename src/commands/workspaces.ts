@@ -229,3 +229,18 @@ export class DeleteWorkspaceCommand implements Command {
 		}
 	}
 }
+
+export class OpenWorkspaceContextCommand implements Command {
+	readonly id = 'gitpod.workspaces.openContext';
+
+	constructor(private readonly sessionService: ISessionService) { }
+
+	async execute(treeItem: { id: string }) {
+		if (!treeItem?.id) {
+			return;
+		}
+
+		const contextUrl = rawWorkspaceToWorkspaceData(await this.sessionService.getAPI().getWorkspace(treeItem.id)).contextUrl;
+		await vscode.env.openExternal(vscode.Uri.parse(contextUrl));
+	}
+}

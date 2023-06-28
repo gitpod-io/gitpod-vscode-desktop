@@ -299,6 +299,7 @@ export interface WorkspaceData {
     workspaceUrl: string;
     phase: WorkspacePhase;
     description: string;
+    lastUsed: Date;
 }
 
 export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace): WorkspaceData;
@@ -318,7 +319,8 @@ export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace | Workspace
             contextUrl: ws.context!.contextUrl,
             workspaceUrl: ws.status!.instance!.status!.url,
             phase: WorkspaceInstanceStatus_Phase[ws.status?.instance?.status?.phase ?? WorkspaceInstanceStatus_Phase.UNSPECIFIED].toLowerCase() as WorkspacePhase,
-            description: ws.description
+            description: ws.description,
+            lastUsed: ws.status!.instance!.createdAt?.toDate()
         };
     };
 

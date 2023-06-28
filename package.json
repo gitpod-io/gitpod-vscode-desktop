@@ -139,6 +139,11 @@
 				"command": "gitpod.workspaces.openInBrowser",
 				"category": "Gitpod",
 				"title": "Open in Browser"
+			},
+			{
+				"command": "gitpod.workspaces.openContext",
+				"category": "Gitpod",
+				"title": "Open Workspace Context"
 			}
 		],
 		"menus": {
@@ -181,6 +186,11 @@
 					"command": "gitpod.workspaces.openInBrowser",
 					"when": "viewItem =~ /^gitpod-workspaces.workspace/",
 					"group": "navigation@4"
+				},
+				{
+					"command": "gitpod.workspaces.openContext",
+					"when": "viewItem =~ /^gitpod-workspaces.workspace/",
+					"group": "navigation@5"
 				}
 			],
 			"commandPalette": [
@@ -203,6 +213,10 @@
 				{
 					"command": "gitpod.workspaces.openInBrowser",
 					"when": "gitpod.authenticated == true"
+				},
+				{
+					"command": "gitpod.workspaces.openContext",
+					"when": "false"
 				}
 			]
 		},

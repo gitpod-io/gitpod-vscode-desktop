@@ -23,7 +23,7 @@ import { ExportLogsCommand } from './commands/logs';
 import { Configuration } from './configuration';
 import { RemoteService } from './services/remoteService';
 import { WorkspacesExplorerView } from './workspacesExplorerView';
-import { ConnectInCurrentWindowCommand, ConnectInNewWindowCommand, DeleteWorkspaceCommand, OpenInBrowserCommand, StopCurrentWorkspaceCommand, StopWorkspaceCommand } from './commands/workspaces';
+import { ConnectInCurrentWindowCommand, ConnectInNewWindowCommand, DeleteWorkspaceCommand, OpenWorkspaceContextCommand, OpenInBrowserCommand, StopCurrentWorkspaceCommand, StopWorkspaceCommand } from './commands/workspaces';
 import { WorkspaceView } from './workspaceView';
 
 // connect-web uses fetch api, so we need to polyfill it
@@ -127,6 +127,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		commandManager.register(new StopCurrentWorkspaceCommand(remoteConnectionInfo?.connectionInfo, sessionService));
 		commandManager.register(new OpenInBrowserCommand(sessionService));
 		commandManager.register(new DeleteWorkspaceCommand(sessionService));
+		commandManager.register(new OpenWorkspaceContextCommand(sessionService));
 
 
 		if (!context.globalState.get<boolean>(FIRST_INSTALL_KEY, false)) {
