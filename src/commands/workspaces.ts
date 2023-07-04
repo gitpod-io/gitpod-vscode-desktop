@@ -13,6 +13,7 @@ import { IHostService } from '../services/hostService';
 import { WorkspaceState } from '../workspaceState';
 import { ILogService } from '../services/logService';
 import { eventToPromise } from '../common/event';
+import { ITelemetryService } from '../common/telemetry';
 
 async function showWorkspacesPicker(sessionService: ISessionService, placeHolder: string): Promise<WorkspaceData | undefined> {
 	const pickItemsPromise = sessionService.getAPI().listWorkspaces()
@@ -35,6 +36,7 @@ export class ConnectInNewWindowCommand implements Command {
 		private readonly context: vscode.ExtensionContext,
 		private readonly sessionService: ISessionService,
 		private readonly hostService: IHostService,
+		private readonly telemetryService: ITelemetryService,
 		private readonly logService: ILogService,
 	) { }
 
@@ -49,6 +51,13 @@ export class ConnectInNewWindowCommand implements Command {
 		if (!wsData) {
 			return;
 		}
+
+		this.telemetryService.sendTelemetryEvent('vscode_desktop_workspace_restart', {
+			gitpodHost: this.hostService.gitpodHost,
+			workspaceId:  wsData.id,
+			sameWindow: false,
+			pickerVisible: !treeItem?.id
+		});
 
 		const domain = getLocalSSHDomain(this.hostService.gitpodHost);
 		const sshHostname = `${wsData.id}.${domain}`;
@@ -100,6 +109,7 @@ export class ConnectInCurrentWindowCommand implements Command {
 		private readonly context: vscode.ExtensionContext,
 		private readonly sessionService: ISessionService,
 		private readonly hostService: IHostService,
+		private readonly telemetryService: ITelemetryService,
 		private readonly logService: ILogService,
 	) { }
 
@@ -114,6 +124,13 @@ export class ConnectInCurrentWindowCommand implements Command {
 		if (!wsData) {
 			return;
 		}
+
+		this.telemetryService.sendTelemetryEvent('vscode_desktop_workspace_restart', {
+			gitpodHost: this.hostService.gitpodHost,
+			workspaceId:  wsData.id,
+			sameWindow: true,
+			pickerVisible: !treeItem?.id
+		});
 
 		const domain = getLocalSSHDomain(this.hostService.gitpodHost);
 		const sshHostname = `${wsData.id}.${domain}`;

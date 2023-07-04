@@ -121,8 +121,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		// Register global commands
 		commandManager.register(new SignInCommand(sessionService));
 		commandManager.register(new ExportLogsCommand(context.logUri, notificationService, telemetryService, logger, hostService));
-		commandManager.register(new ConnectInNewWindowCommand(context, sessionService, hostService, logger));
-		commandManager.register(new ConnectInCurrentWindowCommand(context, sessionService, hostService, logger));
+		commandManager.register(new ConnectInNewWindowCommand(context, sessionService, hostService, telemetryService, logger));
+		commandManager.register(new ConnectInCurrentWindowCommand(context, sessionService, hostService, telemetryService, logger));
 		commandManager.register(new StopWorkspaceCommand(sessionService));
 		commandManager.register(new StopCurrentWorkspaceCommand(remoteConnectionInfo?.connectionInfo, sessionService));
 		commandManager.register(new OpenInBrowserCommand(sessionService));
