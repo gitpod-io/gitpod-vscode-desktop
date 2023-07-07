@@ -143,9 +143,9 @@
     google-protobuf "^3.19.1"
 
 "@gitpod/public-api@main-gha":
-  version "0.1.5-main-gha.11049"
-  resolved "https://registry.yarnpkg.com/@gitpod/public-api/-/public-api-0.1.5-main-gha.11049.tgz#03b2efc3fae449f1fb598303d112b27780a5a5b7"
-  integrity sha512-MlWod/spJgbMTiLPHFUZj8EJEXNwt8zWF8+tWyB/8qx5YcZX8HHpQ5PdbQQM5+PWEdi6EhgnZsMNFKD3i458/w==
+  version "0.1.5-main-gha.12864"
+  resolved "https://registry.yarnpkg.com/@gitpod/public-api/-/public-api-0.1.5-main-gha.12864.tgz#2311dbe505e3a122c5a32c6748b4a9846e5d0dc9"
+  integrity sha512-JpVdYZCAjIm1Nnf1Mwy6Ft0yamueSFuh9KOiLT+W/k2gRrE1sH+IfezsrsNe5S3SiLqiOOz4EIR54l49WKjY2g==
   dependencies:
     "@bufbuild/connect-web" "^0.2.1"
     "@bufbuild/protobuf" "^0.1.1"

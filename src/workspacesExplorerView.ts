@@ -9,6 +9,7 @@ import { ISessionService } from './services/sessionService';
 import { CommandManager } from './commandManager';
 import { rawWorkspaceToWorkspaceData } from './publicApi';
 import { IHostService } from './services/hostService';
+import { getGitpodRemoteWindowConnectionInfo } from './remote';
 
 class RepoOwnerTreeItem {
     constructor(
@@ -69,7 +70,10 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
     private readonly _onDidChangeTreeData = this._register(new vscode.EventEmitter<DataTreeItem | DataTreeItem[] | void>());
     public readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
+    private connectedWorkspaceId: string | undefined;
+
     constructor(
+        readonly context: vscode.ExtensionContext,
         readonly commandManager: CommandManager,
         private readonly sessionService: ISessionService,
         private readonly hostService: IHostService,
@@ -81,6 +85,8 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
         commandManager.register({ id: 'gitpod.workspaces.refresh', execute: () => this.refresh() });
 
         this._register(this.hostService.onDidChangeHost(() => this.refresh()));
+
+        this.connectedWorkspaceId = getGitpodRemoteWindowConnectionInfo(context)?.connectionInfo.workspaceId;
     }
 
     getTreeItem(element: DataTreeItem): vscode.TreeItem {
@@ -92,11 +98,11 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
         }
 
         const treeItem = new vscode.TreeItem(element.description);
-        treeItem.description = element.id;
+        treeItem.description = `Last used ${element.getLastUsedPretty()} ago`;
         treeItem.collapsibleState = vscode.TreeItemCollapsibleState.None;
         treeItem.iconPath = new vscode.ThemeIcon(element.isRunning ? 'vm-running' : 'vm-outline');
-        treeItem.contextValue = 'gitpod-workspaces.workspace' + (element.isRunning ? '.running' : '');
-        treeItem.tooltip = new vscode.MarkdownString(`$(repo) ${element.description}\n\n $(tag) ${element.id}\n\n $(link-external) [${element.contextUrl}](${element.contextUrl})\n\n $(clock) Last used ${element.getLastUsedPretty()} ago `, true);
+        treeItem.contextValue = 'gitpod-workspaces.workspace' + (element.isRunning ? '.running' : '') + (this.connectedWorkspaceId === element.id ? '.connected' : '');
+        treeItem.tooltip = new vscode.MarkdownString(`$(repo) ${element.description}\n\n $(tag) ${element.id}\n\n $(link-external) [${element.contextUrl}](${element.contextUrl})\n\n $(clock) Last used ${element.getLastUsedPretty()} ago`, true);
         return treeItem;
     }
 

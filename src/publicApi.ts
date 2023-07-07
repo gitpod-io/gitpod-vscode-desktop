@@ -300,6 +300,7 @@ export interface WorkspaceData {
     phase: WorkspacePhase;
     description: string;
     lastUsed: Date;
+    recentFolders : string[];
 }
 
 export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace): WorkspaceData;
@@ -318,9 +319,10 @@ export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace | Workspace
             id: ws.workspaceId,
             contextUrl: ws.context!.contextUrl,
             workspaceUrl: ws.status!.instance!.status!.url,
-            phase: WorkspaceInstanceStatus_Phase[ws.status?.instance?.status?.phase ?? WorkspaceInstanceStatus_Phase.UNSPECIFIED].toLowerCase() as WorkspacePhase,
+            phase: WorkspaceInstanceStatus_Phase[ws.status!.instance!.status!.phase ?? WorkspaceInstanceStatus_Phase.UNSPECIFIED].toLowerCase() as WorkspacePhase,
             description: ws.description,
-            lastUsed: ws.status!.instance!.createdAt?.toDate()
+            lastUsed: ws.status!.instance!.createdAt?.toDate(),
+            recentFolders: ws.status!.instance!.status!.recentFolders
         };
     };
 
