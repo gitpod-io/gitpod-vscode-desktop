@@ -32,6 +32,8 @@ async function showWorkspacesPicker(sessionService: ISessionService, placeHolder
 export class ConnectInNewWindowCommand implements Command {
 	readonly id = 'gitpod.workspaces.connectInNewWindow';
 
+	private running = false;
+
 	constructor(
 		private readonly context: vscode.ExtensionContext,
 		private readonly sessionService: ISessionService,
@@ -41,6 +43,19 @@ export class ConnectInNewWindowCommand implements Command {
 	) { }
 
 	async execute(treeItem?: { id: string }) {
+		if (this.running) {
+			return;
+		}
+
+		try {
+			this.running = true;
+			await this.doRun(treeItem);
+		} finally {
+			this.running = false;
+		}
+	}
+
+	private async doRun(treeItem?: { id: string }) {
 		let wsData: WorkspaceData | undefined;
 		if (!treeItem?.id) {
 			wsData = await showWorkspacesPicker(this.sessionService, 'Select a workspace to connect...');
@@ -105,6 +120,8 @@ export class ConnectInNewWindowCommand implements Command {
 export class ConnectInCurrentWindowCommand implements Command {
 	readonly id = 'gitpod.workspaces.connectInCurrentWindow';
 
+	private running = false;
+
 	constructor(
 		private readonly context: vscode.ExtensionContext,
 		private readonly sessionService: ISessionService,
@@ -114,6 +131,19 @@ export class ConnectInCurrentWindowCommand implements Command {
 	) { }
 
 	async execute(treeItem?: { id: string }) {
+		if (this.running) {
+			return;
+		}
+
+		try {
+			this.running = true;
+			await this.doRun(treeItem);
+		} finally {
+			this.running = false;
+		}
+	}
+
+	private async doRun(treeItem?: { id: string }) {
 		let wsData: WorkspaceData | undefined;
 		if (!treeItem?.id) {
 			wsData = await showWorkspacesPicker(this.sessionService, 'Select a workspace to connect...');
