@@ -16,6 +16,8 @@ const systemSSHConfig = isWindows ? path.resolve(process.env.ALLUSERSPROFILE || 
 const defaultSSHConfigPath = path.resolve(os.homedir(), '.ssh/config');
 const gitpodSSHConfigPath = path.resolve(os.homedir(), '.ssh/code_gitpod.d/config');
 
+const gitpodHeader = `### This file is managed by Gitpod. Any manual changes will be lost.`;
+
 export function getSSHConfigPath() {
     const sshConfigPath = vscode.workspace.getConfiguration('remote.SSH').get<string>('configFile');
     return sshConfigPath ? untildify(sshConfigPath) : defaultSSHConfigPath;
@@ -58,7 +60,7 @@ function normalizeSSHConfig(config: SSHConfig) {
 }
 
 // TODO: Delete me
-async function tryDeleteOldMatch(matchContent: string, gitpodHeader: string) {
+export async function tryDeleteOldMatch(matchContent: string) {
     try {
         const match = matchContent.match(/Include "(?<oldTarget>.*?)"/);
         if (!match) {
@@ -120,7 +122,7 @@ export default class SSHConfiguration {
         }
     }
 
-    private static async addIncludeToUserSSHConfig(gitpodHeader: string): Promise<void> {
+    private static async addIncludeToUserSSHConfig(): Promise<void> {
         const gitpodIncludeSection = `## START GITPOD INTEGRATION
 ## This section is managed by Gitpod. Any manual changes will be lost.
 Include "code_gitpod.d/config"
@@ -143,7 +145,7 @@ Include "code_gitpod.d/config"
                 if (matchContent !== gitpodIncludeSection) {
                     content = content.replace(matchContent, '');
                     // try to check and delete old file
-                    tryDeleteOldMatch(matchContent, gitpodHeader);
+                    tryDeleteOldMatch(matchContent);
                 } else {
                     hasIncludeTarget = true;
                 }
@@ -162,7 +164,7 @@ Include "code_gitpod.d/config"
                     throw new WrapError(`Could not create ssh config folder ${configFileDir}`, e);
                 }
             }
-            if (!(await isDir(configFileDir)))  {
+            if (!(await isDir(configFileDir))) {
                 throw new WrapError(`${configFileDir} is not a directory, cannot write ssh config file`, null, 'NotDirectory');
             }
 
@@ -174,7 +176,28 @@ Include "code_gitpod.d/config"
         }
     }
 
-    private static async createGitpodSSHConfig(gitpodHeader: string): Promise<void> {
+    public static async removeGitpodSSHConfig(): Promise<void> {
+        const configPath = getSSHConfigPath();
+        if (!await exists(configPath)) {
+            return;
+        }
+        let content = (await fs.promises.readFile(configPath, 'utf8')).trim();
+        const scopeRegex = new RegExp(`## START GITPOD INTEGRATION.+END GITPOD INTEGRATION`, 'sg');
+        const matchResult = content.match(scopeRegex);
+        let changed = false;
+        if (matchResult) {
+            for (const matchContent of matchResult) {
+                tryDeleteOldMatch(matchContent);
+                content = content.replace(matchContent, '');
+                changed = true;
+            }
+        }
+        if (changed) {
+            await fs.promises.writeFile(configPath, content);
+        }
+    }
+
+    private static async createGitpodSSHConfig(): Promise<void> {
         const gitpodConfigFileDir = path.dirname(gitpodSSHConfigPath);
         // must be dir
         if (!(await exists(gitpodConfigFileDir))) {
@@ -185,7 +208,7 @@ Include "code_gitpod.d/config"
             }
         }
 
-        if (!(await isDir(gitpodConfigFileDir)))  {
+        if (!(await isDir(gitpodConfigFileDir))) {
             throw new WrapError(`${gitpodConfigFileDir} is not a directory, cannot write ssh config file`, null, 'NotDirectory');
         }
 
@@ -197,21 +220,20 @@ Include "code_gitpod.d/config"
                 throw new WrapError(`Could not write gitpod ssh config file ${gitpodSSHConfigPath}`, e);
             }
         }
-        if (!(await isFile(gitpodSSHConfigPath)))  {
+        if (!(await isFile(gitpodSSHConfigPath))) {
             throw new WrapError(`${gitpodSSHConfigPath} is not a file, cannot write ssh config file`, null, 'NotFile');
         }
     }
 
     static async ensureIncludeGitpodSSHConfig(): Promise<void> {
-        const gitpodHeader = `### This file is managed by Gitpod. Any manual changes will be lost.`;
         try {
-            await this.createGitpodSSHConfig(gitpodHeader);
+            await this.createGitpodSSHConfig();
         } catch (e) {
             const code = e?.code ?? 'Unknown';
             throw new WrapError('Failed to create gitpod ssh config', e, 'GitpodSSHConfig:' + code);
         }
         try {
-            await this.addIncludeToUserSSHConfig(gitpodHeader);
+            await this.addIncludeToUserSSHConfig();
         } catch (e) {
             const code = e?.code ?? 'Unknown';
             throw new WrapError('Failed to add include to user ssh config', e, 'UserSSHConfig:' + code);
