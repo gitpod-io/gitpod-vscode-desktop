@@ -25,7 +25,7 @@ import * as ssh2 from 'ssh2';
 import { ParsedKey } from 'ssh2-streams';
 import { isPortUsed } from '../../common/ports';
 import { WrapError } from '../../common/utils';
-import { ConnectError } from '@bufbuild/connect';
+import { ConnectError, Code } from '@bufbuild/connect';
 
 function isServiceError(obj: any): obj is ServiceError {
     // eslint-disable-next-line eqeqeq
@@ -65,7 +65,9 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
         const privateKey = await new Promise<string>((resolve, reject) => {
             client.createSSHKeyPair(new CreateSSHKeyPairRequest(), metadata, (err, resp) => {
                 if (err) {
-                    return reject(err);
+                    // codes of grpc-web are align with grpc and connect
+                    // see https://github.com/improbable-eng/grpc-web/blob/1d9bbb09a0990bdaff0e37499570dbc7d6e58ce8/client/grpc-web/src/Code.ts#L1
+                    return reject(new WrapError('Failed to call supervisor API', err, 'SupervisorAPI:' + Code[err.code]));
                 }
                 resolve(resp!.toObject().privateKey);
             });
@@ -129,26 +131,17 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
             };
         } catch (e) {
             let code = Status.INTERNAL;
-            let wrapErr: WrapError;
-            if (e instanceof WrapError && e.cause instanceof ConnectError) {
-                code = e.cause.code as unknown as Status;
-                wrapErr = new WrapError('failed to get workspace auth info', e);
-            } else if (isServiceError(e)) {
-                // process error from supervisor grpc-web lib
-
-                // codes of grpc-web are align with grpc and connect
-                // see https://github.com/improbable-eng/grpc-web/blob/1d9bbb09a0990bdaff0e37499570dbc7d6e58ce8/client/grpc-web/src/Code.ts#L1
-                code = e.code;
-                wrapErr = new WrapError('failed to get workspace auth info: ' + e.message, e);
-            } else {
-                wrapErr = new WrapError('failed to get workspace auth info', e);
+            if (e instanceof WrapError && (e.cause instanceof ConnectError || isServiceError(e.cause))) {
+                code = e.cause.code;
             }
+            const wrapErr = new WrapError('failed to get workspace auth info', e);
             this.logService.error(wrapErr);
             this.telemetryService.sendTelemetryException(wrapErr, {
                 gitpodHost: request.gitpodHost,
                 workspaceId: request.workspaceId,
                 instanceId,
                 userId,
+                wrapCode: wrapErr.code,
             });
 
             throw new ServerError(code, wrapErr.toString());

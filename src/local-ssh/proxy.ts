@@ -152,7 +152,7 @@ class WebSocketSSHProxy {
 
                     this.sendUserStatusFlow('failed');
                     if (sendErrorReport) {
-                        this.sendErrorReport(this.flow, err, 'failed to authenticate proxy with username: ' + e.username ?? '');
+                        this.sendErrorReport(this.flow, err, 'failed to authenticate proxy');
                     }
 
                     // Await a few seconds to delay showing ssh extension error modal dialog
@@ -263,8 +263,9 @@ class WebSocketSSHProxy {
         this.telemetryService.sendUserFlowStatus(status, this.flow);
     }
 
-    sendErrorReport(info: UserFlowTelemetryProperties, err: Error | any, message: string) {
+    sendErrorReport(info: UserFlowTelemetryProperties, err: Error | any, message: string, props?: Record<string, string>) {
         const properties = {
+            ...props,
             gitpodHost: info.gitpodHost,
             userId: info.userId,
             workspaceId: info.workspaceId,
