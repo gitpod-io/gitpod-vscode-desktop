@@ -152,7 +152,7 @@ class WebSocketSSHProxy {
 
                     this.sendUserStatusFlow('failed');
                     if (sendErrorReport) {
-                        this.sendErrorReport(this.flow, err, 'failed to authenticate proxy with username: ' + e.username ?? '');
+                        this.sendErrorReport(this.flow, err, 'failed to authenticate proxy');
                     }
 
                     // Await a few seconds to delay showing ssh extension error modal dialog

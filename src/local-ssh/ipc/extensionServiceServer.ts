@@ -18,14 +18,19 @@ import { ExperimentalSettings } from '../../experiments';
 import { Configuration } from '../../configuration';
 import { timeout } from '../../common/async';
 import { BrowserHeaders } from 'browser-headers';
-import { ControlServiceClient } from '@gitpod/supervisor-api-grpcweb/lib/control_pb_service';
+import { ControlServiceClient, ServiceError } from '@gitpod/supervisor-api-grpcweb/lib/control_pb_service';
 import { NodeHttpTransport } from '@improbable-eng/grpc-web-node-http-transport';
 import { CreateSSHKeyPairRequest } from '@gitpod/supervisor-api-grpcweb/lib/control_pb';
 import * as ssh2 from 'ssh2';
 import { ParsedKey } from 'ssh2-streams';
 import { isPortUsed } from '../../common/ports';
 import { WrapError } from '../../common/utils';
-import { ConnectError } from '@bufbuild/connect';
+import { ConnectError, Code } from '@bufbuild/connect';
+
+function isServiceError(obj: any): obj is ServiceError {
+    // eslint-disable-next-line eqeqeq
+    return obj != null && typeof obj === 'object' && typeof obj.metadata != null && typeof obj.code === 'number' && typeof obj.message === 'string';
+}
 
 const phaseMap: Record<WorkspaceInstanceStatus_Phase, WorkspaceInstancePhase | undefined> = {
     [WorkspaceInstanceStatus_Phase.CREATING]: 'pending',
@@ -60,7 +65,9 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
         const privateKey = await new Promise<string>((resolve, reject) => {
             client.createSSHKeyPair(new CreateSSHKeyPairRequest(), metadata, (err, resp) => {
                 if (err) {
-                    return reject(err);
+                    // codes of grpc-web are align with grpc and connect
+                    // see https://github.com/improbable-eng/grpc-web/blob/1d9bbb09a0990bdaff0e37499570dbc7d6e58ce8/client/grpc-web/src/Code.ts#L1
+                    return reject(new WrapError('Failed to call supervisor API', err, 'SupervisorAPI:' + Code[err.code]));
                 }
                 resolve(resp!.toObject().privateKey);
             });
@@ -124,8 +131,8 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
             };
         } catch (e) {
             let code = Status.INTERNAL;
-            if (e instanceof WrapError && e.cause instanceof ConnectError) {
-                code = e.cause.code as unknown as Status;
+            if (e instanceof WrapError && (e.cause instanceof ConnectError || isServiceError(e.cause))) {
+                code = e.cause.code;
             }
             const wrapErr = new WrapError('failed to get workspace auth info', e);
             this.logService.error(wrapErr);
@@ -134,6 +141,7 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
                 workspaceId: request.workspaceId,
                 instanceId,
                 userId,
+                wrapCode: wrapErr.code,
             });
 
             throw new ServerError(code, wrapErr.toString());
