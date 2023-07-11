@@ -46,7 +46,7 @@ function getClientOptions(): ClientOptions {
 type FailedToProxyCode = 'SSH.AuthenticationFailed' | 'TUNNEL.AuthenticateSSHKeyFailed' | 'NoRunningInstance' | 'FailedToGetAuthInfo' | 'GitpodHostMismatch' | 'NoAccessTokenFound';
 
 // IgnoredFailedCodes contains the failreCode that don't need to send error report
-const IgnoredFailedCodes: (FailedToProxyCode | string)[] = ['NoRunningInstance'];
+const IgnoredFailedCodes: (FailedToProxyCode | string)[] = ['NoRunningInstance', 'FailedToGetAuthInfo:UNAVAILABLE', 'FailedToGetAuthInfo:CANCELLED"'];
 
 class FailedToProxyError extends Error {
     constructor(public readonly failureCode: FailedToProxyCode | string, originError?: Error) {
