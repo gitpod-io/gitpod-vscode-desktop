@@ -29,7 +29,7 @@ import { ConnectError } from '@bufbuild/connect';
 
 function isServiceError(obj: any): obj is ServiceError {
     // eslint-disable-next-line eqeqeq
-    return obj != null && typeof obj === 'object' && typeof obj.code === 'number' && typeof obj.message === 'string' && typeof obj.metadata != null;
+    return obj != null && typeof obj === 'object' && typeof obj.metadata != null && typeof obj.code === 'number' && typeof obj.message === 'string';
 }
 
 const phaseMap: Record<WorkspaceInstanceStatus_Phase, WorkspaceInstancePhase | undefined> = {
