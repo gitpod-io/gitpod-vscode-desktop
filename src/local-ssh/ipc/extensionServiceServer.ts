@@ -18,7 +18,7 @@ import { ExperimentalSettings } from '../../experiments';
 import { Configuration } from '../../configuration';
 import { timeout } from '../../common/async';
 import { BrowserHeaders } from 'browser-headers';
-import { ControlServiceClient } from '@gitpod/supervisor-api-grpcweb/lib/control_pb_service';
+import { ControlServiceClient, ServiceError } from '@gitpod/supervisor-api-grpcweb/lib/control_pb_service';
 import { NodeHttpTransport } from '@improbable-eng/grpc-web-node-http-transport';
 import { CreateSSHKeyPairRequest } from '@gitpod/supervisor-api-grpcweb/lib/control_pb';
 import * as ssh2 from 'ssh2';
@@ -26,6 +26,11 @@ import { ParsedKey } from 'ssh2-streams';
 import { isPortUsed } from '../../common/ports';
 import { WrapError } from '../../common/utils';
 import { ConnectError } from '@bufbuild/connect';
+
+function isServiceError(obj: any): obj is ServiceError {
+    // eslint-disable-next-line eqeqeq
+    return obj != null && typeof obj === 'object' && typeof obj.code === 'number' && typeof obj.message === 'string' && typeof obj.metadata != null;
+}
 
 const phaseMap: Record<WorkspaceInstanceStatus_Phase, WorkspaceInstancePhase | undefined> = {
     [WorkspaceInstanceStatus_Phase.CREATING]: 'pending',
@@ -127,7 +132,16 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
             if (e instanceof WrapError && e.cause instanceof ConnectError) {
                 code = e.cause.code as unknown as Status;
             }
-            const wrapErr = new WrapError('failed to get workspace auth info', e);
+            let wrapErr: WrapError;
+            // process error from supervisor grpc-web lib
+            if (isServiceError(e)) {
+                // codes of grpc-web are align with grpc and connect
+                // see https://github.com/improbable-eng/grpc-web/blob/1d9bbb09a0990bdaff0e37499570dbc7d6e58ce8/client/grpc-web/src/Code.ts#L1
+                code = e.code;
+                wrapErr = new WrapError('failed to get workspace auth info: ' + e.message, e);
+            } else {
+                wrapErr = new WrapError('failed to get workspace auth info', e);
+            }
             this.logService.error(wrapErr);
             this.telemetryService.sendTelemetryException(wrapErr, {
                 gitpodHost: request.gitpodHost,
