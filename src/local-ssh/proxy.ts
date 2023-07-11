@@ -263,9 +263,8 @@ class WebSocketSSHProxy {
         this.telemetryService.sendUserFlowStatus(status, this.flow);
     }
 
-    sendErrorReport(info: UserFlowTelemetryProperties, err: Error | any, message: string, props?: Record<string, string>) {
+    sendErrorReport(info: UserFlowTelemetryProperties, err: Error | any, message: string) {
         const properties = {
-            ...props,
             gitpodHost: info.gitpodHost,
             userId: info.userId,
             workspaceId: info.workspaceId,
