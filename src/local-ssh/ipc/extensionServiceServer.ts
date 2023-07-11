@@ -129,12 +129,13 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
             };
         } catch (e) {
             let code = Status.INTERNAL;
+            let wrapErr: WrapError;
             if (e instanceof WrapError && e.cause instanceof ConnectError) {
                 code = e.cause.code as unknown as Status;
-            }
-            let wrapErr: WrapError;
-            // process error from supervisor grpc-web lib
-            if (isServiceError(e)) {
+                wrapErr = new WrapError('failed to get workspace auth info', e);
+            } else if (isServiceError(e)) {
+                // process error from supervisor grpc-web lib
+
                 // codes of grpc-web are align with grpc and connect
                 // see https://github.com/improbable-eng/grpc-web/blob/1d9bbb09a0990bdaff0e37499570dbc7d6e58ce8/client/grpc-web/src/Code.ts#L1
                 code = e.code;
