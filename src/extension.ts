@@ -143,9 +143,10 @@ export async function activate(context: vscode.ExtensionContext) {
 				remoteSession = new RemoteSession(remoteConnectionInfo.connectionInfo, context, remoteService, hostService, sessionService, settingsSync, experiments, logger!, telemetryService!, notificationService);
 				await remoteSession.initialize();
 			} else if (sessionService.isSignedIn()) {
-				remoteService.checkForStoppedWorkspaces(wsInfo => {
+				remoteService.checkForStoppedWorkspaces(async wsInfo => {
 					if (!workspacesExplorerView.isVisible()) {
-						workspacesExplorerView.reveal(wsInfo.workspaceId);
+						await vscode.commands.executeCommand('gitpod-workspaces.focus');
+						await workspacesExplorerView.reveal(wsInfo.workspaceId, { select: true });
 					}
 				});
 			}

@@ -10,6 +10,7 @@ import { CommandManager } from './commandManager';
 import { rawWorkspaceToWorkspaceData } from './publicApi';
 import { IHostService } from './services/hostService';
 import { getGitpodRemoteWindowConnectionInfo } from './remote';
+import { Barrier } from './common/async';
 
 class RepoOwnerTreeItem {
     constructor(
@@ -75,6 +76,8 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
 
     private treeView: vscode.TreeView<DataTreeItem>;
 
+    private workspacesBarrier = new Barrier();
+
     constructor(
         readonly context: vscode.ExtensionContext,
         readonly commandManager: CommandManager,
@@ -132,6 +135,8 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
                 }
             }
 
+            this.workspacesBarrier.open();
+
             return this.workspaces;
         }
         if (element instanceof RepoOwnerTreeItem) {
@@ -141,11 +146,11 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
     }
 
     getParent(element: DataTreeItem): vscode.ProviderResult<DataTreeItem> {
-        if (element instanceof RepoOwnerTreeItem) {
+        if (element instanceof WorkspaceTreeItem) {
             return;
         }
 
-        return element.getParent();
+        return;
     }
 
     private refresh() {
@@ -153,6 +158,7 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
     }
 
     async reveal(workspaceId: string, options?: { select?: boolean; focus?: boolean; }) {
+        await this.workspacesBarrier.wait();
         const element = this.workspaces.find(w => w.id === workspaceId);
         if (element) {
             return this.treeView.reveal(element, options);

@@ -25,7 +25,7 @@ export interface IRemoteService {
     setupSSHProxy: () => Promise<boolean>;
     extensionServerReady: () => Promise<boolean>;
     saveRestartInfo: () => Promise<void>;
-    checkForStoppedWorkspaces: (cb: (info: WorkspaceRestartInfo) => void) => void;
+    checkForStoppedWorkspaces: (cb: (info: WorkspaceRestartInfo) => Promise<void>) => Promise<void>;
 }
 
 type FailedToInitializeCode = 'Unknown' | 'LockFailed' | string;
@@ -189,18 +189,18 @@ export class RemoteService extends Disposable implements IRemoteService {
         await this.context.globalState.update(`${WORKSPACE_STOPPED_PREFIX}${connInfo.sshDestStr}`, { workspaceId: connInfo.connectionInfo.workspaceId, gitpodHost: connInfo.connectionInfo.gitpodHost, remoteUri: connInfo.remoteUri.toString() } as WorkspaceRestartInfo);
     }
 
-    checkForStoppedWorkspaces(cb: (info: WorkspaceRestartInfo) => void) {
+    async checkForStoppedWorkspaces(cb: (info: WorkspaceRestartInfo) => Promise<void>) {
         const keys = this.context.globalState.keys();
         const stopped_ws_keys = keys.filter(k => k.startsWith(WORKSPACE_STOPPED_PREFIX));
         for (const k of stopped_ws_keys) {
             const ws = this.context.globalState.get<WorkspaceRestartInfo>(k)!;
             if (new URL(this.hostService.gitpodHost).host === new URL(ws.gitpodHost).host) {
                 try {
-                    cb(ws);
+                    await cb(ws);
                 } catch {
                 }
             }
-            this.context.globalState.update(k, undefined);
+            await this.context.globalState.update(k, undefined);
         }
     }
 
