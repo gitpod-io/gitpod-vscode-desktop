@@ -249,10 +249,7 @@ class WebSocketSSHProxy {
 
     async retryGetWorkspaceInfo(username: string) {
         return retry(async () => {
-            const controller = new AbortController();
-            const signal = controller.signal;
-            setTimeout(() => { controller.abort(); }, 10000);
-            return this.extensionIpc.getWorkspaceAuthInfo({ workspaceId: username, gitpodHost: this.options.host }, { signal }).catch(e => {
+            return this.extensionIpc.getWorkspaceAuthInfo({ workspaceId: username, gitpodHost: this.options.host }).catch(e => {
                 let failureCode = 'FailedToGetAuthInfo';
                 if (e instanceof ClientError) {
                     if (e.code === Status.FAILED_PRECONDITION && e.message.includes('gitpod host mismatch')) {
