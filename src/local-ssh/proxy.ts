@@ -124,6 +124,12 @@ class WebSocketSSHProxy {
                 setTimeout(() => process.exit(0), 50);
             }
         });
+        sshStream.on('end', () => {
+            setTimeout(() => process.exit(0), 50);
+        });
+        sshStream.on('close', () => {
+            setTimeout(() => process.exit(0), 50);
+        });
 
         // This is expected to never throw as key is hardcoded
         const keys = await importKeyBytes(getHostKey());
@@ -243,7 +249,10 @@ class WebSocketSSHProxy {
 
     async retryGetWorkspaceInfo(username: string) {
         return retry(async () => {
-            return this.extensionIpc.getWorkspaceAuthInfo({ workspaceId: username, gitpodHost: this.options.host }).catch(e => {
+            const controller = new AbortController();
+            const signal = controller.signal;
+            setTimeout(() => { controller.abort(); }, 10000);
+            return this.extensionIpc.getWorkspaceAuthInfo({ workspaceId: username, gitpodHost: this.options.host }, { signal }).catch(e => {
                 let failureCode = 'FailedToGetAuthInfo';
                 if (e instanceof ClientError) {
                     if (e.code === Status.FAILED_PRECONDITION && e.message.includes('gitpod host mismatch')) {

@@ -55,9 +55,13 @@ function wrapSupervisorAPIError<T>(callback: () => Promise<T>, opts?: { maxRetri
         }
 
         const shouldRetry = opts?.signal ? !opts.signal.aborted : retries++ < maxRetries;
-        if (shouldRetry && (err.code === Code.Unavailable || err.code === Code.Aborted || err.message.includes('Response closed without'))) {
+        const isNetworkProblem = err.message.includes('Response closed without');
+        if (shouldRetry && (err.code === Code.Unavailable || err.code === Code.Aborted || isNetworkProblem)) {
             await timeout(1000);
             return callback().catch(onError);
+        }
+        if (isNetworkProblem) {
+            err.code = Code.Unavailable;
         }
         // codes of grpc-web are align with grpc and connect
         // see https://github.com/improbable-eng/grpc-web/blob/1d9bbb09a0990bdaff0e37499570dbc7d6e58ce8/client/grpc-web/src/Code.ts#L1
@@ -87,9 +91,7 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
         const privateKey = await wrapSupervisorAPIError(() => new Promise<string>((resolve, reject) => {
             client.createSSHKeyPair(new CreateSSHKeyPairRequest(), metadata, (err, resp) => {
                 if (err) {
-                    // codes of grpc-web are align with grpc and connect
-                    // see https://github.com/improbable-eng/grpc-web/blob/1d9bbb09a0990bdaff0e37499570dbc7d6e58ce8/client/grpc-web/src/Code.ts#L1
-                    return reject(new WrapError('Failed to call supervisor API', err, 'SupervisorAPI:' + Code[err.code]));
+                    return reject(err);
                 }
                 resolve(resp!.toObject().privateKey);
             });
