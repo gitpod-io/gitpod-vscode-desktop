@@ -12,7 +12,7 @@ import SSHDestination from '../ssh/sshDestination';
 import { IHostService } from '../services/hostService';
 import { WorkspaceState } from '../workspaceState';
 import { ILogService } from '../services/logService';
-import { eventToPromise } from '../common/event';
+import { eventToPromise, raceCancellationError } from '../common/event';
 import { ITelemetryService } from '../common/telemetry';
 
 async function showWorkspacesPicker(sessionService: ISessionService, placeHolder: string): Promise<WorkspaceData | undefined> {
@@ -84,13 +84,18 @@ export class ConnectInNewWindowCommand implements Command {
 		await vscode.window.withProgress(
 			{
 				title: `Starting workspace ${wsData.id}`,
-				location: vscode.ProgressLocation.Notification
+				location: vscode.ProgressLocation.Notification,
+				cancellable: true
 			},
-			async () => {
+			async (_, cancelToken) => {
 				let wsState: WorkspaceState | undefined;
 				try {
 					wsState = new WorkspaceState(wsData!.id, this.sessionService, this.logService);
 					await wsState.initialize();
+
+					if (cancelToken.isCancellationRequested) {
+						return;
+					}
 
 					if (wsState.isWorkspaceStopping) {
 						// TODO: if stopping tell user to await until stopped to start again
@@ -100,7 +105,12 @@ export class ConnectInNewWindowCommand implements Command {
 					if (wsState.isWorkspaceStopped) {
 						// Start workspace automatically
 						await this.sessionService.getAPI().startWorkspace(wsData!.id);
-						await eventToPromise(wsState.onWorkspaceRunning);
+
+						if (cancelToken.isCancellationRequested) {
+							return;
+						}
+
+						await raceCancellationError(eventToPromise(wsState.onWorkspaceRunning), cancelToken);
 					}
 
 					// TODO: getWorkspace API need to return path to open, for now harcode it
@@ -172,13 +182,18 @@ export class ConnectInCurrentWindowCommand implements Command {
 		await vscode.window.withProgress(
 			{
 				title: `Starting workspace ${wsData.id}`,
-				location: vscode.ProgressLocation.Notification
+				location: vscode.ProgressLocation.Notification,
+				cancellable: true
 			},
-			async () => {
+			async (_, cancelToken) => {
 				let wsState: WorkspaceState | undefined;
 				try {
 					wsState = new WorkspaceState(wsData!.id, this.sessionService, this.logService);
 					await wsState.initialize();
+
+					if (cancelToken.isCancellationRequested) {
+						return;
+					}
 
 					if (wsState.isWorkspaceStopping) {
 						// TODO: if stopping tell user to await until stopped to start again
@@ -188,7 +203,12 @@ export class ConnectInCurrentWindowCommand implements Command {
 					if (wsState.isWorkspaceStopped) {
 						// Start workspace automatically
 						await this.sessionService.getAPI().startWorkspace(wsData!.id);
-						await eventToPromise(wsState.onWorkspaceRunning);
+
+						if (cancelToken.isCancellationRequested) {
+							return;
+						}
+
+						await raceCancellationError(eventToPromise(wsState.onWorkspaceRunning), cancelToken);
 					}
 
 					// TODO: getWorkspace API need to return path to open, for now harcode it

@@ -19,6 +19,7 @@ import { ISessionService } from './services/sessionService';
 import { IHostService } from './services/hostService';
 import { ILogService } from './services/logService';
 import { ExtensionServiceServer } from './local-ssh/ipc/extensionServiceServer';
+import { IRemoteService } from './services/remoteService';
 
 export class RemoteSession extends Disposable {
 
@@ -31,6 +32,7 @@ export class RemoteSession extends Disposable {
 	constructor(
 		private connectionInfo: SSHConnectionParams,
 		private readonly context: vscode.ExtensionContext,
+		private readonly remoteService: IRemoteService,
 		private readonly hostService: IHostService,
 		private readonly sessionService: ISessionService,
 		private readonly settingsSync: SettingsSync,
@@ -79,7 +81,8 @@ export class RemoteSession extends Disposable {
 					throw new NoRunningInstanceError(this.connectionInfo.workspaceId, this.workspaceState.phase);
 				}
 
-				this._register(this.workspaceState.onWorkspaceWillStop(() => {
+				this._register(this.workspaceState.onWorkspaceWillStop(async () => {
+					await this.remoteService.saveRestartInfo();
 					vscode.commands.executeCommand('workbench.action.remote.close');
 				}));
 				instanceId = this.workspaceState.instanceId;

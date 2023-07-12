@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { EventEmitter, Event, Disposable } from 'vscode';
+import { EventEmitter, Event, Disposable, CancellationToken, CancellationError } from 'vscode';
 
 export function filterEvent<T>(event: Event<T>, filter: (e: T) => boolean): Event<T> {
 	return (listener, thisArgs = null, disposables?) => event(e => filter(e) && listener.call(thisArgs, e), null, disposables);
@@ -97,4 +97,18 @@ export function promiseFromEvent<T, U>(
 
 export function eventToPromise<T>(event: Event<T>): Promise<T> {
 	return new Promise(resolve => onceEvent(event)(resolve));
+}
+
+/**
+ * Returns a promise that rejects with an {@CancellationError} as soon as the passed token is cancelled.
+ * @see {@link raceCancellation}
+ */
+export function raceCancellationError<T>(promise: Promise<T>, token: CancellationToken): Promise<T> {
+	return new Promise((resolve, reject) => {
+		const ref = token.onCancellationRequested(() => {
+			ref.dispose();
+			reject(new CancellationError());
+		});
+		promise.then(resolve, reject).finally(() => ref.dispose());
+	});
 }

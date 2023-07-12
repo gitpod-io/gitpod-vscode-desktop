@@ -13,6 +13,12 @@ export interface SSHConnectionParams {
 	connType?: 'local-app' | 'local-ssh' | 'ssh-gateway';
 }
 
+export interface WorkspaceRestartInfo {
+	workspaceId: string;
+	gitpodHost: string;
+	remoteUri: string;
+}
+
 export class NoRunningInstanceError extends Error {
 	code = 'NoRunningInstanceError';
 	constructor(readonly workspaceId: string, readonly phase?: string) {

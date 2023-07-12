@@ -12,7 +12,7 @@ import { Configuration } from '../configuration';
 import { IHostService } from './hostService';
 import SSHConfiguration from '../ssh/sshConfig';
 import { isWindows } from '../common/platform';
-import { getLocalSSHDomain } from '../remote';
+import { WORKSPACE_STOPPED_PREFIX, WorkspaceRestartInfo, getGitpodRemoteWindowConnectionInfo, getLocalSSHDomain } from '../remote';
 import { ITelemetryService, UserFlowTelemetryProperties } from '../common/telemetry';
 import { ISessionService } from './sessionService';
 import { WrapError } from '../common/utils';
@@ -24,6 +24,8 @@ export interface IRemoteService {
 
     setupSSHProxy: () => Promise<boolean>;
     extensionServerReady: () => Promise<boolean>;
+    saveRestartInfo: () => Promise<void>;
+    checkForStoppedWorkspaces: (cb: (info: WorkspaceRestartInfo) => void) => void;
 }
 
 type FailedToInitializeCode = 'Unknown' | 'LockFailed' | string;
@@ -176,6 +178,30 @@ export class RemoteService extends Disposable implements IRemoteService {
         const destUri = vscode.Uri.joinPath(this.context.globalStorageUri, destPath);
         await vscode.workspace.fs.copy(fileUri, destUri, { overwrite: true });
         return destUri.fsPath;
+    }
+
+    async saveRestartInfo() {
+        const connInfo = getGitpodRemoteWindowConnectionInfo(this.context);
+        if (!connInfo) {
+            return;
+        }
+
+        await this.context.globalState.update(`${WORKSPACE_STOPPED_PREFIX}${connInfo.sshDestStr}`, { workspaceId: connInfo.connectionInfo.workspaceId, gitpodHost: connInfo.connectionInfo.gitpodHost, remoteUri: connInfo.remoteUri.toString() } as WorkspaceRestartInfo);
+    }
+
+    checkForStoppedWorkspaces(cb: (info: WorkspaceRestartInfo) => void) {
+        const keys = this.context.globalState.keys();
+        const stopped_ws_keys = keys.filter(k => k.startsWith(WORKSPACE_STOPPED_PREFIX));
+        for (const k of stopped_ws_keys) {
+            const ws = this.context.globalState.get<WorkspaceRestartInfo>(k)!;
+            if (new URL(this.hostService.gitpodHost).host === new URL(ws.gitpodHost).host) {
+                try {
+                    cb(ws);
+                } catch {
+                }
+            }
+            this.context.globalState.update(k, undefined);
+        }
     }
 
     private async withLock(path: string, cb: () => Promise<void>) {

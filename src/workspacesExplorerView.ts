@@ -70,7 +70,10 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
     private readonly _onDidChangeTreeData = this._register(new vscode.EventEmitter<DataTreeItem | DataTreeItem[] | void>());
     public readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
+    private workspaces: WorkspaceTreeItem[] = [];
     private connectedWorkspaceId: string | undefined;
+
+    private treeView: vscode.TreeView<DataTreeItem>;
 
     constructor(
         readonly context: vscode.ExtensionContext,
@@ -80,7 +83,7 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
     ) {
         super();
 
-        this._register(vscode.window.createTreeView('gitpod-workspaces', { treeDataProvider: this }));
+        this.treeView = this._register(vscode.window.createTreeView('gitpod-workspaces', { treeDataProvider: this }));
 
         commandManager.register({ id: 'gitpod.workspaces.refresh', execute: () => this.refresh() });
 
@@ -98,7 +101,7 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
         }
 
         const treeItem = new vscode.TreeItem(element.description);
-        treeItem.description = `${element.getLastUsedPretty()} ago`;
+        treeItem.description = !element.isRunning ? `${element.getLastUsedPretty()} ago` : '';
         treeItem.collapsibleState = vscode.TreeItemCollapsibleState.None;
         treeItem.iconPath = new vscode.ThemeIcon(element.isRunning ? 'vm-running' : 'vm-outline');
         treeItem.contextValue = 'gitpod-workspaces.workspace' + (element.isRunning ? '.running' : '') + (this.connectedWorkspaceId === element.id ? '.connected' : '');
@@ -109,7 +112,7 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
     async getChildren(element?: DataTreeItem): Promise<DataTreeItem[]> {
         if (!element) {
             let rawWorkspaces = await this.sessionService.getAPI().listWorkspaces();
-            const workspaces = rawWorkspaceToWorkspaceData(rawWorkspaces).map(ws => {
+            this.workspaces = rawWorkspaceToWorkspaceData(rawWorkspaces).map(ws => {
                 return new WorkspaceTreeItem(
                     ws.provider,
                     ws.owner,
@@ -121,8 +124,15 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
                     ws.lastUsed
                 );
             });
+            if (this.connectedWorkspaceId) {
+                const element = this.workspaces.find(w => w.id === this.connectedWorkspaceId);
+                const rest = this.workspaces.filter(w => w.id !== this.connectedWorkspaceId);
+                if (element) {
+                    this.workspaces = [element, ...rest];
+                }
+            }
 
-            return workspaces;
+            return this.workspaces;
         }
         if (element instanceof RepoOwnerTreeItem) {
             return element.workspaces;
@@ -140,5 +150,16 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
 
     private refresh() {
         this._onDidChangeTreeData.fire();
+    }
+
+    async reveal(workspaceId: string, options?: { select?: boolean; focus?: boolean; }) {
+        const element = this.workspaces.find(w => w.id === workspaceId);
+        if (element) {
+            return this.treeView.reveal(element, options);
+        }
+    }
+
+    isVisible() {
+        return this.treeView.visible
     }
 }
