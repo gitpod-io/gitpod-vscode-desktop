@@ -45,6 +45,32 @@ const phaseMap: Record<WorkspaceInstanceStatus_Phase, WorkspaceInstancePhase | u
     [WorkspaceInstanceStatus_Phase.UNSPECIFIED]: undefined,
 };
 
+function wrapSupervisorAPIError<T>(callback: () => Promise<T>, opts?: { maxRetries?: number; signal?: AbortSignal }): Promise<T> {
+    const maxRetries = opts?.maxRetries ?? 5;
+    let retries = 0;
+
+    const onError: (err: any) => Promise<T> = async (err) => {
+        if (!isServiceError(err)) {
+            throw err;
+        }
+
+        const shouldRetry = opts?.signal ? !opts.signal.aborted : retries++ < maxRetries;
+        const isNetworkProblem = err.message.includes('Response closed without');
+        if (shouldRetry && (err.code === Code.Unavailable || err.code === Code.Aborted || isNetworkProblem)) {
+            await timeout(1000);
+            return callback().catch(onError);
+        }
+        if (isNetworkProblem) {
+            err.code = Code.Unavailable;
+        }
+        // codes of grpc-web are align with grpc and connect
+        // see https://github.com/improbable-eng/grpc-web/blob/1d9bbb09a0990bdaff0e37499570dbc7d6e58ce8/client/grpc-web/src/Code.ts#L1
+        throw new WrapError('Failed to call supervisor API', err, 'SupervisorAPI:' + Code[err.code]);
+    };
+
+    return callback().catch(onError);
+}
+
 class ExtensionServiceImpl implements ExtensionServiceImplementation {
     constructor(
         private logService: ILogService,
@@ -56,22 +82,20 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
 
     }
 
-    private async getWorkspaceSSHKey(ownerToken: string, workspaceId: string, workspaceHost: string) {
+    private async getWorkspaceSSHKey(ownerToken: string, workspaceId: string, workspaceHost: string, signal: AbortSignal) {
         const workspaceUrl = `https://${workspaceId}.${workspaceHost}`;
         const metadata = new BrowserHeaders();
         metadata.append('x-gitpod-owner-token', ownerToken);
         const client = new ControlServiceClient(`${workspaceUrl}/_supervisor/v1`, { transport: NodeHttpTransport() });
 
-        const privateKey = await new Promise<string>((resolve, reject) => {
+        const privateKey = await wrapSupervisorAPIError(() => new Promise<string>((resolve, reject) => {
             client.createSSHKeyPair(new CreateSSHKeyPairRequest(), metadata, (err, resp) => {
                 if (err) {
-                    // codes of grpc-web are align with grpc and connect
-                    // see https://github.com/improbable-eng/grpc-web/blob/1d9bbb09a0990bdaff0e37499570dbc7d6e58ce8/client/grpc-web/src/Code.ts#L1
-                    return reject(new WrapError('Failed to call supervisor API', err, 'SupervisorAPI:' + Code[err.code]));
+                    return reject(err);
                 }
                 resolve(resp!.toObject().privateKey);
             });
-        });
+        }), { signal });
 
         const parsedResult = ssh2.utils.parseKey(privateKey);
         if (parsedResult instanceof Error || !parsedResult) {
@@ -117,7 +141,7 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
             const workspaceHost = url.host.substring(url.host.indexOf('.') + 1);
             instanceId = (usePublicApi ? (workspace as Workspace).status?.instance?.instanceId : (workspace as WorkspaceInfo).latestInstance?.id) as string;
 
-            const sshkey = phase === 'running' ? (await this.getWorkspaceSSHKey(ownerToken, workspaceId, workspaceHost)) : '';
+            const sshkey = phase === 'running' ? (await this.getWorkspaceSSHKey(ownerToken, workspaceId, workspaceHost, _context.signal)) : '';
 
             return {
                 gitpodHost,
