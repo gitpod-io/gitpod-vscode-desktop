@@ -697,11 +697,11 @@ export class RemoteConnector extends Disposable {
 				const userOverrideConfig = {
 					useLocalApp: {
 						override: userOverride,
-						value: forceUseLocalApp,
+						value: String(forceUseLocalApp),
 					},
 					disableLocalSSH: {
 						override: String(isUserOverrideSetting('gitpod.remote.disableLocalSSH')),
-						value: forceDisableLocalSSH
+						value: String(forceDisableLocalSSH)
 					},
 				};
 				let sshDestination: SSHDestination | undefined;
