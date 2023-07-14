@@ -691,13 +691,25 @@ export class RemoteConnector extends Disposable {
 				this.logService.info(`Going to use ${this.usePublicApi ? 'public' : 'server'} API`);
 
 				const forceUseLocalApp = Configuration.getUseLocalApp();
+				const forceDisableLocalSSH = Configuration.disableLocalSSH();
 				const userOverride = String(isUserOverrideSetting('gitpod.remote.useLocalApp'));
+				// TODO: :lipstick:
+				const userOverrideConfig = {
+					useLocalApp: {
+						override: userOverride,
+						value: forceUseLocalApp,
+					},
+					disableLocalSSH: {
+						override: String(isUserOverrideSetting('gitpod.remote.disableLocalSSH')),
+						value: forceDisableLocalSSH
+					},
+				};
 				let sshDestination: SSHDestination | undefined;
 				const useLocalSSH = await this.experiments.getUseLocalSSHProxy();
 				sshFlow.useLocalSSH = String(useLocalSSH);
-				if (!forceUseLocalApp && useLocalSSH) {
+				if (!forceUseLocalApp && useLocalSSH && !forceDisableLocalSSH) {
 					const openSSHVersion = await getOpenSSHVersion();
-					const localSSHFlow: UserFlowTelemetryProperties = { kind: 'local-ssh', openSSHVersion, userOverride, ...sshFlow };
+					const localSSHFlow: UserFlowTelemetryProperties = { kind: 'local-ssh', openSSHVersion, userOverride, userOverrideConfig, ...sshFlow };
 					try {
 						this.telemetryService.sendUserFlowStatus('connecting', localSSHFlow);
 						// If needed, revert local-app changes first
@@ -733,7 +745,7 @@ export class RemoteConnector extends Disposable {
 
 				if (!forceUseLocalApp && sshDestination === undefined) {
 					const openSSHVersion = await getOpenSSHVersion();
-					const gatewayFlow: UserFlowTelemetryProperties = { kind: 'gateway', openSSHVersion, userOverride, ...sshFlow };
+					const gatewayFlow: UserFlowTelemetryProperties = { kind: 'gateway', openSSHVersion, userOverride, userOverrideConfig, ...sshFlow };
 					try {
 						this.telemetryService.sendUserFlowStatus('connecting', gatewayFlow);
 
@@ -795,7 +807,7 @@ export class RemoteConnector extends Disposable {
 				let localAppSSHConfigPath: string | undefined;
 				if (sshDestination === undefined && !params.debugWorkspace) {
 					// debug workspace does not support local app mode
-					const localAppFlow = { kind: 'local-app', userOverride, ...sshFlow };
+					const localAppFlow = { kind: 'local-app', userOverride, userOverrideConfig, ...sshFlow };
 					try {
 						this.telemetryService.sendUserFlowStatus('connecting', localAppFlow);
 

@@ -74,6 +74,12 @@
 						"type": "number",
 						"description": "The port to use for the local SSH ipc server.",
 						"scope": "application"
+					},
+					"gitpod.remote.disableLocalSSH": {
+						"type": "boolean",
+						"description": "Use other ways (except local SSH proxy) to connect to a remote workspace.\nWarning: It's a temporary solution when you can't connect by default settings, and may be removed in the near future.",
+						"default": false,
+						"scope": "application"
 					}
 				}
 			},

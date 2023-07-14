@@ -17,6 +17,10 @@ function getUseLocalApp() {
     return vscode.workspace.getConfiguration('gitpod').get<boolean>('remote.useLocalApp', false);
 }
 
+function disableLocalSSH() {
+    return vscode.workspace.getConfiguration('gitpod').get<boolean>('remote.disableLocalSSH', false);
+}
+
 function getLocalSshExtensionIpcPort() {
     let defaultPort = 43025;
     if (vscode.env.appName.includes('Insiders')) {
@@ -28,5 +32,6 @@ function getLocalSshExtensionIpcPort() {
 export const Configuration = {
     getGitpodHost,
     getUseLocalApp,
+    disableLocalSSH,
     getLocalSshExtensionIpcPort,
 };
