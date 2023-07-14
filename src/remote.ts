@@ -13,6 +13,12 @@ export interface SSHConnectionParams {
 	connType?: 'local-app' | 'local-ssh' | 'ssh-gateway';
 }
 
+export interface WorkspaceRestartInfo {
+	workspaceId: string;
+	gitpodHost: string;
+	remoteUri: string;
+}
+
 export class NoRunningInstanceError extends Error {
 	code = 'NoRunningInstanceError';
 	constructor(readonly workspaceId: string, readonly phase?: string) {
@@ -42,6 +48,7 @@ export class NoLocalSSHSupportError extends Error {
 }
 
 export const SSH_DEST_KEY = 'ssh-dest:';
+export const WORKSPACE_STOPPED_PREFIX = 'stopped_workspace:';
 
 export function getGitpodRemoteWindowConnectionInfo(context: vscode.ExtensionContext): { connectionInfo: SSHConnectionParams; remoteUri: vscode.Uri; sshDestStr: string } | undefined {
 	const remoteUri = vscode.workspace.workspaceFile?.scheme !== 'untitled'

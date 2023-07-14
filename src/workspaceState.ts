@@ -9,8 +9,7 @@ import { Disposable } from './common/dispose';
 import { ISessionService } from './services/sessionService';
 import { ILogService } from './services/logService';
 import { filterEvent, onceEvent } from './common/event';
-
-export type WorkspacePhase = 'unspecified' | 'preparing' | 'imagebuild' | 'pending' | 'creating' | 'initializing' | 'running' | 'interrupted' | 'stopping' | 'stopped';
+import { WorkspacePhase } from './publicApi';
 
 export class WorkspaceState extends Disposable {
     private workspaceState: WorkspaceStatus | undefined;

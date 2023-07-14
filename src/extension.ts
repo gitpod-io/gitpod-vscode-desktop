@@ -22,6 +22,9 @@ import { SignInCommand } from './commands/account';
 import { ExportLogsCommand } from './commands/logs';
 import { Configuration } from './configuration';
 import { RemoteService } from './services/remoteService';
+import { WorkspacesExplorerView } from './workspacesExplorerView';
+import { ConnectInCurrentWindowCommand, ConnectInNewWindowCommand, DeleteWorkspaceCommand, OpenWorkspaceContextCommand, OpenInBrowserCommand, StopCurrentWorkspaceCommand, StopWorkspaceCommand, DisconnectWorkspaceCommand } from './commands/workspaces';
+import { WorkspaceView } from './workspaceView';
 
 // connect-web uses fetch api, so we need to polyfill it
 if (!global.fetch) {
@@ -104,23 +107,48 @@ export async function activate(context: vscode.ExtensionContext) {
 			}
 		}));
 
+		remoteConnectionInfo = getGitpodRemoteWindowConnectionInfo(context);
+		vscode.commands.executeCommand('setContext', 'gitpod.remoteConnection', !!remoteConnectionInfo);
+
+		const workspacesExplorerView = new WorkspacesExplorerView(context, commandManager, sessionService, hostService);
+		context.subscriptions.push(workspacesExplorerView);
+
+		if (remoteConnectionInfo) {
+			const workspaceView = new WorkspaceView(remoteConnectionInfo.connectionInfo.workspaceId, sessionService);
+			context.subscriptions.push(workspaceView);
+		}
+
 		// Register global commands
 		commandManager.register(new SignInCommand(sessionService));
 		commandManager.register(new ExportLogsCommand(context.logUri, notificationService, telemetryService, logger, hostService));
+		commandManager.register(new ConnectInNewWindowCommand(context, sessionService, hostService, telemetryService, logger));
+		commandManager.register(new ConnectInCurrentWindowCommand(context, sessionService, hostService, telemetryService, logger));
+		commandManager.register(new StopWorkspaceCommand(sessionService));
+		commandManager.register(new StopCurrentWorkspaceCommand(remoteConnectionInfo?.connectionInfo, sessionService));
+		commandManager.register(new OpenInBrowserCommand(sessionService, hostService, telemetryService));
+		commandManager.register(new DeleteWorkspaceCommand(sessionService));
+		commandManager.register(new OpenWorkspaceContextCommand(sessionService, hostService, telemetryService));
+		commandManager.register(new DisconnectWorkspaceCommand());
 
 		if (!context.globalState.get<boolean>(FIRST_INSTALL_KEY, false)) {
 			context.globalState.update(FIRST_INSTALL_KEY, true);
 			telemetryService.sendTelemetryEvent('gitpod_desktop_installation', { gitpodHost: hostService.gitpodHost, kind: 'install' });
 		}
 
-		remoteConnectionInfo = getGitpodRemoteWindowConnectionInfo(context);
 		// Because auth provider implementation is in the same extension, we need to wait for it to activate first
 		sessionService.didFirstLoad.then(async () => {
 			if (remoteConnectionInfo) {
 				commandManager.register({ id: 'gitpod.api.autoTunnel', execute: () => remoteConnector.autoTunnelCommand });
 
-				remoteSession = new RemoteSession(remoteConnectionInfo.connectionInfo, context, hostService, sessionService, settingsSync, experiments, logger!, telemetryService!, notificationService);
+				remoteSession = new RemoteSession(remoteConnectionInfo.connectionInfo, context, remoteService, hostService, sessionService, settingsSync, experiments, logger!, telemetryService!, notificationService);
 				await remoteSession.initialize();
+			} else if (sessionService.isSignedIn()) {
+				remoteService.checkForStoppedWorkspaces(async wsInfo => {
+					if (!workspacesExplorerView.isVisible()) {
+						await vscode.commands.executeCommand('gitpod-workspaces.focus');
+						await workspacesExplorerView.reveal(wsInfo.workspaceId, { select: true });
+					}
+				});
 			}
 		});
 
