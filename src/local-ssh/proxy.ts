@@ -124,12 +124,12 @@ class WebSocketSSHProxy {
                 setTimeout(() => process.exit(0), 50);
             }
         });
-        sshStream.on('end', () => {
-            setTimeout(() => process.exit(0), 50);
-        });
-        sshStream.on('close', () => {
-            setTimeout(() => process.exit(0), 50);
-        });
+        // sshStream.on('end', () => {
+        //     setTimeout(() => process.exit(0), 50);
+        // });
+        // sshStream.on('close', () => {
+        //     setTimeout(() => process.exit(0), 50);
+        // });
 
         // This is expected to never throw as key is hardcoded
         const keys = await importKeyBytes(getHostKey());
