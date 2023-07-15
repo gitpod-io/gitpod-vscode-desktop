@@ -10,6 +10,7 @@ import { GitpodPublicApi, IGitpodAPI } from '../publicApi';
 import { eventToPromise } from '../common/event';
 import { ILogService } from './logService';
 import { ITelemetryService } from '../common/telemetry';
+import { arrayEquals } from '../common/utils';
 
 export class NoSignedInError extends Error {
     constructor() {
@@ -31,7 +32,16 @@ export interface ISessionService {
     didFirstLoad: Promise<void>;
 }
 
-const sessionScopes = [
+const defaultSessionScopes = [
+    'function:getWorkspace',
+    'function:getOwnerToken',
+    'function:getLoggedInUser',
+    'function:getSSHPublicKeys',
+    'function:sendHeartBeat',
+    'resource:default'
+];
+
+const managementSessionScopes = [
     'function:getWorkspaces',
     'function:getWorkspace',
     'function:startWorkspace',
@@ -67,8 +77,8 @@ export class SessionService extends Disposable implements ISessionService {
         super();
 
         this._register(vscode.authentication.onDidChangeSessions(e => this.handleOnDidChangeSessions(e)));
-        this.firstLoadPromise = this.tryLoadSession(false);
-        this.firstLoadPromise.then(() => vscode.commands.executeCommand('setContext', 'gitpod.authenticated', this.isSignedIn()));
+        this.firstLoadPromise = this.tryLoadSession(false, managementSessionScopes).then(() => this.tryLoadSession(false, defaultSessionScopes) /* delete this after some time when users have a session with managementSessionScopes */);
+        this.firstLoadPromise.then(() => vscode.commands.executeCommand('setContext', 'gitpod.authenticated', this.session && arrayEquals(this.session.scopes.slice(0).sort(), managementSessionScopes.slice().sort())));
     }
 
     private async handleOnDidChangeSessions(e: vscode.AuthenticationSessionsChangeEvent) {
@@ -77,8 +87,9 @@ export class SessionService extends Disposable implements ISessionService {
         }
         const oldSession = this.session;
         this.session = undefined as vscode.AuthenticationSession | undefined;
-        await this.tryLoadSession(false);
-        vscode.commands.executeCommand('setContext', 'gitpod.authenticated', this.isSignedIn());
+        await this.tryLoadSession(false, managementSessionScopes);
+        await this.tryLoadSession(false, defaultSessionScopes); // delete this after some time when users have a session with managementSessionScopes
+        vscode.commands.executeCommand('setContext', 'gitpod.authenticated', this.session && arrayEquals(this.session.scopes.slice(0).sort(), managementSessionScopes.slice().sort()));
         // host changed, sign out, sign in
         const didChange = oldSession?.id !== this.session?.id;
         if (didChange) {
@@ -92,19 +103,19 @@ export class SessionService extends Disposable implements ISessionService {
         return !!this.session;
     }
 
-    async signIn(gitpodHost?: string) {
+    async signIn(gitpodHost?: string, scopes: string[] = managementSessionScopes) {
         if (this.loginPromise) {
             this.logger.info(`Existing login in progress. Waiting for completion...`);
             return this.loginPromise;
         }
 
-        this.loginPromise = this.doSignIn(gitpodHost);
+        this.loginPromise = this.doSignIn(gitpodHost || this.hostService.gitpodHost, scopes);
         this.loginPromise.finally(() => this.loginPromise = undefined);
         return this.loginPromise;
     }
 
-    private async doSignIn(gitpodHost?: string) {
-        if (gitpodHost && new URL(this.hostService.gitpodHost).host !== new URL(gitpodHost).host) {
+    private async doSignIn(gitpodHost: string, scopes: string[]) {
+        if (new URL(this.hostService.gitpodHost).host !== new URL(gitpodHost).host) {
             const changedSessionPromise = eventToPromise(this.onDidChangeSession);
             const updated = await this.hostService.changeHost(gitpodHost);
             if (!updated) {
@@ -114,11 +125,11 @@ export class SessionService extends Disposable implements ISessionService {
             await changedSessionPromise;
         }
 
-        if (this.isSignedIn()) {
+        if (this.session && arrayEquals(this.session.scopes.slice(0).sort(), scopes.slice().sort())) {
             return;
         }
 
-        await this.tryLoadSession(true);
+        await this.tryLoadSession(true, scopes);
 
         if (this.isSignedIn()) {
             this.logger.info(`Successfully signed in`);
@@ -127,7 +138,7 @@ export class SessionService extends Disposable implements ISessionService {
         }
     }
 
-    private async tryLoadSession(force: boolean) {
+    private async tryLoadSession(force: boolean, scopes: string[]) {
         try {
             if (this.session && !force) {
                 return;
@@ -135,7 +146,7 @@ export class SessionService extends Disposable implements ISessionService {
 
             this.session = await vscode.authentication.getSession(
                 'gitpod',
-                sessionScopes,
+                scopes,
                 {
                     createIfNone: force,
                     silent: !force,
