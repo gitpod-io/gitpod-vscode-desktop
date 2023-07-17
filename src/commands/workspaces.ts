@@ -325,6 +325,9 @@ export class OpenWorkspaceContextCommand implements Command {
 		}
 
 		const wsData = rawWorkspaceToWorkspaceData(await this.sessionService.getAPI().getWorkspace(treeItem.id));
+		if (!wsData) {
+			return;
+		}
 
 		this.telemetryService.sendTelemetryEvent('vscode_desktop_view_command', {
 			name: this.id,

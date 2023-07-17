@@ -304,7 +304,7 @@ export interface WorkspaceData {
     recentFolders: string[];
 }
 
-export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace): WorkspaceData;
+export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace): WorkspaceData | undefined;
 export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace[]): WorkspaceData[];
 export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace | Workspace[]) {
     const toWorkspaceData = (ws: Workspace) => {
@@ -312,7 +312,11 @@ export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace | Workspace
         if (ws.context?.details.case === 'git') {
             url = new URL(ws.context.details.value.normalizedContextUrl);
         } else {
-            url = ContextURL.getNormalizedURL({ contextURL: ws.context!.contextUrl } as any)!;
+            const normalized = ContextURL.getNormalizedURL({ contextURL: ws.context!.contextUrl } as any);
+            if (!normalized) {
+                return undefined;
+            }
+            url = normalized;
         }
         const provider = url.host.replace(/\..+?$/, ''); // remove '.com', etc
         const matches = url.pathname.match(/[^/]+/g)!; // match /owner/repo
@@ -334,7 +338,7 @@ export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace | Workspace
 
     if (Array.isArray(rawWorkspaces)) {
         rawWorkspaces = rawWorkspaces.filter(ws => ws.context?.details.case === 'git');
-        return rawWorkspaces.map(toWorkspaceData);
+        return rawWorkspaces.map(toWorkspaceData).filter(e => !!e);
     }
 
     return toWorkspaceData(rawWorkspaces);
