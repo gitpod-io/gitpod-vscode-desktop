@@ -117,7 +117,13 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
             const url = new URL(wsData.workspaceUrl);
             const workspaceHost = url.host.substring(url.host.indexOf('.') + 1);
 
-            const sshkey = wsData.phase === 'running' ? (await this.getWorkspaceSSHKey(ownerToken, wsData.workspaceUrl, _context.signal)) : '';
+            let actualWorkspaceUrl = wsData.workspaceUrl;
+            if (workspaceId !== actualWorkspaceId) {
+                // Public api doesn't take into account "debug" workspaces, readd 'debug-' prefix
+                actualWorkspaceUrl = actualWorkspaceUrl.replace(actualWorkspaceId, workspaceId);
+            }
+
+            const sshkey = wsData.phase === 'running' ? (await this.getWorkspaceSSHKey(ownerToken, actualWorkspaceUrl, _context.signal)) : '';
 
             return {
                 gitpodHost,
