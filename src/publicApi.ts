@@ -307,7 +307,9 @@ export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace): Workspace
 export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace[]): WorkspaceData[];
 export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace | Workspace[]) {
     const toWorkspaceData = (ws: Workspace) => {
-        const contextUrl = ws.context?.details.case === 'git' ? ws.context.details.value.normalizedContextUrl : ws.context.contextUrl;
+        // https://github.com/gitpod-io/gitpod/blob/7e0c605a3d470b8cee0e841e51da9b20022f4f4b/components/public-api-server/pkg/apiv1/workspace.go#L332-L335
+        // it's always git context, safe to go
+        const contextUrl = ws.context?.details.case === 'git' ? ws.context.details.value.normalizedContextUrl : ws.context!.contextUrl;
         const url = new URL(contextUrl);
         const provider = url.host.replace(/\..+?$/, ''); // remove '.com', etc
         const matches = url.pathname.match(/[^/]+/g)!; // match /owner/repo
