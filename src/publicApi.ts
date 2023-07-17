@@ -316,7 +316,7 @@ export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace | Workspace
             ) {
                 url = new URL(ws.context.details.value.normalizedContextUrl);
             } else {
-                const normalized = ContextURL.getNormalizedURL({ contextURL: ws.context!.contextUrl } as any);
+                const normalized = ContextURL.getNormalizedURL({ context: {}, contextURL: ws.context!.contextUrl } as any);
                 if (!normalized) {
                     return undefined;
                 }
