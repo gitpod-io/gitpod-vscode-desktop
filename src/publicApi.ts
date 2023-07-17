@@ -300,14 +300,18 @@ export interface WorkspaceData {
     phase: WorkspacePhase;
     description: string;
     lastUsed: Date;
-    recentFolders : string[];
+    recentFolders: string[];
 }
 
 export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace): WorkspaceData;
 export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace[]): WorkspaceData[];
 export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace | Workspace[]) {
     const toWorkspaceData = (ws: Workspace) => {
-        const url = new URL(ws.context!.contextUrl);
+        if (ws.context?.details.case !== 'git') {
+            // impossible since we filter them first
+            throw new Error(`Workspace ${ws.workspaceId} is not a git workspace`);
+        }
+        const url = new URL(ws.context.details.value.normalizedContextUrl);
         const provider = url.host.replace(/\..+?$/, ''); // remove '.com', etc
         const matches = url.pathname.match(/[^/]+/g)!; // match /owner/repo
         const owner = matches[0];
@@ -317,7 +321,7 @@ export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace | Workspace
             owner,
             repo,
             id: ws.workspaceId,
-            contextUrl: ws.context!.contextUrl,
+            contextUrl: ws.context.details.value.normalizedContextUrl,
             workspaceUrl: ws.status!.instance!.status!.url,
             phase: WorkspaceInstanceStatus_Phase[ws.status!.instance!.status!.phase ?? WorkspaceInstanceStatus_Phase.UNSPECIFIED].toLowerCase() as WorkspacePhase,
             description: ws.description,
