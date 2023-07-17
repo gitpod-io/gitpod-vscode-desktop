@@ -60,6 +60,9 @@ export class WorkspaceView extends Disposable implements vscode.TreeDataProvider
         if (!element) {
             let rawWorkspace = await this.sessionService.getAPI().getWorkspace(this.workspaceId);
             const workspace = rawWorkspaceToWorkspaceData(rawWorkspace);
+            if (!workspace) {
+                return [];
+            }
             return [
                 new RepoTreeItem(workspace.owner, workspace.repo, workspace.description),
                 new WorkspaceIdTreeItem(workspace.id),
