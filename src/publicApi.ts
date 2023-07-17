@@ -309,17 +309,22 @@ export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace[]): Workspa
 export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace | Workspace[]) {
     const toWorkspaceData = (ws: Workspace) => {
         let url: URL;
-        if (
-            ws.context?.details.case === 'git' &&
-            ws.context.details.value.normalizedContextUrl !== ws.context.contextUrl // backward compatible
-        ) {
-            url = new URL(ws.context.details.value.normalizedContextUrl);
-        } else {
-            const normalized = ContextURL.getNormalizedURL({ contextURL: ws.context!.contextUrl } as any);
-            if (!normalized) {
-                return undefined;
+        try {
+            if (
+                ws.context?.details.case === 'git' &&
+                ws.context.details.value.normalizedContextUrl !== ws.context.contextUrl // backward compatible
+            ) {
+                url = new URL(ws.context.details.value.normalizedContextUrl);
+            } else {
+                const normalized = ContextURL.getNormalizedURL({ contextURL: ws.context!.contextUrl } as any);
+                if (!normalized) {
+                    return undefined;
+                }
+                url = normalized;
             }
-            url = normalized;
+        } catch (e) {
+            // ignore
+            return undefined;
         }
         const provider = url.host.replace(/\..+?$/, ''); // remove '.com', etc
         const matches = url.pathname.match(/[^/]+/g)!; // match /owner/repo
