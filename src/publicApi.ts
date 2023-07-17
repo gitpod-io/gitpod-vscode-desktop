@@ -342,7 +342,7 @@ export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace | Workspace
 // TODO: remove this once public api is fixed, ref https://github.com/gitpod-io/gitpod/pull/18292
 function getNormalizedURL(contextUrl: string | undefined): string | undefined {
     if (!contextUrl) {
-        return
+        return;
     }
 
     const idx = contextUrl.search(/http[s]?:\/\//);
@@ -357,5 +357,5 @@ function getNormalizedURL(contextUrl: string | undefined): string | undefined {
     } catch {
     }
 
-    return undefined
+    return;
 }
