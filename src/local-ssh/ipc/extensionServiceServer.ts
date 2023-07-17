@@ -22,8 +22,7 @@ import { ParsedKey } from 'ssh2-streams';
 import { isPortUsed } from '../../common/ports';
 import { WrapError } from '../../common/utils';
 import { ConnectError, Code } from '@bufbuild/connect';
-import { WorkspaceInstanceStatus_Phase } from '@gitpod/public-api/lib/gitpod/experimental/v1';
-import { WorkspacePhase } from '../../publicApi';
+import { rawWorkspaceToWorkspaceData } from '../../publicApi';
 
 function isServiceError(obj: any): obj is ServiceError {
     // eslint-disable-next-line eqeqeq
@@ -109,26 +108,34 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
             // TODO(lssh): Get auth info according to `request.gitpodHost`
             const gitpodHost = this.hostService.gitpodHost;
 
-            const ws = await this.sessionService.getAPI().getWorkspace(actualWorkspaceId, _context.signal);
+            const rawWorkspace = await this.sessionService.getAPI().getWorkspace(actualWorkspaceId, _context.signal);
+            const wsData = rawWorkspaceToWorkspaceData(rawWorkspace);
 
-            instanceId = ws.status!.instance!.instanceId;
-
-            let ownerToken = '';
-            let sshkey = '';
-            let workspaceHost = '';
-            const phase = WorkspaceInstanceStatus_Phase[ws.status!.instance!.status!.phase ?? WorkspaceInstanceStatus_Phase.UNSPECIFIED].toLowerCase() as WorkspacePhase;
-            // if workspace is not running, we may not compute its url yet
-            if (phase === 'running') {
-                ownerToken = await this.sessionService.getAPI().getOwnerToken(actualWorkspaceId, _context.signal);
-                let workspaceUrl = ws.status!.instance!.status!.url;
-                const url = new URL(workspaceUrl);
-                workspaceHost = url.host.substring(url.host.indexOf('.') + 1);
-                if (workspaceId !== actualWorkspaceId) {
-                    // Public api doesn't take into account "debug" workspaces, readd 'debug-' prefix
-                    workspaceUrl = workspaceUrl.replace(actualWorkspaceId, workspaceId);
-                }
-                sshkey = await this.getWorkspaceSSHKey(ownerToken, workspaceUrl, _context.signal);
+            // Report if we couldn't parse contextUrl
+            if (!wsData.contextUrl) {
+                this.telemetryService.sendTelemetryException(new Error('Unable to parse workspace contextUrl'), {
+                    gitpodHost: request.gitpodHost,
+                    workspaceId: request.workspaceId,
+                    instanceId,
+                    userId,
+                    contextUrl: rawWorkspace.context?.contextUrl,
+                });
             }
+
+            const ownerToken = await this.sessionService.getAPI().getOwnerToken(actualWorkspaceId, _context.signal);
+
+            instanceId = rawWorkspace.status!.instance!.instanceId;
+
+            const workspaceUrl = new URL(wsData.workspaceUrl);
+            const workspaceHost = workspaceUrl.host.substring(workspaceUrl.host.indexOf('.') + 1);
+            let actualWorkspaceUrl = wsData.workspaceUrl;
+            if (workspaceId !== actualWorkspaceId) {
+                // Public api doesn't take into account "debug" workspaces, readd 'debug-' prefix
+                actualWorkspaceUrl = actualWorkspaceUrl.replace(actualWorkspaceId, workspaceId);
+            }
+
+            const sshkey = wsData.phase === 'running' ? (await this.getWorkspaceSSHKey(ownerToken, actualWorkspaceUrl, _context.signal)) : '';
+
             return {
                 gitpodHost,
                 userId,
@@ -137,7 +144,7 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
                 workspaceHost,
                 ownerToken,
                 sshkey,
-                phase,
+                phase: wsData.phase,
             };
         } catch (e) {
             let code = Status.INTERNAL;

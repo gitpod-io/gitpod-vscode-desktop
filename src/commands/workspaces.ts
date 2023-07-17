@@ -324,7 +324,18 @@ export class OpenWorkspaceContextCommand implements Command {
 			return;
 		}
 
+		const rawWsData = await this.sessionService.getAPI().getWorkspace(treeItem.id)
 		const wsData = rawWorkspaceToWorkspaceData(await this.sessionService.getAPI().getWorkspace(treeItem.id));
+
+		// Report if we couldn't parse contextUrl
+		if (!wsData.contextUrl) {
+			this.telemetryService.sendTelemetryException(new Error('Unable to parse workspace contextUrl'), {
+				gitpodHost: this.hostService.gitpodHost,
+				workspaceId: wsData.id,
+				contextUrl: rawWsData.context?.contextUrl,
+			});
+			return;
+		}
 
 		this.telemetryService.sendTelemetryEvent('vscode_desktop_view_command', {
 			name: this.id,

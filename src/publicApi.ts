@@ -295,21 +295,26 @@ export interface WorkspaceData {
     owner: string;
     repo: string;
     id: string;
-    contextUrl: string;
+    contextUrl: string | undefined;
     workspaceUrl: string;
     phase: WorkspacePhase;
     description: string;
     lastUsed: Date;
-    recentFolders : string[];
+    recentFolders: string[];
 }
 
 export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace): WorkspaceData;
 export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace[]): WorkspaceData[];
 export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace | Workspace[]) {
     const toWorkspaceData = (ws: Workspace) => {
-        const url = new URL(ws.context!.contextUrl);
-        const provider = url.host.replace(/\..+?$/, ''); // remove '.com', etc
-        const matches = url.pathname.match(/[^/]+/g)!; // match /owner/repo
+        const normalizedUrl = getNormalizedURL(ws.context!.contextUrl);
+        let provider = 'undefined';
+        let matches = ['undefined', 'undefined'];
+        if (normalizedUrl) {
+            const url = new URL(normalizedUrl);
+            provider = url.host.replace(/\..+?$/, ''); // remove '.com', etc
+            matches = url.pathname.match(/[^/]+/g)!; // match /owner/repo
+        }
         const owner = matches[0];
         const repo = matches[1];
         return {
@@ -317,7 +322,7 @@ export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace | Workspace
             owner,
             repo,
             id: ws.workspaceId,
-            contextUrl: ws.context!.contextUrl,
+            contextUrl: normalizedUrl,
             workspaceUrl: ws.status!.instance!.status!.url,
             phase: WorkspaceInstanceStatus_Phase[ws.status!.instance!.status!.phase ?? WorkspaceInstanceStatus_Phase.UNSPECIFIED].toLowerCase() as WorkspacePhase,
             description: ws.description,
@@ -332,4 +337,25 @@ export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace | Workspace
     }
 
     return toWorkspaceData(rawWorkspaces);
+}
+
+// TODO: remove this once public api is fixed, ref https://github.com/gitpod-io/gitpod/pull/18292
+function getNormalizedURL(contextUrl: string | undefined): string | undefined {
+    if (!contextUrl) {
+        return
+    }
+
+    const idx = contextUrl.search(/http[s]?:\/\//);
+    let normalized = contextUrl;
+    if (idx > 0) {
+        normalized = contextUrl.substring(idx);
+    }
+
+    try {
+        new URL(normalized);
+        return normalized;
+    } catch {
+    }
+
+    return undefined
 }

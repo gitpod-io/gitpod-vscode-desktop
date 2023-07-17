@@ -121,7 +121,7 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
                     ws.owner,
                     ws.repo,
                     ws.id,
-                    ws.contextUrl,
+                    ws.contextUrl ?? 'undefined',
                     ws.phase === 'running',
                     ws.description,
                     ws.lastUsed
