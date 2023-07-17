@@ -309,7 +309,10 @@ export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace[]): Workspa
 export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace | Workspace[]) {
     const toWorkspaceData = (ws: Workspace) => {
         let url: URL;
-        if (ws.context?.details.case === 'git') {
+        if (
+            ws.context?.details.case === 'git' &&
+            ws.context.details.value.normalizedContextUrl !== ws.context.contextUrl // backward compatible
+        ) {
             url = new URL(ws.context.details.value.normalizedContextUrl);
         } else {
             const normalized = ContextURL.getNormalizedURL({ contextURL: ws.context!.contextUrl } as any);
