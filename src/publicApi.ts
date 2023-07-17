@@ -17,7 +17,6 @@ import { MetricsReporter, getConnectMetricsInterceptor } from './metrics';
 import { ILogService } from './services/logService';
 import { WrapError } from './common/utils';
 import { ITelemetryService } from './common/telemetry';
-import { ContextURL } from '@gitpod/gitpod-protocol';
 
 function isTelemetryEnabled(): boolean {
     const TELEMETRY_CONFIG_ID = 'telemetry';
@@ -308,7 +307,10 @@ export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace): Workspace
 export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace[]): WorkspaceData[];
 export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace | Workspace[]) {
     const toWorkspaceData = (ws: Workspace) => {
-        const url = ContextURL.getNormalizedURL({ contextURL: ws.context!.contextUrl } as any)!;
+        // https://github.com/gitpod-io/gitpod/blob/7e0c605a3d470b8cee0e841e51da9b20022f4f4b/components/public-api-server/pkg/apiv1/workspace.go#L332-L335
+        // it's always git context, safe to go
+        const contextUrl = ws.context?.details.case === 'git' ? ws.context.details.value.normalizedContextUrl : ws.context!.contextUrl;
+        const url = new URL(contextUrl);
         const provider = url.host.replace(/\..+?$/, ''); // remove '.com', etc
         const matches = url.pathname.match(/[^/]+/g)!; // match /owner/repo
         const owner = matches[0];
@@ -318,7 +320,7 @@ export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace | Workspace
             owner,
             repo,
             id: ws.workspaceId,
-            contextUrl: url.toString(),
+            contextUrl,
             workspaceUrl: ws.status!.instance!.status!.url,
             phase: WorkspaceInstanceStatus_Phase[ws.status!.instance!.status!.phase ?? WorkspaceInstanceStatus_Phase.UNSPECIFIED].toLowerCase() as WorkspacePhase,
             description: ws.description,
@@ -329,7 +331,7 @@ export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace | Workspace
 
     if (Array.isArray(rawWorkspaces)) {
         rawWorkspaces = rawWorkspaces.filter(ws => ws.context?.details.case === 'git');
-        return rawWorkspaces.map(toWorkspaceData).filter(e => !!e);
+        return rawWorkspaces.map(toWorkspaceData);
     }
 
     return toWorkspaceData(rawWorkspaces);
