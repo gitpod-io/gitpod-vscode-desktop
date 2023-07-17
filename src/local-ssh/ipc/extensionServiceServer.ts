@@ -22,7 +22,8 @@ import { ParsedKey } from 'ssh2-streams';
 import { isPortUsed } from '../../common/ports';
 import { WrapError } from '../../common/utils';
 import { ConnectError, Code } from '@bufbuild/connect';
-import { rawWorkspaceToWorkspaceData } from '../../publicApi';
+import { WorkspaceInstanceStatus_Phase } from '@gitpod/public-api/lib/gitpod/experimental/v1';
+import { WorkspacePhase } from '../../publicApi';
 
 function isServiceError(obj: any): obj is ServiceError {
     // eslint-disable-next-line eqeqeq
@@ -108,23 +109,26 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
             // TODO(lssh): Get auth info according to `request.gitpodHost`
             const gitpodHost = this.hostService.gitpodHost;
 
-            const rawWorkspace = await this.sessionService.getAPI().getWorkspace(actualWorkspaceId, _context.signal);
-            const wsData = rawWorkspaceToWorkspaceData(rawWorkspace);
+            const ws = await this.sessionService.getAPI().getWorkspace(actualWorkspaceId, _context.signal);
 
-            const ownerToken = await this.sessionService.getAPI().getOwnerToken(actualWorkspaceId, _context.signal);
+            instanceId = ws.status!.instance!.instanceId;
 
-            instanceId = rawWorkspace.status!.instance!.instanceId;
-            const url = new URL(wsData.workspaceUrl);
-            const workspaceHost = url.host.substring(url.host.indexOf('.') + 1);
-
-            let actualWorkspaceUrl = wsData.workspaceUrl;
-            if (workspaceId !== actualWorkspaceId) {
-                // Public api doesn't take into account "debug" workspaces, readd 'debug-' prefix
-                actualWorkspaceUrl = actualWorkspaceUrl.replace(actualWorkspaceId, workspaceId);
+            let ownerToken = '';
+            let sshkey = '';
+            let workspaceHost = '';
+            const phase = WorkspaceInstanceStatus_Phase[ws.status!.instance!.status!.phase ?? WorkspaceInstanceStatus_Phase.UNSPECIFIED].toLowerCase() as WorkspacePhase;
+            // if workspace is not running, we may not compute its url yet
+            if (phase === 'running') {
+                ownerToken = await this.sessionService.getAPI().getOwnerToken(actualWorkspaceId, _context.signal);
+                let workspaceUrl = ws.status!.instance!.status!.url;
+                const url = new URL(workspaceUrl);
+                workspaceHost = url.host.substring(url.host.indexOf('.') + 1);
+                if (workspaceId !== actualWorkspaceId) {
+                    // Public api doesn't take into account "debug" workspaces, readd 'debug-' prefix
+                    workspaceUrl = workspaceUrl.replace(actualWorkspaceId, workspaceId);
+                }
+                sshkey = await this.getWorkspaceSSHKey(ownerToken, workspaceUrl, _context.signal);
             }
-
-            const sshkey = wsData.phase === 'running' ? (await this.getWorkspaceSSHKey(ownerToken, actualWorkspaceUrl, _context.signal)) : '';
-
             return {
                 gitpodHost,
                 userId,
@@ -133,7 +137,7 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
                 workspaceHost,
                 ownerToken,
                 sshkey,
-                phase: wsData.phase,
+                phase,
             };
         } catch (e) {
             let code = Status.INTERNAL;
