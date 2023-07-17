@@ -323,7 +323,7 @@ export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace | Workspace
                 url = normalized;
             }
         } catch (e) {
-            // ignore
+            // TODO: send exception
             return undefined;
         }
         const provider = url.host.replace(/\..+?$/, ''); // remove '.com', etc
