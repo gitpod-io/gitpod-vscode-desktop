@@ -122,19 +122,24 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
                 });
             }
 
-            const ownerToken = await this.sessionService.getAPI().getOwnerToken(actualWorkspaceId, _context.signal);
-
             instanceId = rawWorkspace.status!.instance!.instanceId;
 
-            const workspaceUrl = new URL(wsData.workspaceUrl);
-            const workspaceHost = workspaceUrl.host.substring(workspaceUrl.host.indexOf('.') + 1);
-            let actualWorkspaceUrl = wsData.workspaceUrl;
-            if (workspaceId !== actualWorkspaceId) {
-                // Public api doesn't take into account "debug" workspaces, readd 'debug-' prefix
-                actualWorkspaceUrl = actualWorkspaceUrl.replace(actualWorkspaceId, workspaceId);
-            }
+            let ownerToken = '';
+            let workspaceHost = '';
+            let sshkey = '';
+            if (wsData.phase === 'running') {
+                ownerToken = await this.sessionService.getAPI().getOwnerToken(actualWorkspaceId, _context.signal);
 
-            const sshkey = wsData.phase === 'running' ? (await this.getWorkspaceSSHKey(ownerToken, actualWorkspaceUrl, _context.signal)) : '';
+                const workspaceUrl = new URL(wsData.workspaceUrl);
+                workspaceHost = workspaceUrl.host.substring(workspaceUrl.host.indexOf('.') + 1);
+                let actualWorkspaceUrl = wsData.workspaceUrl;
+                if (workspaceId !== actualWorkspaceId) {
+                    // Public api doesn't take into account "debug" workspaces, readd 'debug-' prefix
+                    actualWorkspaceUrl = actualWorkspaceUrl.replace(actualWorkspaceId, workspaceId);
+                }
+
+                sshkey = await this.getWorkspaceSSHKey(ownerToken, actualWorkspaceUrl, _context.signal);
+            }
 
             return {
                 gitpodHost,
