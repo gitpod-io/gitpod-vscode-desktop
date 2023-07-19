@@ -122,7 +122,7 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
         }
 
         const treeItem = new vscode.TreeItem(element.description);
-        treeItem.description = !element.isRunning ? `${element.getLastUsedPretty()} ago` : (this.connectedWorkspaceId === element.id ? 'current workspace' : '');
+        treeItem.description = !element.isRunning ? `${element.getLastUsedPretty()} ago` : (this.connectedWorkspaceId === element.id ? 'active workspace' : '');
         treeItem.collapsibleState = vscode.TreeItemCollapsibleState.None;
         treeItem.iconPath = new vscode.ThemeIcon(element.isRunning ? 'circle-filled' : (element.isStopped ? 'circle-outline': 'loading~spin'));
         treeItem.contextValue = 'gitpod-workspaces.workspace' + (element.isRunning ? '.running' : '') + (this.connectedWorkspaceId === element.id ? '.connected' : '');
