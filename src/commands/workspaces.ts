@@ -107,11 +107,11 @@ export class ConnectInNewWindowCommand implements Command {
 						// Start workspace automatically
 						await this.sessionService.getAPI().startWorkspace(wsData!.id);
 
+						vscode.commands.executeCommand('gitpod.workspaces.refresh');
+
 						if (cancelToken.isCancellationRequested) {
 							return;
 						}
-
-						vscode.commands.executeCommand('gitpod.workspaces.refresh');
 
 						await raceCancellationError(eventToPromise(wsState.onWorkspaceRunning), cancelToken);
 					}
@@ -199,11 +199,11 @@ export class ConnectInCurrentWindowCommand implements Command {
 						// Start workspace automatically
 						await this.sessionService.getAPI().startWorkspace(wsData!.id);
 
+						vscode.commands.executeCommand('gitpod.workspaces.refresh');
+
 						if (cancelToken.isCancellationRequested) {
 							return;
 						}
-
-						vscode.commands.executeCommand('gitpod.workspaces.refresh');
 
 						await raceCancellationError(eventToPromise(wsState.onWorkspaceRunning), cancelToken);
 					}
