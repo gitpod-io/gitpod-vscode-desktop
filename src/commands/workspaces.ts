@@ -15,6 +15,14 @@ import { ILogService } from '../services/logService';
 import { eventToPromise, raceCancellationError } from '../common/event';
 import { ITelemetryService } from '../common/telemetry';
 
+function getCommandName(command: string) {
+	return command.replace('gitpod.workspaces.', '').replace('_inline', '');
+}
+
+function getCommandLocation(command: string, treeItem?: { id: string }) {
+	return command.endsWith('_inline') ? 'inline' : (treeItem?.id ? 'contextMenu' : 'commandPalette');
+}
+
 async function showWorkspacesPicker(sessionService: ISessionService, placeHolder: string): Promise<WorkspaceData | undefined> {
 	const pickItemsPromise = sessionService.getAPI().listWorkspaces()
 		.then(rawWorkspaces => rawWorkspaceToWorkspaceData(rawWorkspaces).map(wsData => {
@@ -68,10 +76,10 @@ export class ConnectInNewWindowCommand implements Command {
 		}
 
 		this.telemetryService.sendTelemetryEvent('vscode_desktop_view_command', {
-			name: this.id,
+			name: getCommandName(this.id),
 			gitpodHost: this.hostService.gitpodHost,
 			workspaceId: wsData.id,
-			location: treeItem?.id ? 'view' : 'commandPalette'
+			location: getCommandLocation(this.id, treeItem)
 		});
 
 		const domain = getLocalSSHDomain(this.hostService.gitpodHost);
@@ -81,27 +89,20 @@ export class ConnectInNewWindowCommand implements Command {
 		// TODO: remove this, should not be needed
 		await this.context.globalState.update(`${SSH_DEST_KEY}${sshDest.toRemoteSSHString()}`, { workspaceId: wsData.id, gitpodHost: this.hostService.gitpodHost, instanceId: '' } as SSHConnectionParams);
 
-		await vscode.window.withProgress(
-			{
-				title: `Starting workspace ${wsData.id}`,
-				location: vscode.ProgressLocation.Notification,
-				cancellable: true
-			},
-			async (_, cancelToken) => {
-				let wsState: WorkspaceState | undefined;
-				try {
-					wsState = new WorkspaceState(wsData!.id, this.sessionService, this.logService);
-					await wsState.initialize();
-
-					if (cancelToken.isCancellationRequested) {
-						return;
-					}
-
-					if (wsState.isWorkspaceStopping) {
-						// TODO: if stopping tell user to await until stopped to start again
-						return;
-					}
-
+		let wsState = new WorkspaceState(wsData!.id, this.sessionService, this.logService);
+		try {
+			await wsState.initialize();
+			if (wsState.isWorkspaceStopping) {
+				// TODO: if stopping tell user to await until stopped to start again
+				return;
+			}
+			await vscode.window.withProgress(
+				{
+					title: `Starting workspace ${wsData.id}`,
+					location: vscode.ProgressLocation.Notification,
+					cancellable: true
+				},
+				async (_, cancelToken) => {
 					if (wsState.isWorkspaceStopped) {
 						// Start workspace automatically
 						await this.sessionService.getAPI().startWorkspace(wsData!.id);
@@ -110,25 +111,26 @@ export class ConnectInNewWindowCommand implements Command {
 							return;
 						}
 
+						vscode.commands.executeCommand('gitpod.workspaces.refresh');
+
 						await raceCancellationError(eventToPromise(wsState.onWorkspaceRunning), cancelToken);
 					}
 
-					// TODO: getWorkspace API need to return path to open, for now harcode it
 					await vscode.commands.executeCommand(
 						'vscode.openFolder',
 						vscode.Uri.parse(`vscode-remote://ssh-remote+${sshDest.toRemoteSSHString()}${wsData!.recentFolders[0] || `/workspace/${wsData!.repo}`}`),
 						{ forceNewWindow: true }
 					);
-				} finally {
-					wsState?.dispose();
 				}
-			}
-		);
+			);
+		} finally {
+			wsState.dispose();
+		}
 	}
 }
 
 export class ConnectInCurrentWindowCommand implements Command {
-	readonly id = 'gitpod.workspaces.connectInCurrentWindow';
+	readonly id: string = 'gitpod.workspaces.connectInCurrentWindow';
 
 	private running = false;
 
@@ -166,10 +168,10 @@ export class ConnectInCurrentWindowCommand implements Command {
 		}
 
 		this.telemetryService.sendTelemetryEvent('vscode_desktop_view_command', {
-			name: this.id,
+			name: getCommandName(this.id),
 			gitpodHost: this.hostService.gitpodHost,
 			workspaceId: wsData.id,
-			location: treeItem?.id ? 'view' : 'commandPalette'
+			location: getCommandLocation(this.id, treeItem)
 		});
 
 		const domain = getLocalSSHDomain(this.hostService.gitpodHost);
@@ -179,27 +181,20 @@ export class ConnectInCurrentWindowCommand implements Command {
 		// TODO: remove this, should not be needed
 		await this.context.globalState.update(`${SSH_DEST_KEY}${sshDest.toRemoteSSHString()}`, { workspaceId: wsData.id, gitpodHost: this.hostService.gitpodHost, instanceId: '' } as SSHConnectionParams);
 
-		await vscode.window.withProgress(
-			{
-				title: `Starting workspace ${wsData.id}`,
-				location: vscode.ProgressLocation.Notification,
-				cancellable: true
-			},
-			async (_, cancelToken) => {
-				let wsState: WorkspaceState | undefined;
-				try {
-					wsState = new WorkspaceState(wsData!.id, this.sessionService, this.logService);
-					await wsState.initialize();
-
-					if (cancelToken.isCancellationRequested) {
-						return;
-					}
-
-					if (wsState.isWorkspaceStopping) {
-						// TODO: if stopping tell user to await until stopped to start again
-						return;
-					}
-
+		let wsState = new WorkspaceState(wsData!.id, this.sessionService, this.logService);
+		try {
+			await wsState.initialize();
+			if (wsState.isWorkspaceStopping) {
+				// TODO: if stopping tell user to await until stopped to start again
+				return;
+			}
+			await vscode.window.withProgress(
+				{
+					title: `Starting workspace ${wsData.id}`,
+					location: vscode.ProgressLocation.Notification,
+					cancellable: true
+				},
+				async (_, cancelToken) => {
 					if (wsState.isWorkspaceStopped) {
 						// Start workspace automatically
 						await this.sessionService.getAPI().startWorkspace(wsData!.id);
@@ -208,27 +203,46 @@ export class ConnectInCurrentWindowCommand implements Command {
 							return;
 						}
 
+						vscode.commands.executeCommand('gitpod.workspaces.refresh');
+
 						await raceCancellationError(eventToPromise(wsState.onWorkspaceRunning), cancelToken);
 					}
 
-					// TODO: getWorkspace API need to return path to open, for now harcode it
 					await vscode.commands.executeCommand(
 						'vscode.openFolder',
 						vscode.Uri.parse(`vscode-remote://ssh-remote+${sshDest.toRemoteSSHString()}${wsData!.recentFolders[0] || `/workspace/${wsData!.repo}`}`),
 						{ forceNewWindow: false }
 					);
-				} finally {
-					wsState?.dispose();
 				}
-			}
-		);
+			);
+		} finally {
+			wsState.dispose();
+		}
+	}
+}
+
+export class ConnectInCurrentWindowCommandInline extends ConnectInCurrentWindowCommand {
+	override readonly id = 'gitpod.workspaces.connectInCurrentWindow_inline';
+
+	constructor(
+		context: vscode.ExtensionContext,
+		sessionService: ISessionService,
+		hostService: IHostService,
+		telemetryService: ITelemetryService,
+		logService: ILogService,
+	) {
+		super(context, sessionService, hostService, telemetryService, logService);
 	}
 }
 
 export class StopWorkspaceCommand implements Command {
-	readonly id = 'gitpod.workspaces.stopWorkspace';
+	readonly id: string = 'gitpod.workspaces.stopWorkspace';
 
-	constructor(private readonly sessionService: ISessionService) { }
+	constructor(
+		private readonly sessionService: ISessionService,
+		private readonly hostService: IHostService,
+		private readonly telemetryService: ITelemetryService,
+	) { }
 
 	async execute(treeItem?: { id: string }) {
 		let workspaceId: string | undefined;
@@ -238,23 +252,55 @@ export class StopWorkspaceCommand implements Command {
 			workspaceId = treeItem.id;
 		}
 
+		this.telemetryService.sendTelemetryEvent('vscode_desktop_view_command', {
+			name: getCommandName(this.id),
+			gitpodHost: this.hostService.gitpodHost,
+			workspaceId,
+			location: getCommandLocation(this.id, treeItem)
+		});
+
 		if (workspaceId) {
 			await this.sessionService.getAPI().stopWorkspace(workspaceId);
+			vscode.commands.executeCommand('gitpod.workspaces.refresh');
 		}
+	}
+}
+
+export class StopWorkspaceCommandInline extends StopWorkspaceCommand {
+	override readonly id = 'gitpod.workspaces.stopWorkspace_inline';
+
+	constructor(
+		sessionService: ISessionService,
+		hostService: IHostService,
+		telemetryService: ITelemetryService,
+	) {
+		super(sessionService, hostService, telemetryService);
 	}
 }
 
 export class StopCurrentWorkspaceCommand implements Command {
 	readonly id = 'gitpod.workspaces.stopCurrentWorkspace';
 
-	constructor(private readonly connectionInfo: SSHConnectionParams | undefined, private readonly sessionService: ISessionService) { }
+	constructor(
+		private readonly workspaceId: string | undefined,
+		private readonly sessionService: ISessionService,
+		private readonly hostService: IHostService,
+		private readonly telemetryService: ITelemetryService,
+	) { }
 
 	async execute() {
-		if (!this.connectionInfo) {
+		if (!this.workspaceId) {
 			return;
 		}
 
-		await this.sessionService.getAPI().stopWorkspace(this.connectionInfo.workspaceId);
+		this.telemetryService.sendTelemetryEvent('vscode_desktop_view_command', {
+			name: getCommandName(this.id),
+			gitpodHost: this.hostService.gitpodHost,
+			workspaceId: this.workspaceId,
+			location: 'commandPalette'
+		});
+
+		await this.sessionService.getAPI().stopWorkspace(this.workspaceId);
 		await vscode.commands.executeCommand('workbench.action.remote.close');
 	}
 }
@@ -281,10 +327,10 @@ export class OpenInBrowserCommand implements Command {
 		}
 
 		this.telemetryService.sendTelemetryEvent('vscode_desktop_view_command', {
-			name: this.id,
+			name: getCommandName(this.id),
 			gitpodHost: this.hostService.gitpodHost,
 			workspaceId: wsData.id,
-			location: treeItem?.id ? 'gitpodView' : 'commandPalette'
+			location: getCommandLocation(this.id, treeItem)
 		});
 
 		await vscode.env.openExternal(vscode.Uri.parse(wsData.workspaceUrl));
@@ -294,7 +340,11 @@ export class OpenInBrowserCommand implements Command {
 export class DeleteWorkspaceCommand implements Command {
 	readonly id = 'gitpod.workspaces.deleteWorkspace';
 
-	constructor(private readonly sessionService: ISessionService) { }
+	constructor(
+		private readonly sessionService: ISessionService,
+		private readonly hostService: IHostService,
+		private readonly telemetryService: ITelemetryService,
+	) { }
 
 	async execute(treeItem?: { id: string }) {
 		let workspaceId: string | undefined;
@@ -304,8 +354,22 @@ export class DeleteWorkspaceCommand implements Command {
 			workspaceId = treeItem.id;
 		}
 
+		const deleteAction: string = 'Delete';
+		const resp = await vscode.window.showWarningMessage(`Are you sure you want to delete workspace '${workspaceId}'?`, { modal: true }, deleteAction);
+		if (resp !== deleteAction) {
+			return;
+		}
+
+		this.telemetryService.sendTelemetryEvent('vscode_desktop_view_command', {
+			name: getCommandName(this.id),
+			gitpodHost: this.hostService.gitpodHost,
+			workspaceId,
+			location: getCommandLocation(this.id, treeItem)
+		});
+
 		if (workspaceId) {
 			await this.sessionService.getAPI().deleteWorkspace(workspaceId);
+			vscode.commands.executeCommand('gitpod.workspaces.refresh');
 		}
 	}
 }
@@ -338,10 +402,10 @@ export class OpenWorkspaceContextCommand implements Command {
 		}
 
 		this.telemetryService.sendTelemetryEvent('vscode_desktop_view_command', {
-			name: this.id,
+			name: getCommandName(this.id),
 			gitpodHost: this.hostService.gitpodHost,
 			workspaceId: wsData.id,
-			location: treeItem?.id ? 'gitpodView' : 'commandPalette'
+			location: getCommandLocation(this.id, treeItem)
 		});
 
 		await vscode.env.openExternal(vscode.Uri.parse(wsData.contextUrl));

@@ -7,10 +7,13 @@ import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
 import { ISessionService } from './services/sessionService';
 import { CommandManager } from './commandManager';
-import { rawWorkspaceToWorkspaceData } from './publicApi';
+import { WorkspacePhase, rawWorkspaceToWorkspaceData } from './publicApi';
 import { IHostService } from './services/hostService';
 import { getGitpodRemoteWindowConnectionInfo } from './remote';
 import { Barrier } from './common/async';
+import { ITelemetryService } from './common/telemetry';
+import { ILogService } from './services/logService';
+import { ConnectInCurrentWindowCommand, ConnectInNewWindowCommand, DeleteWorkspaceCommand, OpenWorkspaceContextCommand, OpenInBrowserCommand, StopCurrentWorkspaceCommand, StopWorkspaceCommand, DisconnectWorkspaceCommand, ConnectInCurrentWindowCommandInline, StopWorkspaceCommandInline } from './commands/workspaces';
 
 class RepoOwnerTreeItem {
     constructor(
@@ -31,11 +34,15 @@ class WorkspaceTreeItem {
         public readonly repo: string,
         public readonly id: string,
         public readonly contextUrl: string,
-        public readonly isRunning: boolean,
+        public readonly phase: WorkspacePhase,
         public readonly description: string,
         public readonly lastUsed: Date
     ) {
     }
+
+    get isRunning() { return this.phase === 'running'; }
+
+    get isStopped() { return this.phase === 'stopped'; }
 
     setParent(parent: RepoOwnerTreeItem) { this._parent = parent; }
     getParent() { return this._parent; }
@@ -83,16 +90,27 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
         readonly commandManager: CommandManager,
         private readonly sessionService: ISessionService,
         private readonly hostService: IHostService,
+        readonly telemetryService: ITelemetryService,
+        readonly logService: ILogService,
     ) {
         super();
 
         this.treeView = this._register(vscode.window.createTreeView('gitpod-workspaces', { treeDataProvider: this }));
+        this.connectedWorkspaceId = getGitpodRemoteWindowConnectionInfo(context)?.connectionInfo.workspaceId;
 
         commandManager.register({ id: 'gitpod.workspaces.refresh', execute: () => this.refresh() });
+        commandManager.register(new ConnectInNewWindowCommand(context, sessionService, hostService, telemetryService, logService));
+        commandManager.register(new ConnectInCurrentWindowCommand(context, sessionService, hostService, telemetryService, logService));
+        commandManager.register(new ConnectInCurrentWindowCommandInline(context, sessionService, hostService, telemetryService, logService));
+        commandManager.register(new StopWorkspaceCommand(sessionService, hostService, telemetryService));
+        commandManager.register(new StopWorkspaceCommandInline(sessionService, hostService, telemetryService));
+        commandManager.register(new StopCurrentWorkspaceCommand(this.connectedWorkspaceId, sessionService, hostService, telemetryService));
+        commandManager.register(new OpenInBrowserCommand(sessionService, hostService, telemetryService));
+        commandManager.register(new DeleteWorkspaceCommand(sessionService, hostService, telemetryService));
+        commandManager.register(new OpenWorkspaceContextCommand(sessionService, hostService, telemetryService));
+        commandManager.register(new DisconnectWorkspaceCommand());
 
         this._register(this.hostService.onDidChangeHost(() => this.refresh()));
-
-        this.connectedWorkspaceId = getGitpodRemoteWindowConnectionInfo(context)?.connectionInfo.workspaceId;
     }
 
     getTreeItem(element: DataTreeItem): vscode.TreeItem {
@@ -104,9 +122,9 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
         }
 
         const treeItem = new vscode.TreeItem(element.description);
-        treeItem.description = !element.isRunning ? `${element.getLastUsedPretty()} ago` : '';
+        treeItem.description = !element.isRunning ? `${element.getLastUsedPretty()} ago` : (this.connectedWorkspaceId === element.id ? 'current workspace' : '');
         treeItem.collapsibleState = vscode.TreeItemCollapsibleState.None;
-        treeItem.iconPath = new vscode.ThemeIcon(element.isRunning ? 'vm-running' : 'vm-outline');
+        treeItem.iconPath = new vscode.ThemeIcon(element.isRunning ? 'circle-filled' : (element.isStopped ? 'circle-outline': 'loading~spin'));
         treeItem.contextValue = 'gitpod-workspaces.workspace' + (element.isRunning ? '.running' : '') + (this.connectedWorkspaceId === element.id ? '.connected' : '');
         treeItem.tooltip = new vscode.MarkdownString(`$(repo) ${element.description}\n\n $(tag) ${element.id}\n\n $(link-external) [${element.contextUrl}](${element.contextUrl})\n\n $(clock) Last used ${element.getLastUsedPretty()} ago`, true);
         return treeItem;
@@ -122,7 +140,7 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
                     ws.repo,
                     ws.id,
                     ws.contextUrl ?? 'undefined',
-                    ws.phase === 'running',
+                    ws.phase,
                     ws.description,
                     ws.lastUsed
                 );
