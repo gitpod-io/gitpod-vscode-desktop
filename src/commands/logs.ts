@@ -78,6 +78,25 @@ export class ExportLogsCommand implements Command {
 				}
 			}
 
+			for (const logFilePath of [
+				'/tmp/gitpod-git-credential-helper.log',
+				'/var/log/gitpod/supervisor.log',
+				'/workspace/.gitpod/logs/docker-up.log'
+			]) {
+				try {
+					const logFileUri = vscode.Uri.file(logFilePath).with({ scheme: "vscode-remote" });
+					const fileContent = await vscode.workspace.fs.readFile(logFileUri)
+					if (fileContent.byteLength > 0) {
+						remoteLogFiles.push({
+							path: path.posix.join('./remote', path.posix.basename(logFileUri.path)),
+							contents: Buffer.from(fileContent)
+						});
+					}
+				} catch {
+					// no-op
+				}
+			}
+
 			const localLogFiles: IFile[] = [];
 			await traverseFolder(localLogsUri, localLogFiles, token);
 			localLogFiles.forEach(file => file.path = path.posix.join('./local', path.posix.relative(localLogsUri.path, file.path)));
