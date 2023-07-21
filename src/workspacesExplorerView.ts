@@ -13,7 +13,8 @@ import { getGitpodRemoteWindowConnectionInfo } from './remote';
 import { Barrier } from './common/async';
 import { ITelemetryService } from './common/telemetry';
 import { ILogService } from './services/logService';
-import { ConnectInCurrentWindowCommand, ConnectInNewWindowCommand, DeleteWorkspaceCommand, OpenWorkspaceContextCommand, OpenInBrowserCommand, StopCurrentWorkspaceCommand, StopWorkspaceCommand, DisconnectWorkspaceCommand, ConnectInCurrentWindowCommandInline, StopWorkspaceCommandInline } from './commands/workspaces';
+import { ConnectInCurrentWindowCommand, ConnectInNewWindowCommand, DeleteWorkspaceCommand, OpenWorkspaceContextCommand, OpenInBrowserCommand, StopCurrentWorkspaceCommand, StopWorkspaceCommand, DisconnectWorkspaceCommand, ConnectInCurrentWindowCommandInline, StopWorkspaceCommandInline, DeleteWorkspaceCommandContext, StopWorkspaceCommandContext, ConnectInCurrentWindowCommandContext, ConnectInNewWindowCommandContext, ConnectInCurrentWindowCommandContext_1, ConnectInCurrentWindowCommandInline_1 } from './commands/workspaces';
+import { IRemoteService } from './services/remoteService';
 
 class RepoOwnerTreeItem {
     constructor(
@@ -88,6 +89,7 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
     constructor(
         readonly context: vscode.ExtensionContext,
         readonly commandManager: CommandManager,
+        readonly remoteService: IRemoteService,
         private readonly sessionService: ISessionService,
         private readonly hostService: IHostService,
         readonly telemetryService: ITelemetryService,
@@ -99,14 +101,20 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
         this.connectedWorkspaceId = getGitpodRemoteWindowConnectionInfo(context)?.connectionInfo.workspaceId;
 
         commandManager.register({ id: 'gitpod.workspaces.refresh', execute: () => this.refresh() });
-        commandManager.register(new ConnectInNewWindowCommand(context, sessionService, hostService, telemetryService, logService));
-        commandManager.register(new ConnectInCurrentWindowCommand(context, sessionService, hostService, telemetryService, logService));
-        commandManager.register(new ConnectInCurrentWindowCommandInline(context, sessionService, hostService, telemetryService, logService));
+        commandManager.register(new ConnectInNewWindowCommand(context, remoteService, sessionService, hostService, telemetryService, logService));
+        commandManager.register(new ConnectInNewWindowCommandContext(context, remoteService, sessionService, hostService, telemetryService, logService));
+        commandManager.register(new ConnectInCurrentWindowCommand(context, remoteService, sessionService, hostService, telemetryService, logService));
+        commandManager.register(new ConnectInCurrentWindowCommandContext(context, remoteService, sessionService, hostService, telemetryService, logService));
+        commandManager.register(new ConnectInCurrentWindowCommandContext_1(context, remoteService, sessionService, hostService, telemetryService, logService));
+        commandManager.register(new ConnectInCurrentWindowCommandInline(context, remoteService, sessionService, hostService, telemetryService, logService));
+        commandManager.register(new ConnectInCurrentWindowCommandInline_1(context, remoteService, sessionService, hostService, telemetryService, logService));
         commandManager.register(new StopWorkspaceCommand(sessionService, hostService, telemetryService));
+        commandManager.register(new StopWorkspaceCommandContext(sessionService, hostService, telemetryService));
         commandManager.register(new StopWorkspaceCommandInline(sessionService, hostService, telemetryService));
         commandManager.register(new StopCurrentWorkspaceCommand(this.connectedWorkspaceId, sessionService, hostService, telemetryService));
         commandManager.register(new OpenInBrowserCommand(sessionService, hostService, telemetryService));
         commandManager.register(new DeleteWorkspaceCommand(sessionService, hostService, telemetryService));
+        commandManager.register(new DeleteWorkspaceCommandContext(sessionService, hostService, telemetryService));
         commandManager.register(new OpenWorkspaceContextCommand(sessionService, hostService, telemetryService));
         commandManager.register(new DisconnectWorkspaceCommand());
 
@@ -122,11 +130,21 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
         }
 
         const treeItem = new vscode.TreeItem(element.description);
-        treeItem.description = !element.isRunning ? `${element.getLastUsedPretty()} ago` : (this.connectedWorkspaceId === element.id ? 'active workspace' : '');
+        treeItem.description = !element.isRunning ? `${element.getLastUsedPretty()} ago` : (this.connectedWorkspaceId === element.id ? 'connected' : '');
         treeItem.collapsibleState = vscode.TreeItemCollapsibleState.None;
-        treeItem.iconPath = new vscode.ThemeIcon(element.isRunning ? 'circle-filled' : (element.isStopped ? 'circle-outline': 'loading~spin'));
+        treeItem.iconPath = new vscode.ThemeIcon(element.isRunning ? 'circle-filled' : (element.isStopped ? 'circle-outline' : 'loading~spin'));
         treeItem.contextValue = 'gitpod-workspaces.workspace' + (element.isRunning ? '.running' : '') + (this.connectedWorkspaceId === element.id ? '.connected' : '');
-        treeItem.tooltip = new vscode.MarkdownString(`$(repo) ${element.description}\n\n $(tag) ${element.id}\n\n $(link-external) [${element.contextUrl}](${element.contextUrl})\n\n $(clock) Last used ${element.getLastUsedPretty()} ago`, true);
+
+        const tooltipDescription = `$(repo) ${element.description}`;
+        const tooltipId = `$(tag) ${element.id}`;
+        const tooltipContext = `$(link-external) [${element.contextUrl}](${element.contextUrl})`;
+        let tooltipState= `$(clock) Stopped - Last used ${element.getLastUsedPretty()} ago`;
+        if (this.connectedWorkspaceId === element.id ) {
+            tooltipState = `$(clock) Running and Connected`;
+        } else if (element.isRunning) {
+            tooltipState = `$(clock) Running`;
+        }
+        treeItem.tooltip = new vscode.MarkdownString([tooltipDescription, tooltipId, tooltipContext, tooltipState].join('\n\n'), true);
         return treeItem;
     }
 

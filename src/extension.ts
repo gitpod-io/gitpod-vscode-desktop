@@ -109,7 +109,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		remoteConnectionInfo = getGitpodRemoteWindowConnectionInfo(context);
 		vscode.commands.executeCommand('setContext', 'gitpod.remoteConnection', !!remoteConnectionInfo);
 
-		const workspacesExplorerView = new WorkspacesExplorerView(context, commandManager, sessionService, hostService, telemetryService, logger);
+		const workspacesExplorerView = new WorkspacesExplorerView(context, commandManager, remoteService, sessionService, hostService, telemetryService, logger);
 		context.subscriptions.push(workspacesExplorerView);
 
 		if (remoteConnectionInfo) {

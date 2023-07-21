@@ -7,20 +7,29 @@ import * as vscode from 'vscode';
 import { Command } from '../commandManager';
 import { ISessionService } from '../services/sessionService';
 import { WorkspaceData, rawWorkspaceToWorkspaceData } from '../publicApi';
-import { SSHConnectionParams, SSH_DEST_KEY, getLocalSSHDomain } from '../remote';
+import { NoExtensionIPCServerError, NoLocalSSHSupportError, SSHConnectionParams, SSH_DEST_KEY, getLocalSSHDomain } from '../remote';
 import SSHDestination from '../ssh/sshDestination';
 import { IHostService } from '../services/hostService';
 import { WorkspaceState } from '../workspaceState';
 import { ILogService } from '../services/logService';
 import { eventToPromise, raceCancellationError } from '../common/event';
 import { ITelemetryService } from '../common/telemetry';
+import { IRemoteService } from '../services/remoteService';
+import { WrapError } from '../common/utils';
+import { getOpenSSHVersion } from '../ssh/sshVersion';
 
 function getCommandName(command: string) {
-	return command.replace('gitpod.workspaces.', '').replace('_inline', '');
+	return command.replace('gitpod.workspaces.', '').replace(/(?:_inline|_context)(?:@\d)?$/, '');
 }
 
 function getCommandLocation(command: string, treeItem?: { id: string }) {
-	return command.endsWith('_inline') ? 'inline' : (treeItem?.id ? 'contextMenu' : 'commandPalette');
+	if (/_inline(?:@\d)?$/.test(command)) {
+		return 'inline';
+	}
+	if (/_context(?:@\d)?$/.test(command)) {
+		return 'contextMenu';
+	}
+	return (treeItem?.id ? 'contextMenu' : 'commandPalette');
 }
 
 async function showWorkspacesPicker(sessionService: ISessionService, placeHolder: string): Promise<WorkspaceData | undefined> {
@@ -38,12 +47,13 @@ async function showWorkspacesPicker(sessionService: ISessionService, placeHolder
 }
 
 export class ConnectInNewWindowCommand implements Command {
-	readonly id = 'gitpod.workspaces.connectInNewWindow';
+	readonly id: string = 'gitpod.workspaces.connectInNewWindow';
 
 	private running = false;
 
 	constructor(
 		private readonly context: vscode.ExtensionContext,
+		private readonly remoteService: IRemoteService,
 		private readonly sessionService: ISessionService,
 		private readonly hostService: IHostService,
 		private readonly telemetryService: ITelemetryService,
@@ -112,6 +122,8 @@ export class ConnectInNewWindowCommand implements Command {
 						if (cancelToken.isCancellationRequested) {
 							return;
 						}
+
+						await this.initializeLocalSSH(wsData!.id);
 
 						await raceCancellationError(eventToPromise(wsState.onWorkspaceRunning), cancelToken);
 					}
@@ -127,6 +139,45 @@ export class ConnectInNewWindowCommand implements Command {
 			wsState.dispose();
 		}
 	}
+
+	private async initializeLocalSSH(workspaceId: string) {
+		try {
+			const [isSupportLocalSSH, isExtensionServerReady] = await Promise.all([
+				this.remoteService.setupSSHProxy(),
+				this.remoteService.extensionServerReady()
+			]);
+			if (!isExtensionServerReady) {
+				throw new NoExtensionIPCServerError();
+			}
+			if (!isSupportLocalSSH) {
+				throw new NoLocalSSHSupportError();
+			}
+		} catch (e) {
+			const openSSHVersion = await getOpenSSHVersion();
+			this.telemetryService.sendTelemetryException(new WrapError('Local SSH: failed to initialize local SSH', e, 'Unknown'), {
+				gitpodHost: this.hostService.gitpodHost,
+				openSSHVersion,
+				workspaceId
+
+			});
+			this.logService.error(`Local SSH: failed to initialize local SSH`, e);
+		}
+	}
+}
+
+export class ConnectInNewWindowCommandContext extends ConnectInNewWindowCommand {
+	override readonly id = 'gitpod.workspaces.connectInNewWindow_context';
+
+	constructor(
+		context: vscode.ExtensionContext,
+		remoteService: IRemoteService,
+		sessionService: ISessionService,
+		hostService: IHostService,
+		telemetryService: ITelemetryService,
+		logService: ILogService,
+	) {
+		super(context, remoteService, sessionService, hostService, telemetryService, logService);
+	}
 }
 
 export class ConnectInCurrentWindowCommand implements Command {
@@ -136,6 +187,7 @@ export class ConnectInCurrentWindowCommand implements Command {
 
 	constructor(
 		private readonly context: vscode.ExtensionContext,
+		private readonly remoteService: IRemoteService,
 		private readonly sessionService: ISessionService,
 		private readonly hostService: IHostService,
 		private readonly telemetryService: ITelemetryService,
@@ -205,6 +257,8 @@ export class ConnectInCurrentWindowCommand implements Command {
 							return;
 						}
 
+						await this.initializeLocalSSH(wsData!.id);
+
 						await raceCancellationError(eventToPromise(wsState.onWorkspaceRunning), cancelToken);
 					}
 
@@ -219,6 +273,60 @@ export class ConnectInCurrentWindowCommand implements Command {
 			wsState.dispose();
 		}
 	}
+
+	private async initializeLocalSSH(workspaceId: string) {
+		try {
+			const [isSupportLocalSSH, isExtensionServerReady] = await Promise.all([
+				this.remoteService.setupSSHProxy(),
+				this.remoteService.extensionServerReady()
+			]);
+			if (!isExtensionServerReady) {
+				throw new NoExtensionIPCServerError();
+			}
+			if (!isSupportLocalSSH) {
+				throw new NoLocalSSHSupportError();
+			}
+		} catch (e) {
+			const openSSHVersion = await getOpenSSHVersion();
+			this.telemetryService.sendTelemetryException(new WrapError('Local SSH: failed to initialize local SSH', e, 'Unknown'), {
+				gitpodHost: this.hostService.gitpodHost,
+				openSSHVersion,
+				workspaceId
+
+			});
+			this.logService.error(`Local SSH: failed to initialize local SSH`, e);
+		}
+	}
+}
+
+export class ConnectInCurrentWindowCommandContext extends ConnectInCurrentWindowCommand {
+	override readonly id = 'gitpod.workspaces.connectInCurrentWindow_context';
+
+	constructor(
+		context: vscode.ExtensionContext,
+		remoteService: IRemoteService,
+		sessionService: ISessionService,
+		hostService: IHostService,
+		telemetryService: ITelemetryService,
+		logService: ILogService,
+	) {
+		super(context, remoteService, sessionService, hostService, telemetryService, logService);
+	}
+}
+
+export class ConnectInCurrentWindowCommandContext_1 extends ConnectInCurrentWindowCommand {
+	override readonly id = 'gitpod.workspaces.connectInCurrentWindow_context@1';
+
+	constructor(
+		context: vscode.ExtensionContext,
+		remoteService: IRemoteService,
+		sessionService: ISessionService,
+		hostService: IHostService,
+		telemetryService: ITelemetryService,
+		logService: ILogService,
+	) {
+		super(context, remoteService, sessionService, hostService, telemetryService, logService);
+	}
 }
 
 export class ConnectInCurrentWindowCommandInline extends ConnectInCurrentWindowCommand {
@@ -226,12 +334,28 @@ export class ConnectInCurrentWindowCommandInline extends ConnectInCurrentWindowC
 
 	constructor(
 		context: vscode.ExtensionContext,
+		remoteService: IRemoteService,
 		sessionService: ISessionService,
 		hostService: IHostService,
 		telemetryService: ITelemetryService,
 		logService: ILogService,
 	) {
-		super(context, sessionService, hostService, telemetryService, logService);
+		super(context, remoteService, sessionService, hostService, telemetryService, logService);
+	}
+}
+
+export class ConnectInCurrentWindowCommandInline_1 extends ConnectInCurrentWindowCommand {
+	override readonly id = 'gitpod.workspaces.connectInCurrentWindow_inline@1';
+
+	constructor(
+		context: vscode.ExtensionContext,
+		remoteService: IRemoteService,
+		sessionService: ISessionService,
+		hostService: IHostService,
+		telemetryService: ITelemetryService,
+		logService: ILogService,
+	) {
+		super(context, remoteService, sessionService, hostService, telemetryService, logService);
 	}
 }
 
@@ -252,6 +376,10 @@ export class StopWorkspaceCommand implements Command {
 			workspaceId = treeItem.id;
 		}
 
+		if (!workspaceId) {
+			return;
+		}
+
 		this.telemetryService.sendTelemetryEvent('vscode_desktop_view_command', {
 			name: getCommandName(this.id),
 			gitpodHost: this.hostService.gitpodHost,
@@ -259,10 +387,20 @@ export class StopWorkspaceCommand implements Command {
 			location: getCommandLocation(this.id, treeItem)
 		});
 
-		if (workspaceId) {
-			await this.sessionService.getAPI().stopWorkspace(workspaceId);
-			vscode.commands.executeCommand('gitpod.workspaces.refresh');
-		}
+		await this.sessionService.getAPI().stopWorkspace(workspaceId);
+		vscode.commands.executeCommand('gitpod.workspaces.refresh');
+	}
+}
+
+export class StopWorkspaceCommandContext extends StopWorkspaceCommand {
+	override readonly id = 'gitpod.workspaces.stopWorkspace_context';
+
+	constructor(
+		sessionService: ISessionService,
+		hostService: IHostService,
+		telemetryService: ITelemetryService,
+	) {
+		super(sessionService, hostService, telemetryService);
 	}
 }
 
@@ -338,7 +476,7 @@ export class OpenInBrowserCommand implements Command {
 }
 
 export class DeleteWorkspaceCommand implements Command {
-	readonly id = 'gitpod.workspaces.deleteWorkspace';
+	readonly id: string = 'gitpod.workspaces.deleteWorkspace';
 
 	constructor(
 		private readonly sessionService: ISessionService,
@@ -354,6 +492,10 @@ export class DeleteWorkspaceCommand implements Command {
 			workspaceId = treeItem.id;
 		}
 
+		if (!workspaceId) {
+			return;
+		}
+
 		const deleteAction: string = 'Delete';
 		const resp = await vscode.window.showWarningMessage(`Are you sure you want to delete workspace '${workspaceId}'?`, { modal: true }, deleteAction);
 		if (resp !== deleteAction) {
@@ -367,10 +509,20 @@ export class DeleteWorkspaceCommand implements Command {
 			location: getCommandLocation(this.id, treeItem)
 		});
 
-		if (workspaceId) {
-			await this.sessionService.getAPI().deleteWorkspace(workspaceId);
-			vscode.commands.executeCommand('gitpod.workspaces.refresh');
-		}
+		await this.sessionService.getAPI().deleteWorkspace(workspaceId);
+		vscode.commands.executeCommand('gitpod.workspaces.refresh');
+	}
+}
+
+export class DeleteWorkspaceCommandContext extends DeleteWorkspaceCommand {
+	override readonly id: string = 'gitpod.workspaces.deleteWorkspace_context';
+
+	constructor(
+		sessionService: ISessionService,
+		hostService: IHostService,
+		telemetryService: ITelemetryService,
+	) {
+		super(sessionService, hostService, telemetryService);
 	}
 }
 
