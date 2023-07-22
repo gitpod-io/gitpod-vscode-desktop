@@ -10,7 +10,7 @@ import { Disposable } from './common/dispose';
 import { HeartbeatManager } from './heartbeat';
 import { WorkspaceState } from './workspaceState';
 import { ISyncExtension, NoSettingsSyncSession, NoSyncStoreError, SettingsSync, SyncResource, parseSyncData } from './settingsSync';
-import { ExperimentalSettings } from './experiments';
+import { IExperimentsService } from './experiments';
 import { ITelemetryService, UserFlowTelemetryProperties } from './common/telemetry';
 import { INotificationService } from './services/notificationService';
 import { retry } from './common/async';
@@ -36,7 +36,7 @@ export class RemoteSession extends Disposable {
 		private readonly hostService: IHostService,
 		private readonly sessionService: ISessionService,
 		private readonly settingsSync: SettingsSync,
-		private readonly experiments: ExperimentalSettings,
+		private readonly experiments: IExperimentsService,
 		private readonly logService: ILogService,
 		private readonly telemetryService: ITelemetryService,
 		private readonly notificationService: INotificationService
@@ -78,7 +78,7 @@ export class RemoteSession extends Disposable {
 				this.workspaceState = new WorkspaceState(this.connectionInfo.workspaceId, this.sessionService, this.logService);
 				await this.workspaceState.initialize();
 				if (!this.workspaceState.instanceId || !this.workspaceState.isWorkspaceRunning) {
-					throw new NoRunningInstanceError(this.connectionInfo.workspaceId, this.workspaceState.phase);
+					throw new NoRunningInstanceError(this.connectionInfo.workspaceId, this.workspaceState.workspaceData.phase);
 				}
 
 				this._register(this.workspaceState.onWorkspaceWillStop(async () => {

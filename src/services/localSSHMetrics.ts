@@ -20,7 +20,7 @@ export class LocalSSHMetricsReporter {
             .catch(e => this.logService.error('Error while reporting metrics', e));
     }
 
-    reportPingExtensionStatus(gitpodHost: string | undefined, status: 'success' | 'failure') {
+    reportPingExtensionStatus(gitpodHost: string, status: 'success' | 'failure') {
         addCounter(gitpodHost, 'vscode_desktop_ping_extension_server_total', { status }, 1, this.logService)
             .catch(e => this.logService.error('Error while reporting metrics', e));
     }
