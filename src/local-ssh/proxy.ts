@@ -3,28 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { SshClient } from '@microsoft/dev-tunnels-ssh-tcp';
-import { NodeStream, SshClientCredentials, SshClientSession, SshDisconnectReason, SshServerSession, SshSessionConfiguration, Stream, WebSocketStream } from '@microsoft/dev-tunnels-ssh';
-import { importKey, importKeyBytes } from '@microsoft/dev-tunnels-ssh-keys';
-import { ExtensionServiceDefinition, GetWorkspaceAuthInfoResponse } from '../proto/typescript/ipc/v1/ipc';
-import { Client, ClientError, Status, createChannel, createClient } from 'nice-grpc';
-import { retry, timeout } from '../common/async';
-import { WrapError } from '../common/utils';
-import { WebSocket } from 'ws';
-import * as stream from 'stream';
-import { ILogService } from '../services/logService';
-import { TelemetryService } from './telemetryService';
-import { ITelemetryService, UserFlowTelemetryProperties } from '../common/telemetry';
-import { LocalSSHMetricsReporter } from '../services/localSSHMetrics';
-
-// This public key is safe to be public since we only use it to verify local-ssh connections.
-const HOST_KEY = 'LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ1QwcXg1eEJUVmc4TUVJbUUKZmN4RXRZN1dmQVVsM0JYQURBK2JYREsyaDZlaFJBTkNBQVJlQXo0RDVVZXpqZ0l1SXVOWXpVL3BCWDdlOXoxeApvZUN6UklqcGdCUHozS0dWRzZLYXV5TU5YUm95a21YSS9BNFpWaW9nd2Vjb0FUUjRUQ2FtWm1ScAotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg==';
-// const HOST_PUBLIC_FP = 'AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBF4DPgPlR7OOAi4i41jNT+kFft73PXGh4LNEiOmAE/PcoZUbopq7Iw1dGjKSZcj8DhlWKiDB5ygBNHhMJqZmZGk=';
-
-function getHostKey(): Buffer {
-    return Buffer.from(HOST_KEY, 'base64');
-}
-
 interface ClientOptions {
     host: string;
     extIpcPort: number;
@@ -41,6 +19,76 @@ function getClientOptions(): ClientOptions {
         extIpcPort: Number.parseInt(args[1], 10),
         machineID: args[2] ?? '',
     };
+}
+
+const options = getClientOptions();
+if (!options) {
+    process.exit(1);
+}
+
+import { NopeLogger } from './logger';
+const logService = new NopeLogger();
+
+// DO NOT PUSH CHANGES BELOW TO PRODUCTION
+// import { DebugLogger } from './logger';
+// const logService = new DebugLogger();
+
+import { TelemetryService } from './telemetryService';
+const telemetryService = new TelemetryService(
+    process.env.SEGMENT_KEY!,
+    options.machineID,
+    process.env.EXT_NAME!,
+    process.env.EXT_VERSION!,
+    options.host,
+    logService
+);
+
+const flow: SSHUserFlowTelemetry = {
+    flow: 'local_ssh',
+    gitpodHost: options.host,
+    workspaceId: '',
+    processId: process.pid,
+};
+
+telemetryService.sendUserFlowStatus('started', flow);
+const sendExited = (exitCode: number, forceExit: boolean, exitSignal?: NodeJS.Signals) => {
+    return telemetryService.sendUserFlowStatus('exited', {
+        ...flow,
+        exitCode,
+        forceExit: String(forceExit),
+        signal: exitSignal
+    });
+};
+// best effort to intercept process exit
+const beforeExitListener = (exitCode: number) => {
+    process.removeListener('beforeExit', beforeExitListener);
+    return sendExited(exitCode, false)
+};
+process.addListener('beforeExit', beforeExitListener);
+const exitProcess = async (forceExit: boolean, signal?: NodeJS.Signals) => {
+    await sendExited(0, forceExit, signal);
+    process.exit(0);
+};
+
+import { SshClient } from '@microsoft/dev-tunnels-ssh-tcp';
+import { NodeStream, SshClientCredentials, SshClientSession, SshDisconnectReason, SshServerSession, SshSessionConfiguration, Stream, WebSocketStream } from '@microsoft/dev-tunnels-ssh';
+import { importKey, importKeyBytes } from '@microsoft/dev-tunnels-ssh-keys';
+import { ExtensionServiceDefinition, GetWorkspaceAuthInfoResponse } from '../proto/typescript/ipc/v1/ipc';
+import { Client, ClientError, Status, createChannel, createClient } from 'nice-grpc';
+import { retry, timeout } from '../common/async';
+import { WrapError } from '../common/utils';
+import { WebSocket } from 'ws';
+import * as stream from 'stream';
+import { ILogService } from '../services/logService';
+import { ITelemetryService, UserFlowTelemetryProperties } from '../common/telemetry';
+import { LocalSSHMetricsReporter } from '../services/localSSHMetrics';
+
+// This public key is safe to be public since we only use it to verify local-ssh connections.
+const HOST_KEY = 'LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ1QwcXg1eEJUVmc4TUVJbUUKZmN4RXRZN1dmQVVsM0JYQURBK2JYREsyaDZlaFJBTkNBQVJlQXo0RDVVZXpqZ0l1SXVOWXpVL3BCWDdlOXoxeApvZUN6UklqcGdCUHozS0dWRzZLYXV5TU5YUm95a21YSS9BNFpWaW9nd2Vjb0FUUjRUQ2FtWm1ScAotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg==';
+// const HOST_PUBLIC_FP = 'AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBF4DPgPlR7OOAi4i41jNT+kFft73PXGh4LNEiOmAE/PcoZUbopq7Iw1dGjKSZcj8DhlWKiDB5ygBNHhMJqZmZGk=';
+
+function getHostKey(): Buffer {
+    return Buffer.from(HOST_KEY, 'base64');
 }
 
 type FailedToProxyCode = 'SSH.AuthenticationFailed' | 'TUNNEL.AuthenticateSSHKeyFailed' | 'NoRunningInstance' | 'FailedToGetAuthInfo' | 'GitpodHostMismatch' | 'NoAccessTokenFound';
@@ -74,28 +122,22 @@ interface SSHUserFlowTelemetry extends UserFlowTelemetryProperties {
 
 class WebSocketSSHProxy {
     private extensionIpc: Client<ExtensionServiceDefinition>;
-    private flow: SSHUserFlowTelemetry;
 
     constructor(
         private readonly options: ClientOptions,
         private readonly telemetryService: ITelemetryService,
         private readonly metricsReporter: LocalSSHMetricsReporter,
-        private readonly logService: ILogService
+        private readonly logService: ILogService,
+        private readonly flow: SSHUserFlowTelemetry
     ) {
-        this.flow = {
-            flow: 'local_ssh',
-            gitpodHost: this.options.host,
-            workspaceId: '',
-        };
-
         this.onExit();
         this.onException();
         this.extensionIpc = createClient(ExtensionServiceDefinition, createChannel('127.0.0.1:' + this.options.extIpcPort));
     }
 
     private onExit() {
-        const exitHandler = (_signal?: NodeJS.Signals) => {
-            process.exit(0);
+        const exitHandler = (signal?: NodeJS.Signals) => {
+            exitProcess(false, signal)
         };
         process.on('SIGINT', exitHandler);
         process.on('SIGTERM', exitHandler);
@@ -116,19 +158,21 @@ class WebSocketSSHProxy {
         // an error handler to the writable stream
         const sshStream = stream.Duplex.from({ readable: process.stdin, writable: process.stdout });
         sshStream.on('error', e => {
-            if ((e as any).code === 'EPIPE') {
-                // HACK:
-                // Seems there's a bug in the ssh library that could hang forever when the stream gets closed
-                // so the below `await pipePromise` will never return and the node process will never exit.
-                // So let's just force kill here
-                setTimeout(() => process.exit(0), 50);
+            if ((e as any).code !== 'EPIPE') {
+                // TODO filter out known error codes
+                this.logService.error(e, 'unexpected sshStream error');
             }
+            // HACK:
+            // Seems there's a bug in the ssh library that could hang forever when the stream gets closed
+            // so the below `await pipePromise` will never return and the node process will never exit.
+            // So let's just force kill here
+            setTimeout(() => exitProcess(true), 50);
         });
         // sshStream.on('end', () => {
-        //     setTimeout(() => process.exit(0), 50);
+        //     setTimeout(() => doProcessExit(0), 50);
         // });
         // sshStream.on('close', () => {
-        //     setTimeout(() => process.exit(0), 50);
+        //     setTimeout(() => doProcessExit(0), 50);
         // });
 
         // This is expected to never throw as key is hardcoded
@@ -227,10 +271,46 @@ class WebSocketSSHProxy {
                 'x-gitpod-owner-token': workspaceInfo.ownerToken
             }
         });
+
         socket.binaryType = 'arraybuffer';
 
         const stream = await new Promise<Stream>((resolve, reject) => {
-            socket.onopen = () => resolve(new WebSocketStream(socket as any));
+            socket.onopen = () => {
+                // see https://github.com/gitpod-io/gitpod/blob/a5b4a66e0f384733145855f82f77332062e9d163/components/gitpod-protocol/go/websocket.go#L31-L40
+                const pongPeriod = 15 * 1000;
+                const pingPeriod = pongPeriod * 9 / 10;
+
+                let pingTimeout: NodeJS.Timeout | undefined;
+                const heartbeat = () => {
+                    stopHearbeat();
+
+                    // Use `WebSocket#terminate()`, which immediately destroys the connection,
+                    // instead of `WebSocket#close()`, which waits for the close timer.
+                    // Delay should be equal to the interval at which your server
+                    // sends out pings plus a conservative assumption of the latency.
+                    pingTimeout = setTimeout(() => {
+                        // TODO(ak) if we see stale socket.terminate();
+                        this.telemetryService.sendUserFlowStatus('stale', this.flow);
+                    }, pingPeriod + 1000);
+                }
+                function stopHearbeat() {
+                    if (pingTimeout != undefined) {
+                        clearTimeout(pingTimeout);
+                        pingTimeout = undefined;
+                    }
+                }
+
+                socket.on('ping', heartbeat);
+
+                heartbeat();
+                const socketWrapper = new WebSocketStream(socket as any);
+                const wrappedOnClose = socket.onclose!;
+                socket.onclose = (e) => {
+                    stopHearbeat();
+                    wrappedOnClose(e);
+                }
+                resolve(socketWrapper);
+            }
             socket.onerror = (e) => reject(e);
         });
 
@@ -281,30 +361,10 @@ class WebSocketSSHProxy {
     }
 }
 
-const options = getClientOptions();
-if (!options) {
-    process.exit(1);
-}
-
-import { NopeLogger } from './logger';
-const logService = new NopeLogger();
-
-// DO NOT PUSH CHANGES BELOW TO PRODUCTION
-// import { DebugLogger } from './logger';
-// const logService = new DebugLogger();
-
-const telemetryService = new TelemetryService(
-    process.env.SEGMENT_KEY!,
-    options.machineID,
-    process.env.EXT_NAME!,
-    process.env.EXT_VERSION!,
-    options.host,
-    logService
-);
-
 const metricsReporter = new LocalSSHMetricsReporter(logService);
 
-const proxy = new WebSocketSSHProxy(options, telemetryService, metricsReporter, logService);
-proxy.start().catch(() => {
-    // Noop, catch everything in start method pls
+const proxy = new WebSocketSSHProxy(options, telemetryService, metricsReporter, logService, flow);
+proxy.start().catch(e => {
+    const err = new WrapError('Uncaught exception on start method', e);
+    telemetryService.sendTelemetryException(err, { gitpodHost: options.host });
 });
