@@ -31,14 +31,14 @@ export class TelemetryService implements ITelemetryService {
 		this.commonProperties = commonProperties;
 	}
 
-	sendEventData(eventName: string, data?: Record<string, any>) {
+	async sendEventData(eventName: string, data?: Record<string, any>): Promise<void> {
 		const properties = mixin(cleanData(data ?? {}, this.cleanupPatterns, isTrustedValue), this.commonProperties);
 
 		if (!this.segmentClient) {
 			return;
 		}
 
-		commonSendEventData(this.logService, this.segmentClient, this.machineId, eventName, properties);
+		return commonSendEventData(this.logService, this.segmentClient, this.machineId, eventName, properties);
 	}
 
 	sendErrorData(error: Error, data?: Record<string, any>) {
@@ -53,9 +53,9 @@ export class TelemetryService implements ITelemetryService {
 		// Noop, we disabled buffering
 	}
 
-	sendTelemetryEvent(eventName: string, properties?: TelemetryEventProperties): void {
+	sendTelemetryEvent(eventName: string, properties?: TelemetryEventProperties): Promise<void> {
 		const props = properties ? Object.fromEntries(Object.entries(properties).map(([k, v]) => [k, TRUSTED_VALUES.has(k) ? new TelemetryTrustedValue(v) : v])) : undefined;
-		this.sendEventData(eventName, props);
+		return this.sendEventData(eventName, props);
 	}
 
 	sendTelemetryException(error: Error, properties?: TelemetryEventProperties): void {
@@ -63,10 +63,10 @@ export class TelemetryService implements ITelemetryService {
 		this.sendErrorData(error, props);
 	}
 
-	sendUserFlowStatus(status: string, flowProperties: UserFlowTelemetryProperties): void {
+	sendUserFlowStatus(status: string, flowProperties: UserFlowTelemetryProperties): Promise<void> {
 		const properties: TelemetryEventProperties = { ...flowProperties, status };
 		delete properties['flow'];
-		this.sendTelemetryEvent('vscode_desktop_' + flowProperties.flow, properties);
+		return this.sendTelemetryEvent('vscode_desktop_' + flowProperties.flow, properties);
 	}
 }
 

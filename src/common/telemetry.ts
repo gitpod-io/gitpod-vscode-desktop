@@ -68,7 +68,7 @@ export function getErrorMetricsEndpoint(gitpodHost: string): string {
 	return `https://ide.${serviceUrl.hostname}/metrics-api/reportError`;
 }
 
-export function commonSendEventData(logService: ILogService, segmentClient: Analytics, machineId: string, eventName: string, data?: any) {
+export async function commonSendEventData(logService: ILogService, segmentClient: Analytics, machineId: string, eventName: string, data?: any): Promise<void> {
 	const properties = data ?? {};
 
 	delete properties['gitpodHost'];
@@ -77,16 +77,17 @@ export function commonSendEventData(logService: ILogService, segmentClient: Anal
 		logService.trace('Local event report', eventName, properties);
 		return;
 	}
-
-	segmentClient.track({
-		anonymousId: machineId,
-		event: eventName,
-		properties
-	}, (err) => {
-		if (err) {
-			logService.error('Failed to log event to app analytics:', err);
-		}
-	});
+	return new Promise((resolve) =>
+		segmentClient.track({
+			anonymousId: machineId,
+			event: eventName,
+			properties
+		}, (err) => {
+			if (err) {
+				logService.error('Failed to log event to app analytics:', err);
+			}
+			resolve();
+		}))
 }
 
 interface SendErrorDataOptions {
