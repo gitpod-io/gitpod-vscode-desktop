@@ -50,23 +50,25 @@ const flow: SSHUserFlowTelemetry = {
     processId: process.pid,
 };
 
-telemetryService.sendUserFlowStatus('started', flow)
-const sendExited = (exitCode: number, forceExit: boolean, exitSignal?: NodeJS.Signals) => telemetryService.sendUserFlowStatus('exited', {
-    ...flow,
-    exitCode,
-    forceExit: String(forceExit),
-    signal: exitSignal
-})
+telemetryService.sendUserFlowStatus('started', flow);
+const sendExited = (exitCode: number, forceExit: boolean, exitSignal?: NodeJS.Signals) => {
+    return telemetryService.sendUserFlowStatus('exited', {
+        ...flow,
+        exitCode,
+        forceExit: String(forceExit),
+        signal: exitSignal
+    });
+};
 // best effort to intercept process exit
 const beforeExitListener = (exitCode: number) => {
     process.removeListener('beforeExit', beforeExitListener);
     return sendExited(exitCode, false)
-}
+};
 process.addListener('beforeExit', beforeExitListener);
 const exitProcess = async (forceExit: boolean, signal?: NodeJS.Signals) => {
     await sendExited(0, forceExit, signal);
     process.exit(0);
-}
+};
 
 import { SshClient } from '@microsoft/dev-tunnels-ssh-tcp';
 import { NodeStream, SshClientCredentials, SshClientSession, SshDisconnectReason, SshServerSession, SshSessionConfiguration, Stream, WebSocketStream } from '@microsoft/dev-tunnels-ssh';
@@ -363,5 +365,6 @@ const metricsReporter = new LocalSSHMetricsReporter(logService);
 
 const proxy = new WebSocketSSHProxy(options, telemetryService, metricsReporter, logService, flow);
 proxy.start().catch(e => {
-    telemetryService.sendTelemetryException(e, { gitpodHost: options.host });
+    const err = new WrapError('Uncaught exception on start method', e);
+    telemetryService.sendTelemetryException(err, { gitpodHost: options.host });
 });
