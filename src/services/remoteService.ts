@@ -12,12 +12,22 @@ import { Configuration } from '../configuration';
 import { IHostService } from './hostService';
 import SSHConfiguration from '../ssh/sshConfig';
 import { isWindows } from '../common/platform';
-import { WORKSPACE_STOPPED_PREFIX, WorkspaceRestartInfo, getGitpodRemoteWindowConnectionInfo, getLocalSSHDomain } from '../remote';
+import { NoSSHGatewayError, WORKSPACE_STOPPED_PREFIX, WorkspaceRestartInfo, getGitpodRemoteWindowConnectionInfo, getLocalSSHDomain } from '../remote';
 import { ITelemetryService, UserFlowTelemetryProperties } from '../common/telemetry';
 import { ISessionService } from './sessionService';
-import { WrapError } from '../common/utils';
+import { WrapError, getServiceURL } from '../common/utils';
 import { canExtensionServiceServerWork } from '../local-ssh/ipc/extensionServiceServer';
 import { LocalSSHMetricsReporter } from './localSSHMetrics';
+import SSHDestination from '../ssh/sshDestination';
+import { WorkspaceData } from '../publicApi';
+import { getAgentSock, testSSHConnection } from '../sshTestConnection';
+import { addHostToHostFile, checkNewHostInHostkeys } from '../ssh/hostfile';
+import { gatherIdentityFiles } from '../ssh/identityFiles';
+import { ParsedKey } from 'ssh2-streams';
+import * as crypto from 'crypto';
+import { utils as sshUtils } from 'ssh2';
+import { INotificationService } from './notificationService';
+import { getOpenSSHVersion } from '../ssh/sshVersion';
 
 export interface IRemoteService {
     flow?: UserFlowTelemetryProperties;
@@ -26,6 +36,9 @@ export interface IRemoteService {
     extensionServerReady: () => Promise<boolean>;
     saveRestartInfo: () => Promise<void>;
     checkForStoppedWorkspaces: (cb: (info: WorkspaceRestartInfo) => Promise<void>) => Promise<void>;
+
+    getWorkspaceSSHDestination(wsData: WorkspaceData): Promise<{ destination: SSHDestination; password?: string }>;
+    showSSHPasswordModal(wsData: WorkspaceData, password: string): Promise<void>;
 }
 
 type FailedToInitializeCode = 'Unknown' | 'LockFailed' | string;
@@ -43,8 +56,9 @@ export class RemoteService extends Disposable implements IRemoteService {
     constructor(
         private readonly context: vscode.ExtensionContext,
         private readonly hostService: IHostService,
-        private readonly telemetryService: ITelemetryService,
         private readonly sessionService: ISessionService,
+        private readonly notificationService: INotificationService,
+        private readonly telemetryService: ITelemetryService,
         private readonly logService: ILogService,
     ) {
         super();
@@ -81,7 +95,7 @@ export class RemoteService extends Disposable implements IRemoteService {
     async extensionServerReady(): Promise<boolean> {
         try {
             await canExtensionServiceServerWork();
-            this.metricsReporter.reportPingExtensionStatus(this.flow?.gitpodHost, 'success');
+            this.metricsReporter.reportPingExtensionStatus(this.hostService.gitpodHost, 'success');
             return true;
         } catch (e) {
             const failureCode = 'ExtensionServerUnavailable';
@@ -100,7 +114,7 @@ export class RemoteService extends Disposable implements IRemoteService {
                 workspaceId: flow.workspaceId,
             });
             this.telemetryService.sendUserFlowStatus('failure', flow);
-            this.metricsReporter.reportPingExtensionStatus(flow.gitpodHost, 'failure');
+            this.metricsReporter.reportPingExtensionStatus(this.hostService.gitpodHost, 'failure');
             return false;
         }
     }
@@ -202,6 +216,100 @@ export class RemoteService extends Disposable implements IRemoteService {
             }
             await this.context.globalState.update(k, undefined);
         }
+    }
+
+    async getWorkspaceSSHDestination({ id: workspaceId, workspaceUrl }: WorkspaceData): Promise<{ destination: SSHDestination; password?: string }> {
+        const [ownerToken, registeredSSHKeys] = await Promise.all([
+            this.sessionService.getAPI().getOwnerToken(workspaceId),
+            this.sessionService.getAPI().getSSHKeys()
+        ]);
+
+        const wsUrl = new URL(workspaceUrl);
+        const sshHostKeyEndPoint = `https://${wsUrl.host}/_ssh/host_keys`;
+        const sshHostKeyResponse = await fetch(sshHostKeyEndPoint);
+        if (!sshHostKeyResponse.ok) {
+            // Gitpod SSH gateway not configured
+            throw new NoSSHGatewayError(this.hostService.gitpodHost);
+        }
+
+        const sshHostKeys = (await sshHostKeyResponse.json()) as { type: string; host_key: string }[];
+        let user = workspaceId;
+        // See https://github.com/gitpod-io/gitpod/pull/9786 for reasoning about `.ssh` suffix
+        let hostname = wsUrl.host.replace(workspaceId, `${workspaceId}.ssh`);
+
+        const sshConfiguration = await SSHConfiguration.loadFromFS();
+
+        const verifiedHostKey = await testSSHConnection({
+            host: hostname,
+            username: user,
+            readyTimeout: 40000,
+            password: ownerToken
+        }, sshHostKeys, sshConfiguration, this.logService);
+
+        // SSH connection successful, write host to known_hosts
+        try {
+            const result = sshUtils.parseKey(verifiedHostKey!);
+            if (result instanceof Error) {
+                throw result;
+            }
+            const parseKey = Array.isArray(result) ? result[0] : result;
+            if (parseKey && await checkNewHostInHostkeys(hostname)) {
+                await addHostToHostFile(hostname, verifiedHostKey!, parseKey.type);
+                this.logService.info(`'${hostname}' host added to known_hosts file`);
+            }
+        } catch (e) {
+            this.logService.error(`Couldn't write '${hostname}' host to known_hosts file:`, e);
+        }
+
+        const hostConfiguration = sshConfiguration.getHostConfiguration(hostname);
+        const identityFiles: string[] = (hostConfiguration['IdentityFile'] as unknown as string[]) || [];
+        let identityKeys = await gatherIdentityFiles(identityFiles, getAgentSock(hostConfiguration), false, this.logService);
+
+        const registeredKeys = registeredSSHKeys.map(k => {
+            const parsedResult = sshUtils.parseKey(k.key);
+            if (parsedResult instanceof Error || !parsedResult) {
+                this.logService.error(`Error while parsing SSH public key ${k.name}:`, parsedResult);
+                return { name: k.name, fingerprint: '' };
+            }
+
+            const parsedKey = parsedResult as ParsedKey;
+            return { name: k.name, fingerprint: crypto.createHash('sha256').update(parsedKey.getPublicSSH()).digest('base64') };
+        })
+        this.logService.trace(`Registered public keys in Gitpod account:`, registeredKeys.length ? registeredKeys.map(k => `${k.name} SHA256:${k.fingerprint}`).join('\n') : 'None');
+
+        identityKeys = identityKeys.filter(k => !!registeredKeys.find(regKey => regKey.fingerprint === k.fingerprint));
+
+        return {
+            destination: new SSHDestination(hostname, user),
+            password: identityKeys.length === 0 ? ownerToken : undefined
+        };
+    }
+
+    async showSSHPasswordModal({ id: workspaceId }: WorkspaceData, password: string) {
+        const maskedPassword = '•'.repeat(password.length - 3) + password.substring(password.length - 3);
+
+        const copy: vscode.MessageItem = { title: 'Copy' };
+        const configureSSH: vscode.MessageItem = { title: 'Configure SSH' };
+        const showLogs: vscode.MessageItem = { title: 'Show logs', isCloseAffordance: true };
+        const message = `You don't have registered any SSH public key for this machine in your Gitpod account.\nAlternatively, copy and use this temporary password until workspace restart: ${maskedPassword}`;
+        const flow = { flow: 'ssh', gitpodHost: this.hostService.gitpodHost, kind: 'gateway', workspaceId, openSSHVersion: await getOpenSSHVersion(), userId: this.sessionService.getUserId() };
+        const action = await this.notificationService.showWarningMessage(message, { flow, modal: true, id: 'ssh_gateway_modal' }, copy, configureSSH, showLogs);
+
+        if (action === copy) {
+            await vscode.env.clipboard.writeText(password);
+            return;
+        }
+
+        const serviceUrl = getServiceURL(this.hostService.gitpodHost);
+        const externalUrl = `${serviceUrl}/keys`;
+        if (action === configureSSH) {
+            await vscode.env.openExternal(vscode.Uri.parse(externalUrl));
+            throw new Error(`SSH password modal dialog, Configure SSH`);
+        }
+
+        this.logService.info(`Configure your SSH keys in ${externalUrl} and try again. Or try again and select 'Copy' to connect using a temporary password until workspace restart`);
+        this.logService.show();
+        throw new Error('SSH password modal dialog, Canceled');
     }
 
     private async withLock(path: string, cb: () => Promise<void>) {

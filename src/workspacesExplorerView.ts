@@ -15,6 +15,7 @@ import { ITelemetryService } from './common/telemetry';
 import { ILogService } from './services/logService';
 import { ConnectInCurrentWindowCommand, ConnectInNewWindowCommand, DeleteWorkspaceCommand, OpenWorkspaceContextCommand, OpenInBrowserCommand, StopCurrentWorkspaceCommand, StopWorkspaceCommand, DisconnectWorkspaceCommand, ConnectInCurrentWindowCommandInline, StopWorkspaceCommandInline, DeleteWorkspaceCommandContext, StopWorkspaceCommandContext, ConnectInCurrentWindowCommandContext, ConnectInNewWindowCommandContext, ConnectInCurrentWindowCommandContext_1, ConnectInCurrentWindowCommandInline_1 } from './commands/workspaces';
 import { IRemoteService } from './services/remoteService';
+import { IExperimentsService } from './experiments';
 
 class RepoOwnerTreeItem {
     constructor(
@@ -92,6 +93,7 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
         readonly remoteService: IRemoteService,
         private readonly sessionService: ISessionService,
         private readonly hostService: IHostService,
+        readonly experimentsService: IExperimentsService,
         readonly telemetryService: ITelemetryService,
         readonly logService: ILogService,
     ) {
@@ -101,13 +103,13 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
         this.connectedWorkspaceId = getGitpodRemoteWindowConnectionInfo(context)?.connectionInfo.workspaceId;
 
         commandManager.register({ id: 'gitpod.workspaces.refresh', execute: () => this.refresh() });
-        commandManager.register(new ConnectInNewWindowCommand(context, remoteService, sessionService, hostService, telemetryService, logService));
-        commandManager.register(new ConnectInNewWindowCommandContext(context, remoteService, sessionService, hostService, telemetryService, logService));
-        commandManager.register(new ConnectInCurrentWindowCommand(context, remoteService, sessionService, hostService, telemetryService, logService));
-        commandManager.register(new ConnectInCurrentWindowCommandContext(context, remoteService, sessionService, hostService, telemetryService, logService));
-        commandManager.register(new ConnectInCurrentWindowCommandContext_1(context, remoteService, sessionService, hostService, telemetryService, logService));
-        commandManager.register(new ConnectInCurrentWindowCommandInline(context, remoteService, sessionService, hostService, telemetryService, logService));
-        commandManager.register(new ConnectInCurrentWindowCommandInline_1(context, remoteService, sessionService, hostService, telemetryService, logService));
+        commandManager.register(new ConnectInNewWindowCommand(context, remoteService, sessionService, hostService, experimentsService, telemetryService, logService));
+        commandManager.register(new ConnectInNewWindowCommandContext(context, remoteService, sessionService, hostService, experimentsService, telemetryService, logService));
+        commandManager.register(new ConnectInCurrentWindowCommand(context, remoteService, sessionService, hostService, experimentsService, telemetryService, logService));
+        commandManager.register(new ConnectInCurrentWindowCommandContext(context, remoteService, sessionService, hostService, experimentsService, telemetryService, logService));
+        commandManager.register(new ConnectInCurrentWindowCommandContext_1(context, remoteService, sessionService, hostService, experimentsService, telemetryService, logService));
+        commandManager.register(new ConnectInCurrentWindowCommandInline(context, remoteService, sessionService, hostService, experimentsService, telemetryService, logService));
+        commandManager.register(new ConnectInCurrentWindowCommandInline_1(context, remoteService, sessionService, hostService, experimentsService, telemetryService, logService));
         commandManager.register(new StopWorkspaceCommand(sessionService, hostService, telemetryService));
         commandManager.register(new StopWorkspaceCommandContext(sessionService, hostService, telemetryService));
         commandManager.register(new StopWorkspaceCommandInline(sessionService, hostService, telemetryService));
@@ -138,8 +140,8 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
         const tooltipDescription = `$(repo) ${element.description}`;
         const tooltipId = `$(tag) ${element.id}`;
         const tooltipContext = `$(link-external) [${element.contextUrl}](${element.contextUrl})`;
-        let tooltipState= `$(clock) Stopped - Last used ${element.getLastUsedPretty()} ago`;
-        if (this.connectedWorkspaceId === element.id ) {
+        let tooltipState = `$(clock) Stopped - Last used ${element.getLastUsedPretty()} ago`;
+        if (this.connectedWorkspaceId === element.id) {
             tooltipState = `$(clock) Running and Connected`;
         } else if (element.isRunning) {
             tooltipState = `$(clock) Running`;

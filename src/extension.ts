@@ -83,7 +83,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		const sessionService = new SessionService(hostService, logger, telemetryService);
 		context.subscriptions.push(sessionService);
 
-		const remoteService = new RemoteService(context, hostService, telemetryService, sessionService, logger);
+		const remoteService = new RemoteService(context, hostService, sessionService, notificationService, telemetryService, logger);
 		context.subscriptions.push(remoteService);
 
 		const experiments = new ExperimentalSettings(packageJSON.configcatKey, packageJSON.version, context, sessionService, hostService, logger);
@@ -109,7 +109,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		remoteConnectionInfo = getGitpodRemoteWindowConnectionInfo(context);
 		vscode.commands.executeCommand('setContext', 'gitpod.remoteConnection', !!remoteConnectionInfo);
 
-		const workspacesExplorerView = new WorkspacesExplorerView(context, commandManager, remoteService, sessionService, hostService, telemetryService, logger);
+		const workspacesExplorerView = new WorkspacesExplorerView(context, commandManager, remoteService, sessionService, hostService, experiments, telemetryService, logger);
 		context.subscriptions.push(workspacesExplorerView);
 
 		if (remoteConnectionInfo) {

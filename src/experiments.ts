@@ -17,7 +17,12 @@ const EXPERIMENTAL_SETTINGS = [
     // 'gitpod.remote.useLocalSSHServer',
 ];
 
-export class ExperimentalSettings extends Disposable {
+export interface IExperimentsService {
+    getUseLocalSSHProxy(): Promise<boolean>;
+    getUsePublicAPI(gitpodHost: string): Promise<boolean>
+}
+
+export class ExperimentalSettings extends Disposable implements IExperimentsService {
     private configcatClient: configcatcommon.IConfigCatClient;
     private extensionVersion: semver.SemVer;
 

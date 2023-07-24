@@ -9,11 +9,11 @@ import { Disposable } from './common/dispose';
 import { ISessionService } from './services/sessionService';
 import { ILogService } from './services/logService';
 import { filterEvent, onceEvent } from './common/event';
-import { WorkspacePhase } from './publicApi';
+import { WorkspaceData, WorkspacePhase, rawWorkspaceToWorkspaceData } from './publicApi';
 
 export class WorkspaceState extends Disposable {
-    private workspaceState: WorkspaceStatus | undefined;
-    private _contextUrl: string | undefined;
+    private _workspaceStatus: WorkspaceStatus | undefined;
+    private _workspaceData: WorkspaceData | undefined;
 
     private _onWorkspaceStateChanged = this._register(new vscode.EventEmitter<void>());
     readonly onWorkspaceStateChanged = this._onWorkspaceStateChanged.event;
@@ -23,35 +23,29 @@ export class WorkspaceState extends Disposable {
     readonly onWorkspaceStopped = onceEvent(filterEvent(this.onWorkspaceStateChanged, () => this.isWorkspaceStopped));
 
     public get isWorkspaceStopping() {
-        const phase = this.workspaceState?.instance?.status?.phase;
+        const phase = this._workspaceStatus?.instance?.status?.phase;
         return phase === WorkspaceInstanceStatus_Phase.STOPPING;
     }
 
     public get isWorkspaceStopped() {
-        const phase = this.workspaceState?.instance?.status?.phase;
+        const phase = this._workspaceStatus?.instance?.status?.phase;
         return phase === WorkspaceInstanceStatus_Phase.STOPPED;
     }
 
     public get isWorkspaceRunning() {
-        const phase = this.workspaceState?.instance?.status?.phase;
+        const phase = this._workspaceStatus?.instance?.status?.phase;
         return phase === WorkspaceInstanceStatus_Phase.RUNNING;
     }
 
-    public get workspaceUrl() {
-        return this.workspaceState?.instance?.status?.url;
-    }
-
     public get instanceId() {
-        return this.workspaceState?.instance?.instanceId;
+        return this._workspaceStatus?.instance?.instanceId;
     }
 
-    public get contextUrl() {
-        return this._contextUrl;
-    }
-
-    public get phase(): WorkspacePhase {
-        const phase = this.workspaceState?.instance?.status?.phase;
-        return WorkspaceInstanceStatus_Phase[phase ?? WorkspaceInstanceStatus_Phase.UNSPECIFIED].toLowerCase() as WorkspacePhase;
+    public get workspaceData(): WorkspaceData {
+        if (!this._workspaceData) {
+            throw new Error('WorkspaceState not initialized');
+        }
+        return this._workspaceData;
     }
 
     constructor(
@@ -70,17 +64,28 @@ export class WorkspaceState extends Disposable {
 
     public async initialize() {
         const ws = await this.sessionService.getAPI().getWorkspace(this.workspaceId);
-        this._contextUrl = ws.context?.contextUrl;
-        this.workspaceState ??= ws?.status;
-        this.logService.trace(`WorkspaceState: initial state`, WorkspaceInstanceStatus_Phase[this.workspaceState!.instance!.status!.phase]);
+        this._workspaceStatus = ws!.status;
+        this._workspaceData = rawWorkspaceToWorkspaceData(ws);
+        this.logService.trace(`WorkspaceState: initial state`, this._workspaceData.phase);
     }
 
-    private async checkWorkspaceState(workspaceState: WorkspaceStatus | undefined) {
-        const phase = workspaceState?.instance?.status?.phase;
-        const oldPhase = this.workspaceState?.instance?.status?.phase;
-        this.workspaceState = workspaceState;
+    private async checkWorkspaceState(workspaceState: WorkspaceStatus) {
+        if (!this._workspaceStatus) {
+            this.logService.error(`WorkspaceState not initialized`);
+            return;
+        }
+
+        const phase = workspaceState.instance?.status?.phase;
+        const oldPhase = this._workspaceStatus.instance?.status?.phase;
+        this._workspaceStatus = workspaceState;
+
+        this._workspaceData!.workspaceUrl = workspaceState.instance!.status!.url;
+        this._workspaceData!.phase = WorkspaceInstanceStatus_Phase[workspaceState.instance!.status!.phase ?? WorkspaceInstanceStatus_Phase.UNSPECIFIED].toLowerCase() as WorkspacePhase;
+        this._workspaceData!.lastUsed = workspaceState.instance!.createdAt!.toDate();
+        this._workspaceData!.recentFolders = workspaceState.instance!.status!.recentFolders;
+
         if (phase && oldPhase && phase !== oldPhase) {
-            this.logService.trace(`WorkspaceState: update state`, WorkspaceInstanceStatus_Phase[this.workspaceState!.instance!.status!.phase]);
+            this.logService.trace(`WorkspaceState: update state`, this._workspaceData!.phase);
             this._onWorkspaceStateChanged.fire();
         }
     }

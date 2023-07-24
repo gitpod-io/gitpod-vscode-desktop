@@ -17,6 +17,7 @@ import { ITelemetryService } from '../common/telemetry';
 import { IRemoteService } from '../services/remoteService';
 import { WrapError } from '../common/utils';
 import { getOpenSSHVersion } from '../ssh/sshVersion';
+import { IExperimentsService } from '../experiments';
 
 function getCommandName(command: string) {
 	return command.replace('gitpod.workspaces.', '').replace(/(?:_inline|_context)(?:@\d)?$/, '');
@@ -56,6 +57,7 @@ export class ConnectInNewWindowCommand implements Command {
 		private readonly remoteService: IRemoteService,
 		private readonly sessionService: ISessionService,
 		private readonly hostService: IHostService,
+		private readonly experimentsService: IExperimentsService,
 		private readonly telemetryService: ITelemetryService,
 		private readonly logService: ILogService,
 	) { }
@@ -92,13 +94,6 @@ export class ConnectInNewWindowCommand implements Command {
 			location: getCommandLocation(this.id, treeItem)
 		});
 
-		const domain = getLocalSSHDomain(this.hostService.gitpodHost);
-		const sshHostname = `${wsData.id}.${domain}`;
-		const sshDest = new SSHDestination(sshHostname, wsData.id);
-
-		// TODO: remove this, should not be needed
-		await this.context.globalState.update(`${SSH_DEST_KEY}${sshDest.toRemoteSSHString()}`, { workspaceId: wsData.id, gitpodHost: this.hostService.gitpodHost, instanceId: '' } as SSHConnectionParams);
-
 		let wsState = new WorkspaceState(wsData!.id, this.sessionService, this.logService);
 		try {
 			await wsState.initialize();
@@ -113,6 +108,8 @@ export class ConnectInNewWindowCommand implements Command {
 					cancellable: true
 				},
 				async (_, cancelToken) => {
+					await this.initializeLocalSSH(wsData!.id);
+
 					if (wsState.isWorkspaceStopped) {
 						// Start workspace automatically
 						await this.sessionService.getAPI().startWorkspace(wsData!.id);
@@ -123,10 +120,30 @@ export class ConnectInNewWindowCommand implements Command {
 							return;
 						}
 
-						await this.initializeLocalSSH(wsData!.id);
-
 						await raceCancellationError(eventToPromise(wsState.onWorkspaceRunning), cancelToken);
+						wsData = wsState.workspaceData; // Update wsData with latest info after workspace is running
 					}
+
+					let sshDest: SSHDestination;
+					let password: string | undefined;
+					if (await this.experimentsService.getUseLocalSSHProxy()) {
+						const domain = getLocalSSHDomain(this.hostService.gitpodHost);
+						const sshHostname = `${wsData!.id}.${domain}`;
+						sshDest = new SSHDestination(sshHostname, wsData!.id);
+					} else {
+						({ destination: sshDest, password } = await this.remoteService.getWorkspaceSSHDestination(wsData!));
+					}
+
+					if (password) {
+						try {
+							await this.remoteService.showSSHPasswordModal(wsData!, password);
+						} catch {
+							return;
+						}
+					}
+
+					// TODO: remove this, should not be needed
+					await this.context.globalState.update(`${SSH_DEST_KEY}${sshDest.toRemoteSSHString()}`, { workspaceId: wsData!.id, gitpodHost: this.hostService.gitpodHost, instanceId: '' } as SSHConnectionParams);
 
 					await vscode.commands.executeCommand(
 						'vscode.openFolder',
@@ -135,6 +152,10 @@ export class ConnectInNewWindowCommand implements Command {
 					);
 				}
 			);
+		} catch (e) {
+			this.logService.error(e);
+			this.telemetryService.sendTelemetryException(new WrapError('Error runnning connectInNewWindow command', e));
+			throw e;
 		} finally {
 			wsState.dispose();
 		}
@@ -154,7 +175,7 @@ export class ConnectInNewWindowCommand implements Command {
 			}
 		} catch (e) {
 			const openSSHVersion = await getOpenSSHVersion();
-			this.telemetryService.sendTelemetryException(new WrapError('Local SSH: failed to initialize local SSH', e, 'Unknown'), {
+			this.telemetryService.sendTelemetryException(new WrapError('Local SSH: failed to initialize local SSH', e), {
 				gitpodHost: this.hostService.gitpodHost,
 				openSSHVersion,
 				workspaceId
@@ -173,10 +194,11 @@ export class ConnectInNewWindowCommandContext extends ConnectInNewWindowCommand 
 		remoteService: IRemoteService,
 		sessionService: ISessionService,
 		hostService: IHostService,
+		experimentsService: IExperimentsService,
 		telemetryService: ITelemetryService,
 		logService: ILogService,
 	) {
-		super(context, remoteService, sessionService, hostService, telemetryService, logService);
+		super(context, remoteService, sessionService, hostService, experimentsService, telemetryService, logService);
 	}
 }
 
@@ -190,6 +212,7 @@ export class ConnectInCurrentWindowCommand implements Command {
 		private readonly remoteService: IRemoteService,
 		private readonly sessionService: ISessionService,
 		private readonly hostService: IHostService,
+		private readonly experimentsService: IExperimentsService,
 		private readonly telemetryService: ITelemetryService,
 		private readonly logService: ILogService,
 	) { }
@@ -226,13 +249,6 @@ export class ConnectInCurrentWindowCommand implements Command {
 			location: getCommandLocation(this.id, treeItem)
 		});
 
-		const domain = getLocalSSHDomain(this.hostService.gitpodHost);
-		const sshHostname = `${wsData.id}.${domain}`;
-		const sshDest = new SSHDestination(sshHostname, wsData.id);
-
-		// TODO: remove this, should not be needed
-		await this.context.globalState.update(`${SSH_DEST_KEY}${sshDest.toRemoteSSHString()}`, { workspaceId: wsData.id, gitpodHost: this.hostService.gitpodHost, instanceId: '' } as SSHConnectionParams);
-
 		let wsState = new WorkspaceState(wsData!.id, this.sessionService, this.logService);
 		try {
 			await wsState.initialize();
@@ -247,6 +263,8 @@ export class ConnectInCurrentWindowCommand implements Command {
 					cancellable: true
 				},
 				async (_, cancelToken) => {
+					await this.initializeLocalSSH(wsData!.id);
+
 					if (wsState.isWorkspaceStopped) {
 						// Start workspace automatically
 						await this.sessionService.getAPI().startWorkspace(wsData!.id);
@@ -257,10 +275,30 @@ export class ConnectInCurrentWindowCommand implements Command {
 							return;
 						}
 
-						await this.initializeLocalSSH(wsData!.id);
-
 						await raceCancellationError(eventToPromise(wsState.onWorkspaceRunning), cancelToken);
+						wsData = wsState.workspaceData; // Update wsData with latest info after workspace is running
 					}
+
+					let sshDest: SSHDestination;
+					let password: string | undefined;
+					if (await this.experimentsService.getUseLocalSSHProxy()) {
+						const domain = getLocalSSHDomain(this.hostService.gitpodHost);
+						const sshHostname = `${wsData!.id}.${domain}`;
+						sshDest = new SSHDestination(sshHostname, wsData!.id);
+					} else {
+						({ destination: sshDest, password } = await this.remoteService.getWorkspaceSSHDestination(wsData!));
+					}
+
+					if (password) {
+						try {
+							await this.remoteService.showSSHPasswordModal(wsData!, password);
+						} catch {
+							return;
+						}
+					}
+
+					// TODO: remove this, should not be needed
+					await this.context.globalState.update(`${SSH_DEST_KEY}${sshDest.toRemoteSSHString()}`, { workspaceId: wsData!.id, gitpodHost: this.hostService.gitpodHost, instanceId: '' } as SSHConnectionParams);
 
 					await vscode.commands.executeCommand(
 						'vscode.openFolder',
@@ -269,6 +307,10 @@ export class ConnectInCurrentWindowCommand implements Command {
 					);
 				}
 			);
+		} catch (e) {
+			this.logService.error(e);
+			this.telemetryService.sendTelemetryException(new WrapError('Error runnning connectInCurrentWindow command', e));
+			throw e;
 		} finally {
 			wsState.dispose();
 		}
@@ -288,7 +330,7 @@ export class ConnectInCurrentWindowCommand implements Command {
 			}
 		} catch (e) {
 			const openSSHVersion = await getOpenSSHVersion();
-			this.telemetryService.sendTelemetryException(new WrapError('Local SSH: failed to initialize local SSH', e, 'Unknown'), {
+			this.telemetryService.sendTelemetryException(new WrapError('Local SSH: failed to initialize local SSH', e), {
 				gitpodHost: this.hostService.gitpodHost,
 				openSSHVersion,
 				workspaceId
@@ -307,10 +349,11 @@ export class ConnectInCurrentWindowCommandContext extends ConnectInCurrentWindow
 		remoteService: IRemoteService,
 		sessionService: ISessionService,
 		hostService: IHostService,
+		experimentsService: IExperimentsService,
 		telemetryService: ITelemetryService,
 		logService: ILogService,
 	) {
-		super(context, remoteService, sessionService, hostService, telemetryService, logService);
+		super(context, remoteService, sessionService, hostService, experimentsService, telemetryService, logService);
 	}
 }
 
@@ -322,10 +365,11 @@ export class ConnectInCurrentWindowCommandContext_1 extends ConnectInCurrentWind
 		remoteService: IRemoteService,
 		sessionService: ISessionService,
 		hostService: IHostService,
+		experimentsService: IExperimentsService,
 		telemetryService: ITelemetryService,
 		logService: ILogService,
 	) {
-		super(context, remoteService, sessionService, hostService, telemetryService, logService);
+		super(context, remoteService, sessionService, hostService, experimentsService, telemetryService, logService);
 	}
 }
 
@@ -337,10 +381,11 @@ export class ConnectInCurrentWindowCommandInline extends ConnectInCurrentWindowC
 		remoteService: IRemoteService,
 		sessionService: ISessionService,
 		hostService: IHostService,
+		experimentsService: IExperimentsService,
 		telemetryService: ITelemetryService,
 		logService: ILogService,
 	) {
-		super(context, remoteService, sessionService, hostService, telemetryService, logService);
+		super(context, remoteService, sessionService, hostService, experimentsService, telemetryService, logService);
 	}
 }
 
@@ -352,10 +397,11 @@ export class ConnectInCurrentWindowCommandInline_1 extends ConnectInCurrentWindo
 		remoteService: IRemoteService,
 		sessionService: ISessionService,
 		hostService: IHostService,
+		experimentsService: IExperimentsService,
 		telemetryService: ITelemetryService,
 		logService: ILogService,
 	) {
-		super(context, remoteService, sessionService, hostService, telemetryService, logService);
+		super(context, remoteService, sessionService, hostService, experimentsService, telemetryService, logService);
 	}
 }
 
