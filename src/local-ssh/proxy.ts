@@ -160,7 +160,7 @@ class WebSocketSSHProxy {
         sshStream.on('error', e => {
             if ((e as any).code !== 'EPIPE') {
                 // TODO filter out known error codes
-                this.logService.error(e, 'unexpected sshStream error');
+                this.telemetryService.sendTelemetryException(new WrapError('Unexpected sshStream error', e));
             }
             // HACK:
             // Seems there's a bug in the ssh library that could hang forever when the stream gets closed
