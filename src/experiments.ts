@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import * as configcat from 'configcat-node';
 import * as configcatcommon from 'configcat-common';
 import * as semver from 'semver';
+import * as os from 'os';
 import { ISessionService } from './services/sessionService';
 import { ILogService } from './services/logService';
 import { IHostService } from './services/hostService';
@@ -145,7 +146,7 @@ export class ExperimentalSettings extends Disposable implements IExperimentsServ
      * @see https://app.configcat.com/08da1258-64fb-4a8e-8a1e-51de773884f6/08da1258-6541-4fc7-8b61-c8b47f82f3a0/08da1258-6512-4ec0-80a3-3f6aa301f853?settingId=75503
      */
     async getUseLocalSSHProxy(): Promise<boolean> {
-        return (await this.getRaw<boolean>('gitpod_desktop_use_local_ssh_proxy', {})) ?? false;
+        return (await this.getRaw<boolean>('gitpod_desktop_use_local_ssh_proxy', { 'platform': os.platform() })) ?? false;
     }
 
     async getUsePublicAPI(gitpodHost: string): Promise<boolean> {
