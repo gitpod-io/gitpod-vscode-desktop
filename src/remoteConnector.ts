@@ -696,7 +696,7 @@ export class RemoteConnector extends Disposable {
 
 				// Always try to run a local ssh connection collect success metrics
 				let localSSHDestination: SSHDestination | undefined;
-				let localSSHTestSucess: boolean = false;
+				let localSSHTestSuccess: boolean = false;
 				if (!forceUseLocalApp) {
 					const localSSHFlow: UserFlowTelemetryProperties = { kind: 'local-ssh', openSSHVersion, userOverride, ...sshFlow };
 					try {
@@ -710,9 +710,10 @@ export class RemoteConnector extends Disposable {
 							this.remoteService.startLocalSSHServiceServer()
 						]);
 
-						const { destination: localSSHDestination } = await this.getLocalSSHWorkspaceSSHDestination(params);
+						const { destination } = await this.getLocalSSHWorkspaceSSHDestination(params);
+						localSSHDestination = destination;
 						await testLocalSSHConnection(localSSHDestination.user!, localSSHDestination.hostname);
-						localSSHTestSucess = true;
+						localSSHTestSuccess = true;
 
 						this.telemetryService.sendUserFlowStatus('connected', localSSHFlow);
 					} catch (e) {
@@ -728,7 +729,7 @@ export class RemoteConnector extends Disposable {
 				let sshDestination: SSHDestination | undefined;
 
 				const useLocalSSH = await this.experiments.getUseLocalSSHProxy();
-				if (useLocalSSH && localSSHTestSucess) {
+				if (useLocalSSH && localSSHTestSuccess) {
 					this.logService.info('Going to use lssh');
 					sshDestination = localSSHDestination;
 					params.connType = 'local-ssh';
