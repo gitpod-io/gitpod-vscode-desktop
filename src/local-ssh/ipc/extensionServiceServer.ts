@@ -19,7 +19,6 @@ import { NodeHttpTransport } from '@improbable-eng/grpc-web-node-http-transport'
 import { CreateSSHKeyPairRequest } from '@gitpod/supervisor-api-grpcweb/lib/control_pb';
 import * as ssh2 from 'ssh2';
 import { ParsedKey } from 'ssh2-streams';
-import { isPortUsed } from '../../common/ports';
 import { WrapError } from '../../common/utils';
 import { ConnectError, Code } from '@bufbuild/connect';
 import { rawWorkspaceToWorkspaceData } from '../../publicApi';
@@ -211,10 +210,8 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
 }
 
 export class ExtensionServiceServer extends Disposable {
-    static MAX_LOCAL_SSH_PING_RETRY_COUNT = 10;
-    static MAX_EXTENSION_ACTIVE_RETRY_COUNT = 10;
-
     private server: Server;
+    private isListeningPromise: Promise<boolean>;
 
     constructor(
         private readonly logService: ILogService,
@@ -224,7 +221,7 @@ export class ExtensionServiceServer extends Disposable {
     ) {
         super();
         this.server = this.getServer();
-        this.tryActive();
+        this.isListeningPromise = this.tryActive();
     }
 
     private getServer(): Server {
@@ -234,34 +231,32 @@ export class ExtensionServiceServer extends Disposable {
         return server;
     }
 
-    private async tryActive() {
+    private tryActive() {
         const port = Configuration.getLocalSshExtensionIpcPort();
-        // TODO:
-        // commenting this as it pollutes extension logs
-        // verify port is used by our extension or show message to user
-        // this.logService.debug('going to try active extension ipc service server on port ' + port);
-        this.server.listen('127.0.0.1:' + port).then(() => {
-            this.logService.info('extension ipc service server started to listen');
-        }).catch(_e => {
-            // this.logService.debug(`extension ipc service server failed to listen`, e);
-            // TODO(lssh): listen to port and wait until disconnect and try again
-            timeout(1000).then(() => {
-                this.tryActive();
-            });
+        const promise = this.server.listen('127.0.0.1:' + port);
+        promise.catch(async () => {
+            if (this.isDisposed) {
+                return;
+            }
+
+            await timeout(1000);
+            return this.isListeningPromise = this.tryActive();
         });
+        return promise.then(() => true, () => false);
+    }
+
+    async canExtensionServiceServerWork(): Promise<true> {
+        if ((await this.isListeningPromise)) {
+            return true;
+        }
+
+        const port = Configuration.getLocalSshExtensionIpcPort();
+        const extensionIpc = createClient(ExtensionServiceDefinition, createChannel(`127.0.0.1:${port}`));
+        await extensionIpc.ping({});
+        return true;
     }
 
     public override dispose() {
         this.server.forceShutdown();
     }
-}
-
-export async function canExtensionServiceServerWork(): Promise<true> {
-    const port = Configuration.getLocalSshExtensionIpcPort();
-    if (!(await isPortUsed(port))) {
-        return true;
-    }
-    const extensionIpc = createClient(ExtensionServiceDefinition, createChannel(`127.0.0.1:${port}`));
-    await extensionIpc.ping({});
-    return true;
 }

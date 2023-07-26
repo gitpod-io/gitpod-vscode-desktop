@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { Command } from '../commandManager';
 import { ISessionService } from '../services/sessionService';
 import { WorkspaceData, rawWorkspaceToWorkspaceData } from '../publicApi';
-import { NoExtensionIPCServerError, NoLocalSSHSupportError, SSHConnectionParams, SSH_DEST_KEY, getLocalSSHDomain } from '../remote';
+import { SSHConnectionParams, SSH_DEST_KEY, getLocalSSHDomain } from '../remote';
 import SSHDestination from '../ssh/sshDestination';
 import { IHostService } from '../services/hostService';
 import { WorkspaceState } from '../workspaceState';
@@ -16,7 +16,7 @@ import { eventToPromise, raceCancellationError } from '../common/event';
 import { ITelemetryService } from '../common/telemetry';
 import { IRemoteService } from '../services/remoteService';
 import { WrapError } from '../common/utils';
-import { getOpenSSHVersion } from '../ssh/sshVersion';
+import { getOpenSSHVersion, testSSHConnection as testLocalSSHConnection } from '../ssh/nativeSSH';
 import { IExperimentsService } from '../experiments';
 
 function getCommandName(command: string) {
@@ -124,12 +124,25 @@ export class ConnectInNewWindowCommand implements Command {
 						wsData = wsState.workspaceData; // Update wsData with latest info after workspace is running
 					}
 
+					const domain = getLocalSSHDomain(this.hostService.gitpodHost);
+					const sshHostname = `${wsData!.id}.${domain}`;
+					const localSSHDestination = new SSHDestination(sshHostname, wsData!.id);
+					try {
+						await testLocalSSHConnection(localSSHDestination.user!, localSSHDestination.hostname);
+					} catch (e) {
+						this.telemetryService.sendTelemetryException(
+							new WrapError('Local SSH: failed to connect to workspace', e, 'Unknown'),
+							{
+								gitpodHost: this.hostService.gitpodHost,
+								workspaceId: wsData!.id,
+							}
+						);
+					}
+
 					let sshDest: SSHDestination;
 					let password: string | undefined;
 					if (await this.experimentsService.getUseLocalSSHProxy()) {
-						const domain = getLocalSSHDomain(this.hostService.gitpodHost);
-						const sshHostname = `${wsData!.id}.${domain}`;
-						sshDest = new SSHDestination(sshHostname, wsData!.id);
+						sshDest = localSSHDestination;
 					} else {
 						({ destination: sshDest, password } = await this.remoteService.getWorkspaceSSHDestination(wsData!));
 					}
@@ -163,16 +176,10 @@ export class ConnectInNewWindowCommand implements Command {
 
 	private async initializeLocalSSH(workspaceId: string) {
 		try {
-			const [isSupportLocalSSH, isExtensionServerReady] = await Promise.all([
+			await Promise.all([
 				this.remoteService.setupSSHProxy(),
-				this.remoteService.extensionServerReady()
+				this.remoteService.startLocalSSHServiceServer()
 			]);
-			if (!isExtensionServerReady) {
-				throw new NoExtensionIPCServerError();
-			}
-			if (!isSupportLocalSSH) {
-				throw new NoLocalSSHSupportError();
-			}
 		} catch (e) {
 			const openSSHVersion = await getOpenSSHVersion();
 			this.telemetryService.sendTelemetryException(new WrapError('Local SSH: failed to initialize local SSH', e), {
@@ -279,12 +286,25 @@ export class ConnectInCurrentWindowCommand implements Command {
 						wsData = wsState.workspaceData; // Update wsData with latest info after workspace is running
 					}
 
+					const domain = getLocalSSHDomain(this.hostService.gitpodHost);
+					const sshHostname = `${wsData!.id}.${domain}`;
+					const localSSHDestination = new SSHDestination(sshHostname, wsData!.id);
+					try {
+						await testLocalSSHConnection(localSSHDestination.user!, localSSHDestination.hostname);
+					} catch (e) {
+						this.telemetryService.sendTelemetryException(
+							new WrapError('Local SSH: failed to connect to workspace', e, 'Unknown'),
+							{
+								gitpodHost: this.hostService.gitpodHost,
+								workspaceId: wsData!.id,
+							}
+						);
+					}
+
 					let sshDest: SSHDestination;
 					let password: string | undefined;
 					if (await this.experimentsService.getUseLocalSSHProxy()) {
-						const domain = getLocalSSHDomain(this.hostService.gitpodHost);
-						const sshHostname = `${wsData!.id}.${domain}`;
-						sshDest = new SSHDestination(sshHostname, wsData!.id);
+						sshDest = localSSHDestination;
 					} else {
 						({ destination: sshDest, password } = await this.remoteService.getWorkspaceSSHDestination(wsData!));
 					}
@@ -318,16 +338,10 @@ export class ConnectInCurrentWindowCommand implements Command {
 
 	private async initializeLocalSSH(workspaceId: string) {
 		try {
-			const [isSupportLocalSSH, isExtensionServerReady] = await Promise.all([
+			await Promise.all([
 				this.remoteService.setupSSHProxy(),
-				this.remoteService.extensionServerReady()
+				this.remoteService.startLocalSSHServiceServer()
 			]);
-			if (!isExtensionServerReady) {
-				throw new NoExtensionIPCServerError();
-			}
-			if (!isSupportLocalSSH) {
-				throw new NoLocalSSHSupportError();
-			}
 		} catch (e) {
 			const openSSHVersion = await getOpenSSHVersion();
 			this.telemetryService.sendTelemetryException(new WrapError('Local SSH: failed to initialize local SSH', e), {
