@@ -127,8 +127,10 @@ export class ConnectInNewWindowCommand implements Command {
 					const domain = getLocalSSHDomain(this.hostService.gitpodHost);
 					const sshHostname = `${wsData!.id}.${domain}`;
 					const localSSHDestination = new SSHDestination(sshHostname, wsData!.id);
+					let localSSHTestSuccess: boolean = false;
 					try {
 						await testLocalSSHConnection(localSSHDestination.user!, localSSHDestination.hostname);
+						localSSHTestSuccess = true;
 					} catch (e) {
 						this.telemetryService.sendTelemetryException(
 							new WrapError('Local SSH: failed to connect to workspace', e, 'Unknown'),
@@ -141,7 +143,7 @@ export class ConnectInNewWindowCommand implements Command {
 
 					let sshDest: SSHDestination;
 					let password: string | undefined;
-					if (await this.experimentsService.getUseLocalSSHProxy()) {
+					if (await this.experimentsService.getUseLocalSSHProxy() && localSSHTestSuccess) {
 						sshDest = localSSHDestination;
 					} else {
 						({ destination: sshDest, password } = await this.remoteService.getWorkspaceSSHDestination(wsData!));
@@ -289,8 +291,10 @@ export class ConnectInCurrentWindowCommand implements Command {
 					const domain = getLocalSSHDomain(this.hostService.gitpodHost);
 					const sshHostname = `${wsData!.id}.${domain}`;
 					const localSSHDestination = new SSHDestination(sshHostname, wsData!.id);
+					let localSSHTestSuccess: boolean = false;
 					try {
 						await testLocalSSHConnection(localSSHDestination.user!, localSSHDestination.hostname);
+						localSSHTestSuccess = true;
 					} catch (e) {
 						this.telemetryService.sendTelemetryException(
 							new WrapError('Local SSH: failed to connect to workspace', e, 'Unknown'),
@@ -303,7 +307,7 @@ export class ConnectInCurrentWindowCommand implements Command {
 
 					let sshDest: SSHDestination;
 					let password: string | undefined;
-					if (await this.experimentsService.getUseLocalSSHProxy()) {
+					if (await this.experimentsService.getUseLocalSSHProxy() && localSSHTestSuccess) {
 						sshDest = localSSHDestination;
 					} else {
 						({ destination: sshDest, password } = await this.remoteService.getWorkspaceSSHDestination(wsData!));

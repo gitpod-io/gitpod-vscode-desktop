@@ -710,8 +710,7 @@ export class RemoteConnector extends Disposable {
 							this.remoteService.startLocalSSHServiceServer()
 						]);
 
-						const { destination } = await this.getLocalSSHWorkspaceSSHDestination(params);
-						localSSHDestination = destination;
+						({ destination: localSSHDestination } = await this.getLocalSSHWorkspaceSSHDestination(params));
 						await testLocalSSHConnection(localSSHDestination.user!, localSSHDestination.hostname);
 						localSSHTestSuccess = true;
 
@@ -728,8 +727,7 @@ export class RemoteConnector extends Disposable {
 
 				let sshDestination: SSHDestination | undefined;
 
-				const useLocalSSH = await this.experiments.getUseLocalSSHProxy();
-				if (useLocalSSH && localSSHTestSuccess) {
+				if (await this.experiments.getUseLocalSSHProxy() && localSSHTestSuccess) {
 					this.logService.info('Going to use lssh');
 					sshDestination = localSSHDestination;
 					params.connType = 'local-ssh';
