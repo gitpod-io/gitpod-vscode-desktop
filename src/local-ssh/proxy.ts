@@ -71,7 +71,7 @@ const exitProcess = async (forceExit: boolean, signal?: NodeJS.Signals) => {
 };
 
 import { SshClient } from '@microsoft/dev-tunnels-ssh-tcp';
-import { NodeStream, ObjectDisposedError, SshChannelError, SshClientCredentials, SshClientSession, SshConnectionError, SshDisconnectReason, SshReconnectError, SshServerSession, SshSessionConfiguration, Stream, WebSocketStream } from '@microsoft/dev-tunnels-ssh';
+import { NodeStream, ObjectDisposedError, SshChannelError, SshChannelOpenFailureReason, SshClientCredentials, SshClientSession, SshConnectionError, SshDisconnectReason, SshReconnectError, SshReconnectFailureReason, SshServerSession, SshSessionConfiguration, Stream, WebSocketStream } from '@microsoft/dev-tunnels-ssh';
 import { importKey, importKeyBytes } from '@microsoft/dev-tunnels-ssh-keys';
 import { ExtensionServiceDefinition, GetWorkspaceAuthInfoResponse } from '../proto/typescript/ipc/v1/ipc';
 import { Client, ClientError, Status, createChannel, createClient } from 'nice-grpc';
@@ -386,10 +386,10 @@ function fixSSHErrorName(err: any) {
         err.message = `[${SshDisconnectReason[err.reason ?? SshDisconnectReason.none]}] ${err.message}`;
     } else if (err instanceof SshReconnectError) {
         err.name = 'SshReconnectError';
-        err.message = `[${SshDisconnectReason[err.reason ?? SshDisconnectReason.none]}] ${err.message}`;
+        err.message = `[${SshReconnectFailureReason[err.reason ?? SshReconnectFailureReason.none]}] ${err.message}`;
     } else if (err instanceof SshChannelError) {
         err.name = 'SshChannelError';
-        err.message = `[${SshDisconnectReason[err.reason ?? SshDisconnectReason.none]}] ${err.message}`;
+        err.message = `[${SshChannelOpenFailureReason[err.reason ?? SshChannelOpenFailureReason.none]}] ${err.message}`;
     } else if (err instanceof ObjectDisposedError) {
         err.name = 'ObjectDisposedError';
     }
@@ -400,9 +400,9 @@ function getFailureCode(err: any) {
     if (err instanceof SshConnectionError) {
         return `SshConnectionError.${SshDisconnectReason[err.reason ?? SshDisconnectReason.none]}`;
     } else if (err instanceof SshReconnectError) {
-        return `SshReconnectError.${SshDisconnectReason[err.reason ?? SshDisconnectReason.none]}`;
+        return `SshReconnectError.${SshReconnectFailureReason[err.reason ?? SshReconnectFailureReason.none]}`;
     } else if (err instanceof SshChannelError) {
-        return `SshChannelError.${SshDisconnectReason[err.reason ?? SshDisconnectReason.none]}`;
+        return `SshChannelError.${SshChannelOpenFailureReason[err.reason ?? SshChannelOpenFailureReason.none]}`;
     } else if (err instanceof ObjectDisposedError) {
         return 'ObjectDisposedError';
     } else if (err instanceof FailedToProxyError) {
