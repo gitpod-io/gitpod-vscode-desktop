@@ -71,7 +71,7 @@ const exitProcess = async (forceExit: boolean, signal?: NodeJS.Signals) => {
 };
 
 import { SshClient } from '@microsoft/dev-tunnels-ssh-tcp';
-import { NodeStream, SshClientCredentials, SshClientSession, SshDisconnectReason, SshServerSession, SshSessionConfiguration, Stream, WebSocketStream } from '@microsoft/dev-tunnels-ssh';
+import { NodeStream, ObjectDisposedError, SshChannelError, SshClientCredentials, SshClientSession, SshConnectionError, SshDisconnectReason, SshReconnectError, SshServerSession, SshSessionConfiguration, Stream, WebSocketStream } from '@microsoft/dev-tunnels-ssh';
 import { importKey, importKeyBytes } from '@microsoft/dev-tunnels-ssh-keys';
 import { ExtensionServiceDefinition, GetWorkspaceAuthInfoResponse } from '../proto/typescript/ipc/v1/ipc';
 import { Client, ClientError, Status, createChannel, createClient } from 'nice-grpc';
@@ -158,15 +158,16 @@ class WebSocketSSHProxy {
         // an error handler to the writable stream
         const sshStream = stream.Duplex.from({ readable: process.stdin, writable: process.stdout });
         sshStream.on('error', e => {
-            if ((e as any).code !== 'EPIPE') {
-                // TODO filter out known error codes
+            if (!['EPIPE', 'ERR_STREAM_PREMATURE_CLOSE'].includes((e as any).code)) {
                 this.telemetryService.sendTelemetryException(new WrapError('Unexpected sshStream error', e));
             }
             // HACK:
             // Seems there's a bug in the ssh library that could hang forever when the stream gets closed
             // so the below `await pipePromise` will never return and the node process will never exit.
             // So let's just force kill here
-            setTimeout(() => exitProcess(true), 50);
+            setTimeout(() => {
+                exitProcess(true);
+            }, 50);
         });
         // sshStream.on('end', () => {
         //     setTimeout(() => doProcessExit(0), 50);
@@ -192,12 +193,12 @@ class WebSocketSSHProxy {
                     pipePromise = session.pipe(pipeSession);
                     return {};
                 }).catch(async err => {
+                    this.logService.error('failed to authenticate proxy with username: ' + e.username ?? '', err);
+
+                    this.flow.failureCode = getFailureCode(err);
                     let sendErrorReport = true;
-                    if (err instanceof FailedToProxyError) {
-                        this.flow.failureCode = err.failureCode;
-                        if (IgnoredFailedCodes.includes(err.failureCode)) {
-                            sendErrorReport = false;
-                        }
+                    if (err instanceof FailedToProxyError && IgnoredFailedCodes.includes(err.failureCode)) {
+                        sendErrorReport = false;
                     }
 
                     this.sendUserStatusFlow('failed');
@@ -208,7 +209,6 @@ class WebSocketSSHProxy {
                     // Await a few seconds to delay showing ssh extension error modal dialog
                     await timeout(5000);
 
-                    this.logService.error('failed to authenticate proxy with username: ' + e.username ?? '', err);
                     await session.close(SshDisconnectReason.byApplication, err.toString(), err instanceof Error ? err : undefined);
                     return null;
                 });
@@ -220,6 +220,7 @@ class WebSocketSSHProxy {
             if (session.isClosed) {
                 return;
             }
+            e = fixSSHErrorName(e);
             this.logService.error(e, 'failed to connect to client');
             this.sendErrorReport(this.flow, e, 'failed to connect to client');
             await session.close(SshDisconnectReason.byApplication, e.toString(), e instanceof Error ? e : undefined);
@@ -246,85 +247,95 @@ class WebSocketSSHProxy {
     }
 
     private async tryDirectSSH(workspaceInfo: GetWorkspaceAuthInfoResponse): Promise<SshClientSession> {
-        const connConfig = {
-            host: `${workspaceInfo.workspaceId}.ssh.${workspaceInfo.workspaceHost}`,
-            port: 22,
-            username: workspaceInfo.workspaceId,
-            password: workspaceInfo.ownerToken,
-        };
-        const config = new SshSessionConfiguration();
-        const client = new SshClient(config);
-        const session = await client.openSession(connConfig.host, connConfig.port);
-        session.onAuthenticating((e) => e.authenticationPromise = Promise.resolve({}));
-        const credentials: SshClientCredentials = { username: connConfig.username, password: connConfig.password };
-        const authenticated = await session.authenticate(credentials);
-        if (!authenticated) {
-            throw new FailedToProxyError('SSH.AuthenticationFailed');
+        try {
+            const connConfig = {
+                host: `${workspaceInfo.workspaceId}.ssh.${workspaceInfo.workspaceHost}`,
+                port: 22,
+                username: workspaceInfo.workspaceId,
+                password: workspaceInfo.ownerToken,
+            };
+            const config = new SshSessionConfiguration();
+            const client = new SshClient(config);
+            const session = await client.openSession(connConfig.host, connConfig.port);
+            session.onAuthenticating((e) => e.authenticationPromise = Promise.resolve({}));
+            const credentials: SshClientCredentials = { username: connConfig.username, password: connConfig.password };
+            const authenticated = await session.authenticate(credentials);
+            if (!authenticated) {
+                throw new FailedToProxyError('SSH.AuthenticationFailed');
+            }
+            return session;
+        } catch (e) {
+            throw fixSSHErrorName(e);
         }
-        return session;
     }
 
     private async getTunnelSSHConfig(workspaceInfo: GetWorkspaceAuthInfoResponse): Promise<SshClientSession> {
-        const workspaceWSUrl = `wss://${workspaceInfo.workspaceId}.${workspaceInfo.workspaceHost}`;
-        const socket = new WebSocket(workspaceWSUrl + '/_supervisor/tunnel/ssh', undefined, {
-            headers: {
-                'x-gitpod-owner-token': workspaceInfo.ownerToken
-            }
-        });
-
-        socket.binaryType = 'arraybuffer';
-
-        const stream = await new Promise<Stream>((resolve, reject) => {
-            socket.onopen = () => {
-                // see https://github.com/gitpod-io/gitpod/blob/a5b4a66e0f384733145855f82f77332062e9d163/components/gitpod-protocol/go/websocket.go#L31-L40
-                const pongPeriod = 15 * 1000;
-                const pingPeriod = pongPeriod * 9 / 10;
-
-                let pingTimeout: NodeJS.Timeout | undefined;
-                const heartbeat = () => {
-                    stopHearbeat();
-
-                    // Use `WebSocket#terminate()`, which immediately destroys the connection,
-                    // instead of `WebSocket#close()`, which waits for the close timer.
-                    // Delay should be equal to the interval at which your server
-                    // sends out pings plus a conservative assumption of the latency.
-                    pingTimeout = setTimeout(() => {
-                        // TODO(ak) if we see stale socket.terminate();
-                        this.telemetryService.sendUserFlowStatus('stale', this.flow);
-                    }, pingPeriod + 1000);
+        try {
+            const workspaceWSUrl = `wss://${workspaceInfo.workspaceId}.${workspaceInfo.workspaceHost}`;
+            const socket = new WebSocket(workspaceWSUrl + '/_supervisor/tunnel/ssh', undefined, {
+                headers: {
+                    'x-gitpod-owner-token': workspaceInfo.ownerToken
                 }
-                function stopHearbeat() {
-                    if (pingTimeout != undefined) {
-                        clearTimeout(pingTimeout);
-                        pingTimeout = undefined;
+            });
+
+            socket.binaryType = 'arraybuffer';
+
+            const stream = await new Promise<Stream>((resolve, reject) => {
+                socket.onopen = () => {
+                    // see https://github.com/gitpod-io/gitpod/blob/a5b4a66e0f384733145855f82f77332062e9d163/components/gitpod-protocol/go/websocket.go#L31-L40
+                    const pongPeriod = 15 * 1000;
+                    const pingPeriod = pongPeriod * 9 / 10;
+
+                    let pingTimeout: NodeJS.Timeout | undefined;
+                    const heartbeat = () => {
+                        stopHearbeat();
+
+                        // Use `WebSocket#terminate()`, which immediately destroys the connection,
+                        // instead of `WebSocket#close()`, which waits for the close timer.
+                        // Delay should be equal to the interval at which your server
+                        // sends out pings plus a conservative assumption of the latency.
+                        pingTimeout = setTimeout(() => {
+                            this.telemetryService.sendUserFlowStatus('stale', this.flow);
+                            socket.terminate();
+                        }, pingPeriod + 1000);
                     }
-                }
+                    const stopHearbeat = () => {
+                        if (pingTimeout != undefined) {
+                            clearTimeout(pingTimeout);
+                            pingTimeout = undefined;
+                        }
+                    }
 
-                socket.on('ping', heartbeat);
+                    socket.on('ping', heartbeat);
+                    heartbeat();
 
-                heartbeat();
-                const socketWrapper = new WebSocketStream(socket as any);
-                const wrappedOnClose = socket.onclose!;
-                socket.onclose = (e) => {
-                    stopHearbeat();
-                    wrappedOnClose(e);
+                    const websocketStream = new WebSocketStream(socket as any);
+                    const wrappedOnClose = socket.onclose!;
+                    socket.onclose = (e) => {
+                        stopHearbeat();
+                        wrappedOnClose(e);
+                    }
+                    resolve(websocketStream);
                 }
-                resolve(socketWrapper);
+                socket.onerror = (e) => {
+                    reject(e);
+                }
+            });
+
+            const config = new SshSessionConfiguration();
+            const session = new SshClientSession(config);
+            session.onAuthenticating((e) => e.authenticationPromise = Promise.resolve({}));
+
+            await session.connect(stream);
+
+            const ok = await session.authenticate({ username: 'gitpod', publicKeys: [await importKey(workspaceInfo.sshkey)] });
+            if (!ok) {
+                throw new FailedToProxyError('TUNNEL.AuthenticateSSHKeyFailed');
             }
-            socket.onerror = (e) => reject(e);
-        });
-
-        const config = new SshSessionConfiguration();
-        const session = new SshClientSession(config);
-        session.onAuthenticating((e) => e.authenticationPromise = Promise.resolve({}));
-
-        await session.connect(stream);
-
-        const ok = await session.authenticate({ username: 'gitpod', publicKeys: [await importKey(workspaceInfo.sshkey)] });
-        if (!ok) {
-            throw new FailedToProxyError('TUNNEL.AuthenticateSSHKeyFailed');
+            return session;
+        } catch (e) {
+            throw fixSSHErrorName(e);
         }
-        return session;
     }
 
     async retryGetWorkspaceInfo(username: string) {
@@ -368,3 +379,34 @@ proxy.start().catch(e => {
     const err = new WrapError('Uncaught exception on start method', e);
     telemetryService.sendTelemetryException(err, { gitpodHost: options.host });
 });
+
+function fixSSHErrorName(err: any) {
+    if (err instanceof SshConnectionError) {
+        err.name = 'SshConnectionError';
+        err.message = `[${SshDisconnectReason[err.reason ?? SshDisconnectReason.none]}] ${err.message}`;
+    } else if (err instanceof SshReconnectError) {
+        err.name = 'SshReconnectError';
+        err.message = `[${SshDisconnectReason[err.reason ?? SshDisconnectReason.none]}] ${err.message}`;
+    } else if (err instanceof SshChannelError) {
+        err.name = 'SshChannelError';
+        err.message = `[${SshDisconnectReason[err.reason ?? SshDisconnectReason.none]}] ${err.message}`;
+    } else if (err instanceof ObjectDisposedError) {
+        err.name = 'ObjectDisposedError';
+    }
+    return err;
+}
+
+function getFailureCode(err: any) {
+    if (err instanceof SshConnectionError) {
+        return `SshConnectionError.${SshDisconnectReason[err.reason ?? SshDisconnectReason.none]}`;
+    } else if (err instanceof SshReconnectError) {
+        return `SshReconnectError.${SshDisconnectReason[err.reason ?? SshDisconnectReason.none]}`;
+    } else if (err instanceof SshChannelError) {
+        return `SshChannelError.${SshDisconnectReason[err.reason ?? SshDisconnectReason.none]}`;
+    } else if (err instanceof ObjectDisposedError) {
+        return 'ObjectDisposedError';
+    } else if (err instanceof FailedToProxyError) {
+        return err.failureCode;
+    }
+    return undefined;
+}

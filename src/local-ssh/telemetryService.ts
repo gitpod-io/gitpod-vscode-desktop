@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as path from 'path';
 import { Analytics } from '@segment/analytics-node';
 import { ILogService } from '../services/logService';
 import { ITelemetryService, TelemetryEventProperties, UserFlowTelemetryProperties, createSegmentAnalyticsClient, getBaseProperties, commonSendErrorData, commonSendEventData, getCleanupPatterns, TRUSTED_VALUES, cleanData } from '../common/telemetry';
@@ -26,7 +27,7 @@ export class TelemetryService implements ITelemetryService {
 		private readonly logService: ILogService,
 	) {
 		this.segmentClient = createSegmentAnalyticsClient({ writeKey: this.segmentKey, maxEventsInBatch: 1 }, gitpodHost, this.logService);
-		this.cleanupPatterns = getCleanupPatterns([]);
+		this.cleanupPatterns = getCleanupPatterns([path.dirname(__dirname)/* globalStorage folder */]);
 		const commonProperties = getCommonProperties(machineId, extensionId, extensionVersion);
 		this.commonProperties = commonProperties;
 	}

@@ -145,7 +145,7 @@ export class WrapError extends Error {
 		readonly code?: string
 	) {
 		const isErr = cause instanceof Error;
-		super(isErr ? `${msg}: ${cause.message}` : msg);
+		super(isErr ? `${msg}: ${cause.message}` : `${msg}: ${cause}`);
 		if (isErr) {
 			this.name = cause.name;
 			this.stack = this.stack + '\n\n' + cause.stack;
