@@ -26,14 +26,14 @@ import { addHostToHostFile, checkNewHostInHostkeys } from './ssh/hostfile';
 import { ScopeFeature } from './featureSupport';
 import SSHConfiguration from './ssh/sshConfig';
 import { ExperimentalSettings, isUserOverrideSetting } from './experiments';
-import { getOpenSSHVersion } from './ssh/sshVersion';
+import { getOpenSSHVersion, testSSHConnection as testLocalSSHConnection } from './ssh/nativeSSH';
 import { INotificationService } from './services/notificationService';
 import { SSHKey } from '@gitpod/public-api/lib/gitpod/experimental/v1/user_pb';
-import { getAgentSock, SSHError, testSSHConnection } from './sshTestConnection';
+import { getAgentSock, SSHError, testSSHConnection as testSSHGatewayConnection } from './sshTestConnection';
 import { gatherIdentityFiles } from './ssh/identityFiles';
 import { isWindows } from './common/platform';
 import SSHDestination from './ssh/sshDestination';
-import { NoExtensionIPCServerError, NoLocalSSHSupportError, NoRunningInstanceError, NoSSHGatewayError, SSHConnectionParams, SSH_DEST_KEY, getLocalSSHDomain } from './remote';
+import { NoRunningInstanceError, NoSSHGatewayError, SSHConnectionParams, SSH_DEST_KEY, getLocalSSHDomain } from './remote';
 import { ISessionService } from './services/sessionService';
 import { ILogService } from './services/logService';
 import { IHostService } from './services/hostService';
@@ -461,7 +461,7 @@ export class RemoteConnector extends Disposable {
 
 		const sshConfiguration = await SSHConfiguration.loadFromFS();
 
-		const verifiedHostKey = await testSSHConnection({
+		const verifiedHostKey = await testSSHGatewayConnection({
 			host: hostname,
 			username: user,
 			readyTimeout: 40000,
@@ -692,11 +692,12 @@ export class RemoteConnector extends Disposable {
 
 				const forceUseLocalApp = Configuration.getUseLocalApp();
 				const userOverride = String(isUserOverrideSetting('gitpod.remote.useLocalApp'));
-				let sshDestination: SSHDestination | undefined;
-				const useLocalSSH = await this.experiments.getUseLocalSSHProxy();
-				sshFlow.useLocalSSH = String(useLocalSSH);
-				if (!forceUseLocalApp && useLocalSSH) {
-					const openSSHVersion = await getOpenSSHVersion();
+				const openSSHVersion = await getOpenSSHVersion();
+
+				// Always try to run a local ssh connection collect success metrics
+				let localSSHDestination: SSHDestination | undefined;
+				let localSSHTestSuccess: boolean = false;
+				if (!forceUseLocalApp) {
 					const localSSHFlow: UserFlowTelemetryProperties = { kind: 'local-ssh', openSSHVersion, userOverride, ...sshFlow };
 					try {
 						this.telemetryService.sendUserFlowStatus('connecting', localSSHFlow);
@@ -704,21 +705,14 @@ export class RemoteConnector extends Disposable {
 						await this.updateRemoteSSHConfig(true, undefined);
 
 						this.remoteService.flow = sshFlow;
-						const [isSupportLocalSSH, isExtensionServerReady] = await Promise.all([
+						await Promise.all([
 							this.remoteService.setupSSHProxy(),
-							this.remoteService.extensionServerReady()
+							this.remoteService.startLocalSSHServiceServer()
 						]);
-						if (!isExtensionServerReady) {
-							throw new NoExtensionIPCServerError();
-						}
-						if (!isSupportLocalSSH) {
-							throw new NoLocalSSHSupportError();
-						}
-						this.logService.info('Going to use lssh');
 
-						const { destination } = await this.getLocalSSHWorkspaceSSHDestination(params);
-						params.connType = 'local-ssh';
-						sshDestination = destination;
+						({ destination: localSSHDestination } = await this.getLocalSSHWorkspaceSSHDestination(params));
+						await testLocalSSHConnection(localSSHDestination.user!, localSSHDestination.hostname);
+						localSSHTestSuccess = true;
 
 						this.telemetryService.sendUserFlowStatus('connected', localSSHFlow);
 					} catch (e) {
@@ -731,8 +725,15 @@ export class RemoteConnector extends Disposable {
 					}
 				}
 
+				let sshDestination: SSHDestination | undefined;
+
+				if (await this.experiments.getUseLocalSSHProxy() && localSSHTestSuccess) {
+					this.logService.info('Going to use lssh');
+					sshDestination = localSSHDestination;
+					params.connType = 'local-ssh';
+				}
+
 				if (!forceUseLocalApp && sshDestination === undefined) {
-					const openSSHVersion = await getOpenSSHVersion();
 					const gatewayFlow: UserFlowTelemetryProperties = { kind: 'gateway', openSSHVersion, userOverride, ...sshFlow };
 					try {
 						this.telemetryService.sendUserFlowStatus('connecting', gatewayFlow);

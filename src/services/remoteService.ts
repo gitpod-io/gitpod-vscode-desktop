@@ -12,11 +12,11 @@ import { Configuration } from '../configuration';
 import { IHostService } from './hostService';
 import SSHConfiguration from '../ssh/sshConfig';
 import { isWindows } from '../common/platform';
-import { NoSSHGatewayError, WORKSPACE_STOPPED_PREFIX, WorkspaceRestartInfo, getGitpodRemoteWindowConnectionInfo, getLocalSSHDomain } from '../remote';
+import { NoExtensionIPCServerError, NoLocalSSHSupportError, NoSSHGatewayError, WORKSPACE_STOPPED_PREFIX, WorkspaceRestartInfo, getGitpodRemoteWindowConnectionInfo, getLocalSSHDomain } from '../remote';
 import { ITelemetryService, UserFlowTelemetryProperties } from '../common/telemetry';
 import { ISessionService } from './sessionService';
 import { WrapError, getServiceURL } from '../common/utils';
-import { canExtensionServiceServerWork } from '../local-ssh/ipc/extensionServiceServer';
+import { ExtensionServiceServer } from '../local-ssh/ipc/extensionServiceServer';
 import { LocalSSHMetricsReporter } from './localSSHMetrics';
 import SSHDestination from '../ssh/sshDestination';
 import { WorkspaceData } from '../publicApi';
@@ -27,13 +27,13 @@ import { ParsedKey } from 'ssh2-streams';
 import * as crypto from 'crypto';
 import { utils as sshUtils } from 'ssh2';
 import { INotificationService } from './notificationService';
-import { getOpenSSHVersion } from '../ssh/sshVersion';
+import { getOpenSSHVersion } from '../ssh/nativeSSH';
 
 export interface IRemoteService {
     flow?: UserFlowTelemetryProperties;
 
-    setupSSHProxy: () => Promise<boolean>;
-    extensionServerReady: () => Promise<boolean>;
+    setupSSHProxy: () => Promise<void>;
+    startLocalSSHServiceServer: () => Promise<void>;
     saveRestartInfo: () => Promise<void>;
     checkForStoppedWorkspaces: (cb: (info: WorkspaceRestartInfo) => Promise<void>) => Promise<void>;
 
@@ -47,11 +47,12 @@ type FailedToInitializeCode = 'Unknown' | 'LockFailed' | string;
 const IgnoredFailedCodes: FailedToInitializeCode[] = ['ENOSPC'];
 
 export class RemoteService extends Disposable implements IRemoteService {
-    private setupProxyPromise!: Promise<boolean>;
+    private setupProxyPromise!: Promise<void>;
 
     public flow?: UserFlowTelemetryProperties;
 
     private metricsReporter: LocalSSHMetricsReporter;
+    private extensionServiceServer: ExtensionServiceServer | undefined;
 
     constructor(
         private readonly context: vscode.ExtensionContext,
@@ -65,7 +66,7 @@ export class RemoteService extends Disposable implements IRemoteService {
         this.metricsReporter = new LocalSSHMetricsReporter(logService);
     }
 
-    async setupSSHProxy(): Promise<boolean> {
+    async setupSSHProxy(): Promise<void> {
         if (this.setupProxyPromise) {
             return this.setupProxyPromise;
         }
@@ -84,22 +85,23 @@ export class RemoteService extends Disposable implements IRemoteService {
                     return;
                 }
 
-                await this.setupProxyPromise;
-                this.setupProxyPromise = this.doSetupSSHProxy();
+                this.setupProxyPromise = this.setupProxyPromise.then(() => this.doSetupSSHProxy(), () => this.doSetupSSHProxy());
             }
         }));
 
         return this.setupProxyPromise;
     }
 
-    async extensionServerReady(): Promise<boolean> {
+    async startLocalSSHServiceServer() {
+        if (!this.extensionServiceServer) {
+            this.extensionServiceServer = this._register(new ExtensionServiceServer(this.logService, this.sessionService, this.hostService, this.telemetryService));
+        }
+
         try {
-            await canExtensionServiceServerWork();
+            await this.extensionServiceServer.canExtensionServiceServerWork();
             this.metricsReporter.reportPingExtensionStatus(this.hostService.gitpodHost, 'success');
-            return true;
         } catch (e) {
             const failureCode = 'ExtensionServerUnavailable';
-            const err = new WrapError('cannot ping extension ipc service server', e, failureCode);
             const flow = {
                 ...this.flow,
                 flow: 'ping_extension_server',
@@ -107,6 +109,7 @@ export class RemoteService extends Disposable implements IRemoteService {
                 userId: this.sessionService.safeGetUserId(),
                 failureCode,
             };
+            const err = new WrapError('cannot ping extension ipc service server', e, failureCode);
             this.telemetryService.sendTelemetryException(err, {
                 gitpodHost: flow.gitpodHost,
                 userId: flow.userId,
@@ -115,11 +118,12 @@ export class RemoteService extends Disposable implements IRemoteService {
             });
             this.telemetryService.sendUserFlowStatus('failure', flow);
             this.metricsReporter.reportPingExtensionStatus(this.hostService.gitpodHost, 'failure');
-            return false;
+
+            throw new NoExtensionIPCServerError();
         }
     }
 
-    private async doSetupSSHProxy(): Promise<boolean> {
+    private async doSetupSSHProxy(): Promise<void> {
         let flowData = this.flow ?? { gitpodHost: this.hostService.gitpodHost, userId: this.sessionService.safeGetUserId() };
         flowData = { ...flowData, flow: 'local_ssh_config', useLocalAPP: String(Configuration.getUseLocalApp()) };
         try {
@@ -131,7 +135,6 @@ export class RemoteService extends Disposable implements IRemoteService {
 
             this.metricsReporter.reportConfigStatus(flowData.gitpodHost, 'success');
             this.telemetryService.sendUserFlowStatus('success', flowData);
-            return true;
         } catch (e) {
             this.logService.error('Failed to initialize ssh proxy config', e);
 
@@ -150,7 +153,8 @@ export class RemoteService extends Disposable implements IRemoteService {
 
             this.metricsReporter.reportConfigStatus(flowData.gitpodHost, 'failure', failureCode);
             this.telemetryService.sendUserFlowStatus('failure', { ...flowData, failureCode });
-            return false;
+
+            throw new NoLocalSSHSupportError();
         }
     }
 

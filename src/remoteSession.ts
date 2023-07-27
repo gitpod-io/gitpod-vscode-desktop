@@ -67,7 +67,7 @@ export class RemoteSession extends Disposable {
 		try {
 			const useLocalSSH = await this.experiments.getUseLocalSSHProxy();
 			if (useLocalSSH) {
-				this.extensionServiceServer = new ExtensionServiceServer(this.logService, this.sessionService, this.hostService, this.telemetryService);
+				this.remoteService.startLocalSSHServiceServer().catch(() => {/* ignore */ });
 			}
 
 			this.usePublicApi = await this.experiments.getUsePublicAPI(this.connectionInfo.gitpodHost);

@@ -99,7 +99,7 @@ export async function testSSHConnection(config: ConnectConfig, sshHostKeys: { ty
             return sshHostKeys.some(keyData => keyData.host_key === encodedKey);
         }
     });
-    await sshConnection.connect();
+    await sshConnection.connect().catch((e: Error | null) => { throw new SSHError(e ?? new Error('Unknown')) });
 
     if (proxyConnections.length) {
         proxyConnections[0].close();
