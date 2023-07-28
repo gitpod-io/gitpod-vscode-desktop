@@ -133,9 +133,10 @@ export class ConnectInNewWindowCommand implements Command {
 						localSSHTestSuccess = true;
 					} catch (e) {
 						this.telemetryService.sendTelemetryException(
-							new WrapError('Local SSH: failed to connect to workspace', e, 'Unknown'),
+							new WrapError('Local SSH: failed to connect to workspace', e),
 							{
 								gitpodHost: this.hostService.gitpodHost,
+								openSSHVersion: await getOpenSSHVersion(),
 								workspaceId: wsData!.id,
 							}
 						);
@@ -183,10 +184,9 @@ export class ConnectInNewWindowCommand implements Command {
 				this.remoteService.startLocalSSHServiceServer()
 			]);
 		} catch (e) {
-			const openSSHVersion = await getOpenSSHVersion();
 			this.telemetryService.sendTelemetryException(new WrapError('Local SSH: failed to initialize local SSH', e), {
 				gitpodHost: this.hostService.gitpodHost,
-				openSSHVersion,
+				openSSHVersion: await getOpenSSHVersion(),
 				workspaceId
 
 			});
@@ -297,9 +297,10 @@ export class ConnectInCurrentWindowCommand implements Command {
 						localSSHTestSuccess = true;
 					} catch (e) {
 						this.telemetryService.sendTelemetryException(
-							new WrapError('Local SSH: failed to connect to workspace', e, 'Unknown'),
+							new WrapError('Local SSH: failed to connect to workspace', e),
 							{
 								gitpodHost: this.hostService.gitpodHost,
+								openSSHVersion: await getOpenSSHVersion(),
 								workspaceId: wsData!.id,
 							}
 						);
@@ -347,10 +348,9 @@ export class ConnectInCurrentWindowCommand implements Command {
 				this.remoteService.startLocalSSHServiceServer()
 			]);
 		} catch (e) {
-			const openSSHVersion = await getOpenSSHVersion();
 			this.telemetryService.sendTelemetryException(new WrapError('Local SSH: failed to initialize local SSH', e), {
 				gitpodHost: this.hostService.gitpodHost,
-				openSSHVersion,
+				openSSHVersion: await getOpenSSHVersion(),
 				workspaceId
 
 			});

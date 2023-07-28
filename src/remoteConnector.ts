@@ -716,10 +716,8 @@ export class RemoteConnector extends Disposable {
 
 						this.telemetryService.sendUserFlowStatus('connected', localSSHFlow);
 					} catch (e) {
-						const reason = e?.code ? e.code : 'Unknown';
-						if (reason === 'Unknown') {
-							this.telemetryService.sendTelemetryException(new WrapError('Local SSH: failed to connect to workspace', e, 'Unknown'), { ...localSSHFlow });
-						}
+						const reason = e?.code ?? (e?.name && e.name !== 'Error' ? e.name : 'Unknown');
+						this.telemetryService.sendTelemetryException(new WrapError('Local SSH: failed to connect to workspace', e), { ...localSSHFlow });
 						this.telemetryService.sendUserFlowStatus('failed', { ...localSSHFlow, reason });
 						this.logService.error(`Local SSH: failed to connect to ${params.workspaceId} Gitpod workspace:`, e);
 					}

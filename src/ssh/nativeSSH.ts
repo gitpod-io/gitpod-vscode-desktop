@@ -15,6 +15,22 @@ export class NativeSSHError extends Error {
     }
 }
 
+export class SSHOutputVerificationError extends Error {
+    constructor() {
+        super();
+        this.name = 'SSHOutputVerificationError';
+        this.message = `SSH output verification failed`;
+    }
+}
+
+export class SSHCommandTimeoutError extends Error {
+    constructor() {
+        super();
+        this.name = 'SSHCommandTimeoutError';
+        this.message = `SSH command timeout`;
+    }
+}
+
 function getSSHConfigPath() {
     const sshPath = vscode.workspace.getConfiguration('remote.SSH').get<string>('path');
     return sshPath || 'ssh';
@@ -35,7 +51,7 @@ function execCommand(commmad: string, args?: string[], options?: { timeout?: num
             reject(err);
         });
         process.on('close', (code) => {
-            resolve({ code: code ?? 0 });
+            resolve({ code: code ?? 256 });
         });
     })
 
@@ -95,7 +111,7 @@ export async function testSSHConnection(username: string, hostname: string) {
     const sshPath = getSSHConfigPath();
     const randomId = crypto.randomBytes(12).toString('hex');
     // TODO: support password input so we can replace the ssh2 library
-    const resp = execCommand(sshPath, ['-T', '-o', 'ConnectTimeout=5', `${username}@${hostname}`, `echo "${randomId}"`], { timeout: 5500 });
+    const resp = execCommand(sshPath, ['-T', '-o', 'ConnectTimeout=8', `${username}@${hostname}`, `echo "${randomId}"`], { timeout: 8500 });
     const { code } = await resp.completed;
     if (code === 0) {
         // When using ssh gateway sometimes the command output is missing, probably some bug on go code?
@@ -103,8 +119,10 @@ export async function testSSHConnection(username: string, hostname: string) {
         if (resp.stdout.includes(randomId)) {
             return;
         } else {
-            throw new Error('SSH output verification failed');
+            throw new SSHOutputVerificationError();
         }
+    } else if (code === 256) {
+        throw new SSHCommandTimeoutError();
     } else {
         throw new NativeSSHError(code, resp.stdout, resp.stderr);
     }
