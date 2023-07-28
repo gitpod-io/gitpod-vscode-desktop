@@ -108,7 +108,7 @@ export class ConnectInNewWindowCommand implements Command {
 					cancellable: true
 				},
 				async (_, cancelToken) => {
-					await this.initializeLocalSSH(wsData!.id);
+					const localSSHInitSuccess = await this.initializeLocalSSH(wsData!.id);
 
 					if (wsState.isWorkspaceStopped) {
 						// Start workspace automatically
@@ -128,18 +128,20 @@ export class ConnectInNewWindowCommand implements Command {
 					const sshHostname = `${wsData!.id}.${domain}`;
 					const localSSHDestination = new SSHDestination(sshHostname, wsData!.id);
 					let localSSHTestSuccess: boolean = false;
-					try {
-						await testLocalSSHConnection(localSSHDestination.user!, localSSHDestination.hostname);
-						localSSHTestSuccess = true;
-					} catch (e) {
-						this.telemetryService.sendTelemetryException(
-							new WrapError('Local SSH: failed to connect to workspace', e),
-							{
-								gitpodHost: this.hostService.gitpodHost,
-								openSSHVersion: await getOpenSSHVersion(),
-								workspaceId: wsData!.id,
-							}
-						);
+					if (localSSHInitSuccess) {
+						try {
+							await testLocalSSHConnection(localSSHDestination.user!, localSSHDestination.hostname);
+							localSSHTestSuccess = true;
+						} catch (e) {
+							this.telemetryService.sendTelemetryException(
+								new WrapError('Local SSH: failed to connect to workspace', e),
+								{
+									gitpodHost: this.hostService.gitpodHost,
+									openSSHVersion: await getOpenSSHVersion(),
+									workspaceId: wsData!.id,
+								}
+							);
+						}
 					}
 
 					let sshDest: SSHDestination;
@@ -183,6 +185,7 @@ export class ConnectInNewWindowCommand implements Command {
 				this.remoteService.setupSSHProxy(),
 				this.remoteService.startLocalSSHServiceServer()
 			]);
+			return true;
 		} catch (e) {
 			this.telemetryService.sendTelemetryException(new WrapError('Local SSH: failed to initialize local SSH', e), {
 				gitpodHost: this.hostService.gitpodHost,
@@ -191,6 +194,7 @@ export class ConnectInNewWindowCommand implements Command {
 
 			});
 			this.logService.error(`Local SSH: failed to initialize local SSH`, e);
+			return false;
 		}
 	}
 }
@@ -272,7 +276,7 @@ export class ConnectInCurrentWindowCommand implements Command {
 					cancellable: true
 				},
 				async (_, cancelToken) => {
-					await this.initializeLocalSSH(wsData!.id);
+					const localSSHInitSuccess = await this.initializeLocalSSH(wsData!.id);
 
 					if (wsState.isWorkspaceStopped) {
 						// Start workspace automatically
@@ -292,18 +296,21 @@ export class ConnectInCurrentWindowCommand implements Command {
 					const sshHostname = `${wsData!.id}.${domain}`;
 					const localSSHDestination = new SSHDestination(sshHostname, wsData!.id);
 					let localSSHTestSuccess: boolean = false;
-					try {
-						await testLocalSSHConnection(localSSHDestination.user!, localSSHDestination.hostname);
-						localSSHTestSuccess = true;
-					} catch (e) {
-						this.telemetryService.sendTelemetryException(
-							new WrapError('Local SSH: failed to connect to workspace', e),
-							{
-								gitpodHost: this.hostService.gitpodHost,
-								openSSHVersion: await getOpenSSHVersion(),
-								workspaceId: wsData!.id,
-							}
-						);
+					if (localSSHInitSuccess) {
+						try {
+							// TODO: test without check results of initializeLocalSSH will make test failed more often
+							await testLocalSSHConnection(localSSHDestination.user!, localSSHDestination.hostname);
+							localSSHTestSuccess = true;
+						} catch (e) {
+							this.telemetryService.sendTelemetryException(
+								new WrapError('Local SSH: failed to connect to workspace', e),
+								{
+									gitpodHost: this.hostService.gitpodHost,
+									openSSHVersion: await getOpenSSHVersion(),
+									workspaceId: wsData!.id,
+								}
+							);
+						}
 					}
 
 					let sshDest: SSHDestination;
@@ -347,6 +354,7 @@ export class ConnectInCurrentWindowCommand implements Command {
 				this.remoteService.setupSSHProxy(),
 				this.remoteService.startLocalSSHServiceServer()
 			]);
+			return true;
 		} catch (e) {
 			this.telemetryService.sendTelemetryException(new WrapError('Local SSH: failed to initialize local SSH', e), {
 				gitpodHost: this.hostService.gitpodHost,
@@ -355,6 +363,7 @@ export class ConnectInCurrentWindowCommand implements Command {
 
 			});
 			this.logService.error(`Local SSH: failed to initialize local SSH`, e);
+			return false;
 		}
 	}
 }

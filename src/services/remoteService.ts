@@ -93,6 +93,7 @@ export class RemoteService extends Disposable implements IRemoteService {
     }
 
     async startLocalSSHServiceServer() {
+        this.logService.trace('Starting local ssh service server');
         if (!this.extensionServiceServer) {
             this.extensionServiceServer = this._register(new ExtensionServiceServer(this.logService, this.sessionService, this.hostService, this.telemetryService));
         }
@@ -100,6 +101,7 @@ export class RemoteService extends Disposable implements IRemoteService {
         try {
             await this.extensionServiceServer.canExtensionServiceServerWork();
             this.metricsReporter.reportPingExtensionStatus(this.hostService.gitpodHost, 'success');
+            this.logService.trace('Local ssh service server started');
         } catch (e) {
             const failureCode = 'ExtensionServerUnavailable';
             const flow = {
@@ -110,6 +112,7 @@ export class RemoteService extends Disposable implements IRemoteService {
                 failureCode,
             };
             const err = new WrapError('cannot ping extension ipc service server', e, failureCode);
+            this.logService.error('Failed start local ssh service server', err);
             this.telemetryService.sendTelemetryException(err, {
                 gitpodHost: flow.gitpodHost,
                 userId: flow.userId,
