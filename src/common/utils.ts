@@ -138,19 +138,42 @@ export function getServiceURL(gitpodHost: string): string {
 	return new URL(gitpodHost).toString().replace(/\/$/, '');
 }
 
+export default function isPlainObject(value: any) {
+	if (typeof value !== 'object' || value === null) {
+		return false;
+	}
+
+	const prototype = Object.getPrototypeOf(value);
+	return (prototype === null || prototype === Object.prototype || Object.getPrototypeOf(prototype) === null);
+}
+
 export class WrapError extends Error {
 	constructor(
 		msg: string,
 		readonly cause: any,
 		readonly code?: string
 	) {
-		const isErr = cause instanceof Error;
-		super(isErr ? `${msg}: ${cause.message}` : `${msg}: ${cause}`);
-		if (isErr) {
+		super();
+
+		let originalMessage = cause?.message;
+		if (!originalMessage) {
+			if (isPlainObject(cause)) {
+				try {
+					originalMessage = JSON.stringify(cause);
+				} catch {
+				}
+			} else {
+				originalMessage = cause?.toString();
+			}
+		}
+		this.message = `${msg}: ${originalMessage}`;
+
+		if (cause instanceof Error) {
 			this.name = cause.name;
 			this.stack = this.stack + '\n\n' + cause.stack;
 		}
-		this.code ??= cause.code;
+
+		this.code ??= cause?.code;
 	}
 }
 
