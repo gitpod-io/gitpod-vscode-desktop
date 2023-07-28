@@ -26,12 +26,12 @@ if (!options) {
     process.exit(1);
 }
 
-import { NopeLogger } from './logger';
-const logService = new NopeLogger();
+// import { NopeLogger } from './logger';
+// const logService = new NopeLogger();
 
 // DO NOT PUSH CHANGES BELOW TO PRODUCTION
-// import { DebugLogger } from './logger';
-// const logService = new DebugLogger();
+import { DebugLogger } from './logger';
+const logService = new DebugLogger();
 
 import { TelemetryService } from './telemetryService';
 const telemetryService = new TelemetryService(
@@ -82,6 +82,7 @@ import * as stream from 'stream';
 import { ILogService } from '../services/logService';
 import { ITelemetryService, UserFlowTelemetryProperties } from '../common/telemetry';
 import { LocalSSHMetricsReporter } from '../services/localSSHMetrics';
+import { PipeExtensions } from './pipeSession';
 
 // This public key is safe to be public since we only use it to verify local-ssh connections.
 const HOST_KEY = 'LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ1QwcXg1eEJUVmc4TUVJbUUKZmN4RXRZN1dmQVVsM0JYQURBK2JYREsyaDZlaFJBTkNBQVJlQXo0RDVVZXpqZ0l1SXVOWXpVL3BCWDdlOXoxeApvZUN6UklqcGdCUHozS0dWRzZLYXV5TU5YUm95a21YSS9BNFpWaW9nd2Vjb0FUUjRUQ2FtWm1ScAotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg==';
@@ -182,6 +183,9 @@ class WebSocketSSHProxy {
         config.maxClientAuthenticationAttempts = 1;
         const session = new SshServerSession(config);
         session.credentials.publicKeys.push(keys);
+        session.trace = (_level, eventId, msg, err) => {
+            this.logService.trace(`[local][${eventId}] ${msg}`, err);
+        };
 
         let pipePromise: Promise<void> | undefined;
         session.onAuthenticating(async (e) => {
@@ -190,7 +194,7 @@ class WebSocketSSHProxy {
             e.authenticationPromise = this.authenticateClient(e.username ?? '')
                 .then(async pipeSession => {
                     this.sendUserStatusFlow('connected');
-                    pipePromise = session.pipe(pipeSession);
+                    pipePromise = PipeExtensions.pipeSession(session, pipeSession);
                     return {};
                 }).catch(async err => {
                     this.logService.error('failed to authenticate proxy with username: ' + e.username ?? '', err);
@@ -324,6 +328,9 @@ class WebSocketSSHProxy {
 
             const config = new SshSessionConfiguration();
             const session = new SshClientSession(config);
+            session.trace = (_level, eventId, msg, err) => {
+                this.logService.trace(`[websocket][${eventId}] ${msg}`, err);
+            };
             session.onAuthenticating((e) => e.authenticationPromise = Promise.resolve({}));
 
             await session.connect(stream);
