@@ -66,7 +66,7 @@ export class RemoteSession extends Disposable {
 
 		try {
 			const useLocalSSH = await this.experiments.getUseLocalSSHProxy();
-			if (useLocalSSH) {
+			if (this.connectionInfo.connType === 'local-ssh' || useLocalSSH) {
 				this.remoteService.startLocalSSHServiceServer().catch(() => {/* ignore */ });
 			}
 

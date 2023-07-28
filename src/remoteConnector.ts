@@ -724,8 +724,10 @@ export class RemoteConnector extends Disposable {
 				}
 
 				let sshDestination: SSHDestination | undefined;
+				const useLocalSSH = await this.experiments.getUseLocalSSHProxy();
+				sshFlow.useLocalSSH = useLocalSSH;
 
-				if (await this.experiments.getUseLocalSSHProxy() && localSSHTestSuccess) {
+				if (useLocalSSH && localSSHTestSuccess) {
 					this.logService.info('Going to use lssh');
 					sshDestination = localSSHDestination;
 					params.connType = 'local-ssh';
