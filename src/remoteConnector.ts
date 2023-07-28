@@ -676,8 +676,10 @@ export class RemoteConnector extends Disposable {
 		if (!this.sessionService.isSignedIn() || new URL(this.hostService.gitpodHost).host !== new URL(params.gitpodHost).host /* remote window case so host didn't update*/) {
 			return;
 		}
+		const useLocalSSH = await this.experiments.getUseLocalSSHProxy();
 
 		sshFlow.userId = this.sessionService.getUserId();
+		sshFlow.useLocalSSH = useLocalSSH;
 
 		this.logService.info('Opening Gitpod workspace', uri.toString());
 
@@ -724,8 +726,6 @@ export class RemoteConnector extends Disposable {
 				}
 
 				let sshDestination: SSHDestination | undefined;
-				const useLocalSSH = await this.experiments.getUseLocalSSHProxy();
-				sshFlow.useLocalSSH = useLocalSSH;
 
 				if (useLocalSSH && localSSHTestSuccess) {
 					this.logService.info('Going to use lssh');
