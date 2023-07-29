@@ -82,6 +82,7 @@ import * as stream from 'stream';
 import { ILogService } from '../services/logService';
 import { ITelemetryService, UserFlowTelemetryProperties } from '../common/telemetry';
 import { LocalSSHMetricsReporter } from '../services/localSSHMetrics';
+import { PipeExtensions } from './pipeSession';
 
 // This public key is safe to be public since we only use it to verify local-ssh connections.
 const HOST_KEY = 'LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ1QwcXg1eEJUVmc4TUVJbUUKZmN4RXRZN1dmQVVsM0JYQURBK2JYREsyaDZlaFJBTkNBQVJlQXo0RDVVZXpqZ0l1SXVOWXpVL3BCWDdlOXoxeApvZUN6UklqcGdCUHozS0dWRzZLYXV5TU5YUm95a21YSS9BNFpWaW9nd2Vjb0FUUjRUQ2FtWm1ScAotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg==';
@@ -190,7 +191,7 @@ class WebSocketSSHProxy {
             e.authenticationPromise = this.authenticateClient(e.username ?? '')
                 .then(async pipeSession => {
                     this.sendUserStatusFlow('connected');
-                    pipePromise = session.pipe(pipeSession);
+                    pipePromise = PipeExtensions.pipeSession(session, pipeSession);
                     return {};
                 }).catch(async err => {
                     this.logService.error('failed to authenticate proxy with username: ' + e.username ?? '', err);
