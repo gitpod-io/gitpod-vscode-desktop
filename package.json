@@ -448,6 +448,7 @@
 		"webpack-cli": "^4.7.2"
 	},
 	"dependencies": {
+		"@bufbuild/connect-node": "^0.12.0",
 		"@gitpod/gitpod-protocol": "main-gha",
 		"@gitpod/local-app-api-grpcweb": "main-gha",
 		"@gitpod/public-api": "main-gha",
@@ -460,7 +461,6 @@
 		"configcat-node": "^8.0.0",
 		"js-yaml": "^4.1.0",
 		"long": "^5.2.1",
-		"mustard-connect-node": "^0.11.2",
 		"nice-grpc": "^2.1.3",
 		"nice-grpc-common": "^2.0.1",
 		"node-fetch-commonjs": "^3.2.4",
