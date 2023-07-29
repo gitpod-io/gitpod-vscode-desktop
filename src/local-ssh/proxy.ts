@@ -26,12 +26,12 @@ if (!options) {
     process.exit(1);
 }
 
-// import { NopeLogger } from './logger';
-// const logService = new NopeLogger();
+import { NopeLogger } from './logger';
+const logService = new NopeLogger();
 
 // DO NOT PUSH CHANGES BELOW TO PRODUCTION
-import { DebugLogger } from './logger';
-const logService = new DebugLogger();
+// import { DebugLogger } from './logger';
+// const logService = new DebugLogger();
 
 import { TelemetryService } from './telemetryService';
 const telemetryService = new TelemetryService(
@@ -183,9 +183,6 @@ class WebSocketSSHProxy {
         config.maxClientAuthenticationAttempts = 1;
         const session = new SshServerSession(config);
         session.credentials.publicKeys.push(keys);
-        session.trace = (_level, eventId, msg, err) => {
-            this.logService.trace(`[local][${eventId}] ${msg}`, err);
-        };
 
         let pipePromise: Promise<void> | undefined;
         session.onAuthenticating(async (e) => {
@@ -328,9 +325,6 @@ class WebSocketSSHProxy {
 
             const config = new SshSessionConfiguration();
             const session = new SshClientSession(config);
-            session.trace = (_level, eventId, msg, err) => {
-                this.logService.trace(`[websocket][${eventId}] ${msg}`, err);
-            };
             session.onAuthenticating((e) => e.authenticationPromise = Promise.resolve({}));
 
             await session.connect(stream);
