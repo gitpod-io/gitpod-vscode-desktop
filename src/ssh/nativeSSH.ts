@@ -36,8 +36,15 @@ function getSSHConfigPath() {
     return sshPath || 'ssh';
 }
 
-function execCommand(commmad: string, args?: string[], options?: { timeout?: number }) {
-    const process = cp.spawn(commmad, args, { ...options, windowsVerbatimArguments: true });
+function execCommand(command: string, args?: string[], options?: { timeout?: number }) {
+    let abortController: AbortController | undefined;
+    if (options?.timeout && options.timeout > 0) {
+        abortController = new AbortController();
+        setTimeout(() => {
+            abortController?.abort();
+        }, options.timeout);
+    }
+    const process = cp.spawn(command, args, { ...options, windowsVerbatimArguments: true, signal: abortController?.signal });
     const stdoutDataArr: string[] = [];
     const stderrDataArr: string[] = [];
     process.stdout.on('data', (data) => {
