@@ -110,17 +110,6 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
             const rawWorkspace = await this.sessionService.getAPI().getWorkspace(actualWorkspaceId, _context.signal);
             const wsData = rawWorkspaceToWorkspaceData(rawWorkspace);
 
-            // Report if we couldn't parse contextUrl
-            if (!wsData.contextUrl) {
-                this.telemetryService.sendTelemetryException(new Error('Unable to parse workspace contextUrl'), {
-                    gitpodHost: request.gitpodHost,
-                    workspaceId: request.workspaceId,
-                    instanceId,
-                    userId,
-                    contextUrl: rawWorkspace.context?.contextUrl,
-                });
-            }
-
             instanceId = rawWorkspace.status!.instance!.instanceId;
 
             let ownerToken = '';

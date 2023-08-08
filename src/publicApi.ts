@@ -8,7 +8,7 @@ import { createPromiseClient, Interceptor, PromiseClient, ConnectError, Code } f
 import { WorkspacesService } from '@gitpod/public-api/lib/gitpod/experimental/v1/workspaces_connectweb';
 import { IDEClientService } from '@gitpod/public-api/lib/gitpod/experimental/v1/ide_client_connectweb';
 import { UserService } from '@gitpod/public-api/lib/gitpod/experimental/v1/user_connectweb';
-import { Workspace, WorkspaceInstanceStatus_Phase, WorkspaceStatus } from '@gitpod/public-api/lib/gitpod/experimental/v1/workspaces_pb';
+import { Workspace, WorkspaceContext_Git, WorkspaceInstanceStatus_Phase, WorkspaceStatus } from '@gitpod/public-api/lib/gitpod/experimental/v1/workspaces_pb';
 import { SSHKey, User } from '@gitpod/public-api/lib/gitpod/experimental/v1/user_pb';
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
@@ -306,12 +306,17 @@ export interface WorkspaceData {
 export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace): WorkspaceData;
 export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace[]): WorkspaceData[];
 export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace | Workspace[]) {
-    const toWorkspaceData = (ws: Workspace) => {
-        const normalizedUrl = getNormalizedURL(ws.context!.contextUrl);
+    const toWorkspaceData = (ws: Workspace): WorkspaceData => {
+        let contextUrl: string | undefined;
+        if (ws.context?.details.case === 'git') {
+            const gitContext = ws.context.details.value as WorkspaceContext_Git;
+            contextUrl = gitContext.normalizedContextUrl;
+        }
+
         let provider = 'undefined';
         let matches = ['undefined', 'undefined'];
-        if (normalizedUrl) {
-            const url = new URL(normalizedUrl);
+        if (contextUrl) {
+            const url = new URL(contextUrl);
             provider = url.host.replace(/\..+?$/, ''); // remove '.com', etc
             matches = url.pathname.match(/[^/]+/g)!; // match /owner/repo
         }
@@ -322,7 +327,7 @@ export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace | Workspace
             owner,
             repo,
             id: ws.workspaceId,
-            contextUrl: normalizedUrl,
+            contextUrl,
             workspaceUrl: ws.status!.instance!.status!.url,
             phase: WorkspaceInstanceStatus_Phase[ws.status!.instance!.status!.phase ?? WorkspaceInstanceStatus_Phase.UNSPECIFIED].toLowerCase() as WorkspacePhase,
             description: ws.description,
@@ -337,25 +342,4 @@ export function rawWorkspaceToWorkspaceData(rawWorkspaces: Workspace | Workspace
     }
 
     return toWorkspaceData(rawWorkspaces);
-}
-
-// TODO: remove this once public api is fixed, ref https://github.com/gitpod-io/gitpod/pull/18292
-function getNormalizedURL(contextUrl: string | undefined): string | undefined {
-    if (!contextUrl) {
-        return;
-    }
-
-    const idx = contextUrl.search(/http[s]?:\/\//);
-    let normalized = contextUrl;
-    if (idx > 0) {
-        normalized = contextUrl.substring(idx);
-    }
-
-    try {
-        new URL(normalized);
-        return normalized;
-    } catch {
-    }
-
-    return;
 }
