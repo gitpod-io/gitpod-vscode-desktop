@@ -40,9 +40,7 @@ function execCommand(command: string, args?: string[], options?: { timeout?: num
     let abortController: AbortController | undefined;
     if (options?.timeout && options.timeout > 0) {
         abortController = new AbortController();
-        setTimeout(() => {
-            abortController?.abort();
-        }, options.timeout);
+        setTimeout(() => abortController?.abort(), options.timeout);
     }
     const process = cp.spawn(command, args, { ...options, windowsVerbatimArguments: true, signal: abortController?.signal });
     const stdoutDataArr: string[] = [];
@@ -55,6 +53,9 @@ function execCommand(command: string, args?: string[], options?: { timeout?: num
     });
     const completed = new Promise<{ code: number }>((resolve, reject) => {
         process.on('error', (err) => {
+            if (err.name === 'AbortError') {
+                err = new SSHCommandTimeoutError();
+            }
             reject(err);
         });
         process.on('close', (code) => {
