@@ -246,24 +246,24 @@
     semver "^7.3.5"
     tar "^6.1.11"
 
-"@microsoft/dev-tunnels-ssh-keys@^3.11.21":
-  version "3.11.21"
-  resolved "https://registry.yarnpkg.com/@microsoft/dev-tunnels-ssh-keys/-/dev-tunnels-ssh-keys-3.11.21.tgz#d3d8ff3900f3b0b5480a36a5905ef640bf9c68f4"
-  integrity sha512-elXtB34noX3tVmcIEniKSR5q3/5i31rjIahtbMY1L4oG1G0Z4B9qk0ed3eXCkkOb1Qk6YTgmpD6cLVSox+lALA==
+"@microsoft/dev-tunnels-ssh-keys@^3.11.24":
+  version "3.11.24"
+  resolved "https://registry.yarnpkg.com/@microsoft/dev-tunnels-ssh-keys/-/dev-tunnels-ssh-keys-3.11.24.tgz#cf3120f53d5d128d02832b32777d65d402f1111f"
+  integrity sha512-Ja8lPAnxamtrawkqIOud/jv34xufPvoR8ZpdAexDmY8arNc1vDfhiiPIfVQcpdDzb0pkkZMEZnTCELyFnAbRvQ==
   dependencies:
     "@microsoft/dev-tunnels-ssh" "~3.11"
 
-"@microsoft/dev-tunnels-ssh-tcp@^3.11.21":
-  version "3.11.21"
-  resolved "https://registry.yarnpkg.com/@microsoft/dev-tunnels-ssh-tcp/-/dev-tunnels-ssh-tcp-3.11.21.tgz#dc1846ad7bd02ffde8e4b702a270bbe171788872"
-  integrity sha512-GcuN+4Q+OpjcSrn2ibMvSiBTCadRlTo/2bwLs+8Ei8YzhKpHgBW06ZA9OJUzsG2QewUSrkufp2ojI45KIybUtQ==
+"@microsoft/dev-tunnels-ssh-tcp@^3.11.24":
+  version "3.11.24"
+  resolved "https://registry.yarnpkg.com/@microsoft/dev-tunnels-ssh-tcp/-/dev-tunnels-ssh-tcp-3.11.24.tgz#895ca1516208745f6c9b6648f69e16ce1f1ec2d2"
+  integrity sha512-BR0SY+qlY6Af3n3c1s9ybTnfWtatfleai8f3wYpl8uEOlP9OWvEW5ECO77pbutTkgYfF/D/dsqNr8A24QK6zlQ==
   dependencies:
     "@microsoft/dev-tunnels-ssh" "~3.11"
 
-"@microsoft/dev-tunnels-ssh@^3.11.21", "@microsoft/dev-tunnels-ssh@~3.11":
-  version "3.11.21"
-  resolved "https://registry.yarnpkg.com/@microsoft/dev-tunnels-ssh/-/dev-tunnels-ssh-3.11.21.tgz#257a4fdc1eccc7f3922fc96a5607e8a0ba960855"
-  integrity sha512-33rSAtQSF7Ap6cHbvLqwuH4eTCmzxCDSfP4iJQNz5Ipy3I2GW7mnOzfhJFU4r4e6h7AMYfyef1NZpYJh7uavcg==
+"@microsoft/dev-tunnels-ssh@^3.11.24", "@microsoft/dev-tunnels-ssh@~3.11":
+  version "3.11.24"
+  resolved "https://registry.yarnpkg.com/@microsoft/dev-tunnels-ssh/-/dev-tunnels-ssh-3.11.24.tgz#9272e52d6edfa6ba587b12a315944d407d50d05b"
+  integrity sha512-81g529o3gdEzqnNXDoIaK+OeUKVPi3Hyem6TZDUXXp16I6n43oQe1g3exbM6lFfVyEqUayIqxvnr7HOttC6jCA==
   dependencies:
     buffer "^5.2.1"
     debug "^4.1.1"
