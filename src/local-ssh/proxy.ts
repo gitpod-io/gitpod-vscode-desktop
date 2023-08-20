@@ -62,7 +62,7 @@ const sendExited = (exitCode: number, forceExit: boolean, exitSignal?: NodeJS.Si
 // best effort to intercept process exit
 const beforeExitListener = (exitCode: number) => {
     process.removeListener('beforeExit', beforeExitListener);
-    return sendExited(exitCode, false)
+    return sendExited(exitCode, false);
 };
 process.addListener('beforeExit', beforeExitListener);
 const exitProcess = async (forceExit: boolean, signal?: NodeJS.Signals) => {
@@ -137,7 +137,7 @@ class WebSocketSSHProxy {
 
     private onExit() {
         const exitHandler = (signal?: NodeJS.Signals) => {
-            exitProcess(false, signal)
+            exitProcess(false, signal);
         };
         process.on('SIGINT', exitHandler);
         process.on('SIGTERM', exitHandler);
@@ -298,13 +298,13 @@ class WebSocketSSHProxy {
                             this.telemetryService.sendUserFlowStatus('stale', this.flow);
                             socket.terminate();
                         }, pingPeriod + 1000);
-                    }
+                    };
                     const stopHearbeat = () => {
-                        if (pingTimeout != undefined) {
+                        if (pingTimeout !== undefined) {
                             clearTimeout(pingTimeout);
                             pingTimeout = undefined;
                         }
-                    }
+                    };
 
                     socket.on('ping', heartbeat);
                     heartbeat();
@@ -314,12 +314,12 @@ class WebSocketSSHProxy {
                     socket.onclose = (e) => {
                         stopHearbeat();
                         wrappedOnClose(e);
-                    }
+                    };
                     resolve(websocketStream);
-                }
+                };
                 socket.onerror = (e) => {
                     reject(e);
-                }
+                };
             });
 
             const config = new SshSessionConfiguration();
