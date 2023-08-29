@@ -4,16 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { v4 as uuid } from 'uuid';
 import { NoRunningInstanceError, SSHConnectionParams, SSH_DEST_KEY, getGitpodRemoteWindowConnectionInfo } from './remote';
 import { Disposable } from './common/dispose';
 import { HeartbeatManager } from './heartbeat';
 import { WorkspaceState } from './workspaceState';
-import { ISyncExtension, NoSettingsSyncSession, NoSyncStoreError, SettingsSync, SyncResource, parseSyncData } from './settingsSync';
 import { IExperimentsService } from './experiments';
 import { ITelemetryService, UserFlowTelemetryProperties } from './common/telemetry';
 import { INotificationService } from './services/notificationService';
-import { retry } from './common/async';
 import { withServerApi } from './internalApi';
 import { ISessionService } from './services/sessionService';
 import { IHostService } from './services/hostService';
@@ -35,7 +32,6 @@ export class RemoteSession extends Disposable {
 		private readonly remoteService: IRemoteService,
 		private readonly hostService: IHostService,
 		private readonly sessionService: ISessionService,
-		private readonly settingsSync: SettingsSync,
 		private readonly experiments: IExperimentsService,
 		private readonly logService: ILogService,
 		private readonly telemetryService: ITelemetryService,
@@ -101,10 +97,9 @@ export class RemoteSession extends Disposable {
 
 			this.heartbeatManager = new HeartbeatManager(this.connectionInfo, this.workspaceState, this.sessionService, this.logService, this.telemetryService);
 
-			const syncExtFlow = { ...this.connectionInfo, userId: this.sessionService.getUserId(), flow: 'sync_local_extensions' };
-			this.initializeRemoteExtensions({ ...syncExtFlow, quiet: true, flowId: uuid() });
+			this.remoteService.initializeRemoteExtensions();
 			this._register(vscode.commands.registerCommand('gitpod.installLocalExtensions', () => {
-				this.initializeRemoteExtensions({ ...syncExtFlow, quiet: false, flowId: uuid() });
+				this.remoteService.initializeRemoteExtensions();
 			}));
 
 			vscode.commands.executeCommand('setContext', 'gitpod.inWorkspace', true);
@@ -130,122 +125,6 @@ export class RemoteSession extends Disposable {
 			const action = await this.notificationService.showErrorMessage(`Failed to resolve connection to Gitpod workspace: workspace could stop unexpectedly`, { flow: remoteFlow, id: 'unexpected_error' }, retry);
 			if (action === retry) {
 				this.initialize();
-			}
-		}
-	}
-
-	private async initializeRemoteExtensions(flow: UserFlowTelemetryProperties & { quiet: boolean; flowId: string }) {
-		this.telemetryService.sendUserFlowStatus('enabled', flow);
-		let syncData: { ref: string; content: string } | undefined;
-		try {
-			syncData = await this.settingsSync.readResource(SyncResource.Extensions);
-		} catch (e) {
-			if (e instanceof NoSyncStoreError) {
-				const msg = `Could not install local extensions on remote workspace. Please enable [Settings Sync](https://www.gitpod.io/docs/ides-and-editors/settings-sync#enabling-settings-sync-in-vs-code-desktop) with Gitpod.`;
-				this.logService.error(msg);
-
-				const status = 'no_sync_store';
-				if (flow.quiet) {
-					this.telemetryService.sendUserFlowStatus(status, flow);
-				} else {
-					const addSyncProvider = 'Settings Sync: Enable Sign In with Gitpod';
-					const action = await this.notificationService.showInformationMessage(msg, { flow, id: status }, addSyncProvider);
-					if (action === addSyncProvider) {
-						vscode.commands.executeCommand('gitpod.syncProvider.add');
-					}
-				}
-			} else if (e instanceof NoSettingsSyncSession) {
-				const msg = `Could not install local extensions on remote workspace. Please enable [Settings Sync](https://www.gitpod.io/docs/ides-and-editors/settings-sync#enabling-settings-sync-in-vs-code-desktop) with Gitpod.`;
-				this.logService.error(msg);
-
-				const status = 'no_settings_sync';
-				if (flow.quiet) {
-					this.telemetryService.sendUserFlowStatus(status, flow);
-				} else {
-					const enableSettingsSync = 'Enable Settings Sync';
-					const action = await this.notificationService.showInformationMessage(msg, { flow, id: status }, enableSettingsSync);
-					if (action === enableSettingsSync) {
-						vscode.commands.executeCommand('workbench.userDataSync.actions.turnOn');
-					}
-				}
-			} else {
-				this.logService.error('Error while fetching settings sync extension data:', e);
-
-				const status = 'failed_to_fetch';
-				if (flow.quiet) {
-					this.telemetryService.sendUserFlowStatus(status, flow);
-				} else {
-					const seeLogs = 'See Logs';
-					const action = await this.notificationService.showErrorMessage(`Error while fetching settings sync extension data.`, { flow, id: status }, seeLogs);
-					if (action === seeLogs) {
-						this.logService.show();
-					}
-				}
-			}
-			return;
-		}
-
-		const syncDataContent = parseSyncData(syncData.content);
-		if (!syncDataContent) {
-			const msg = `Error while parsing settings sync extension data.`;
-			this.logService.error(msg);
-
-			const status = 'failed_to_parse_content';
-			if (flow.quiet) {
-				this.telemetryService.sendUserFlowStatus(status, flow);
-			} else {
-				await this.notificationService.showErrorMessage(msg, { flow, id: status });
-			}
-			return;
-		}
-
-		let extensions: ISyncExtension[];
-		try {
-			extensions = JSON.parse(syncDataContent.content);
-		} catch {
-			const msg = `Error while parsing settings sync extension data, malformed JSON.`;
-			this.logService.error(msg);
-
-			const status = 'failed_to_parse_json';
-			if (flow.quiet) {
-				this.telemetryService.sendUserFlowStatus(status, flow);
-			} else {
-				await this.notificationService.showErrorMessage(msg, { flow, id: status });
-			}
-			return;
-		}
-
-		extensions = extensions.filter(e => e.installed);
-		flow.extensions = extensions.length;
-		if (!extensions.length) {
-			this.telemetryService.sendUserFlowStatus('synced', flow);
-			return;
-		}
-
-		try {
-			try {
-				this.logService.trace(`Installing local extensions on remote: `, extensions.map(e => e.identifier.id).join('\n'));
-				await retry(async () => {
-					await vscode.commands.executeCommand('__gitpod.initializeRemoteExtensions', extensions);
-				}, 3000, 15);
-			} catch (e) {
-				this.logService.error(`Could not execute '__gitpod.initializeRemoteExtensions' command`);
-				throw e;
-			}
-			this.telemetryService.sendUserFlowStatus('synced', flow);
-		} catch {
-			const msg = `Error while installing local extensions on remote.`;
-			this.logService.error(msg);
-
-			const status = 'failed';
-			if (flow.quiet) {
-				this.telemetryService.sendUserFlowStatus(status, flow);
-			} else {
-				const seeLogs = 'See Logs';
-				const action = await this.notificationService.showErrorMessage(msg, { flow, id: status }, seeLogs);
-				if (action === seeLogs) {
-					this.logService.show();
-				}
 			}
 		}
 	}

@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import fsp from 'fs/promises';
 import lockfile from 'proper-lockfile';
 import { Disposable } from '../common/dispose';
@@ -28,6 +29,8 @@ import * as crypto from 'crypto';
 import { utils as sshUtils } from 'ssh2';
 import { INotificationService } from './notificationService';
 import { getOpenSSHVersion } from '../ssh/nativeSSH';
+import { retry } from '../common/async';
+import { IStoredProfileExtension } from '../settingsSync';
 
 export interface IRemoteService {
     flow?: UserFlowTelemetryProperties;
@@ -39,6 +42,8 @@ export interface IRemoteService {
 
     getWorkspaceSSHDestination(wsData: WorkspaceData): Promise<{ destination: SSHDestination; password?: string }>;
     showSSHPasswordModal(wsData: WorkspaceData, password: string): Promise<void>;
+
+    initializeRemoteExtensions(): Promise<void>;
 }
 
 type FailedToInitializeCode = 'Unknown' | 'LockFailed' | string;
@@ -317,6 +322,54 @@ export class RemoteService extends Disposable implements IRemoteService {
         this.logService.info(`Configure your SSH keys in ${externalUrl} and try again. Or try again and select 'Copy' to connect using a temporary password until workspace restart`);
         this.logService.show();
         throw new Error('SSH password modal dialog, Canceled');
+    }
+
+    async initializeRemoteExtensions() {
+        let flowData = this.flow ?? { gitpodHost: this.hostService.gitpodHost, userId: this.sessionService.safeGetUserId() };
+        flowData = { ...flowData, flow: 'sync_local_extensions', useLocalAPP: String(Configuration.getUseLocalApp()) };
+
+        let extensionsJson: IStoredProfileExtension[] = [];
+        const extensionsDir = path.posix.dirname(this.context.extensionMode === vscode.ExtensionMode.Production ? this.context.extensionPath : vscode.extensions.getExtension('ms-vscode-remote.remote-ssh')!.extensionPath);
+        const extensionFile = path.join(extensionsDir, 'extensions.json');
+        try {
+            const rawContent = await vscode.workspace.fs.readFile(vscode.Uri.file(extensionFile));
+            const jsonSting = new TextDecoder().decode(rawContent);
+            extensionsJson = JSON.parse(jsonSting);
+        } catch (e) {
+            this.logService.error(`Could not read ${extensionFile} file contents`, e);
+            return;
+        }
+
+        const localExtensions = extensionsJson.filter(e => !e.metadata?.isBuiltin && !e.metadata?.isSystem).map(e => ({ identifier: { id: e.identifier.id.toLowerCase() } }));
+
+        const allUserActiveExtensions = vscode.extensions.all.filter(ext => !ext.packageJSON['isBuiltin'] && !ext.packageJSON['isUserBuiltin']);
+        const localActiveExtensions = new Set<string>();
+        allUserActiveExtensions.forEach(e => localActiveExtensions.add(e.id.toLowerCase()));
+
+        const extensionsToInstall = localExtensions.filter(e => !localActiveExtensions.has(e.identifier.id));
+
+        try {
+            try {
+                this.logService.trace(`Installing local extensions on remote: `, extensionsToInstall.map(e => e.identifier.id).join('\n'));
+                await retry(async () => {
+                    await vscode.commands.executeCommand('__gitpod.initializeRemoteExtensions', extensionsToInstall);
+                }, 3000, 15);
+            } catch (e) {
+                this.logService.error(`Could not execute '__gitpod.initializeRemoteExtensions' command`);
+                throw e;
+            }
+            this.telemetryService.sendUserFlowStatus('synced', flowData);
+        } catch {
+            const msg = `Error while installing local extensions on remote.`;
+            this.logService.error(msg);
+
+            const status = 'failed';
+            const seeLogs = 'See Logs';
+            const action = await this.notificationService.showErrorMessage(msg, { flow: flowData, id: status }, seeLogs);
+            if (action === seeLogs) {
+                this.logService.show();
+            }
+        }
     }
 
     private async withLock(path: string, cb: () => Promise<void>) {
