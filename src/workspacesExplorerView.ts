@@ -195,7 +195,7 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
         this._onDidChangeTreeData.fire();
     }
 
-    async reveal(workspaceId: string, options?: { select?: boolean; focus?: boolean; }) {
+    async reveal(workspaceId: string, options?: { select?: boolean; focus?: boolean }) {
         await this.workspacesBarrier.wait();
         const element = this.workspaces.find(w => w.id === workspaceId);
         if (element) {
@@ -204,6 +204,6 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
     }
 
     isVisible() {
-        return this.treeView.visible
+        return this.treeView.visible;
     }
 }
