@@ -23,7 +23,7 @@ import { Configuration } from './configuration';
 import { RemoteService } from './services/remoteService';
 import { WorkspacesExplorerView } from './workspacesExplorerView';
 import { WorkspaceView } from './workspaceView';
-import { InstallLocalExtensionsOnRemote } from './commands/extensions';
+import { InstallLocalExtensionsOnRemoteCommand } from './commands/extensions';
 
 // connect-web uses fetch api, so we need to polyfill it
 if (!global.fetch) {
@@ -116,7 +116,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		// Register global commands
 		commandManager.register(new SignInCommand(sessionService));
-		commandManager.register(new InstallLocalExtensionsOnRemote(remoteService));
+		commandManager.register(new InstallLocalExtensionsOnRemoteCommand(remoteService));
 		commandManager.register(new ExportLogsCommand(context.logUri, notificationService, telemetryService, logger, hostService));
 
 		if (!context.globalState.get<boolean>(FIRST_INSTALL_KEY, false)) {

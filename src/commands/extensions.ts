@@ -6,7 +6,7 @@
 import { Command } from '../commandManager';
 import { IRemoteService } from '../services/remoteService';
 
-export class InstallLocalExtensionsOnRemote implements Command {
+export class InstallLocalExtensionsOnRemoteCommand implements Command {
 	readonly id = 'gitpod.installLocalExtensions';
 
 	constructor(private readonly remoteService: IRemoteService) { }
