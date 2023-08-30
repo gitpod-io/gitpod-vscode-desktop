@@ -30,7 +30,7 @@ import { utils as sshUtils } from 'ssh2';
 import { INotificationService } from './notificationService';
 import { getOpenSSHVersion } from '../ssh/nativeSSH';
 import { retry } from '../common/async';
-import { IStoredProfileExtension } from '../settingsSync';
+import { IStoredProfileExtension } from '../profileExtensions';
 
 export interface IRemoteService {
     flow?: UserFlowTelemetryProperties;

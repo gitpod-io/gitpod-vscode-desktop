@@ -98,9 +98,6 @@ export class RemoteSession extends Disposable {
 			this.heartbeatManager = new HeartbeatManager(this.connectionInfo, this.workspaceState, this.sessionService, this.logService, this.telemetryService);
 
 			this.remoteService.initializeRemoteExtensions();
-			this._register(vscode.commands.registerCommand('gitpod.installLocalExtensions', () => {
-				this.remoteService.initializeRemoteExtensions();
-			}));
 
 			vscode.commands.executeCommand('setContext', 'gitpod.inWorkspace', true);
 		} catch (e) {

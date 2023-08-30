@@ -11,7 +11,6 @@ import { ExperimentalSettings } from './experiments';
 import GitpodServer from './authentication/gitpodServer';
 import { NotificationService } from './services/notificationService';
 import { RemoteConnector } from './remoteConnector';
-import { SettingsSync } from './settingsSync';
 import { TelemetryService } from './services/telemetryService';
 import { RemoteSession } from './remoteSession';
 import { SSHConnectionParams, getGitpodRemoteWindowConnectionInfo } from './remote';
@@ -24,6 +23,7 @@ import { Configuration } from './configuration';
 import { RemoteService } from './services/remoteService';
 import { WorkspacesExplorerView } from './workspacesExplorerView';
 import { WorkspaceView } from './workspaceView';
+import { InstallLocalExtensionsOnRemote } from './commands/extensions';
 
 // connect-web uses fetch api, so we need to polyfill it
 if (!global.fetch) {
@@ -89,9 +89,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		const experiments = new ExperimentalSettings(packageJSON.configcatKey, packageJSON.version, context, sessionService, hostService, logger);
 		context.subscriptions.push(experiments);
 
-		const settingsSync = new SettingsSync(commandManager, logger, telemetryService, notificationService);
-		context.subscriptions.push(settingsSync);
-
 		const remoteConnector = new RemoteConnector(context, sessionService, hostService, experiments, logger, telemetryService, notificationService, remoteService);
 		context.subscriptions.push(remoteConnector);
 
@@ -119,6 +116,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		// Register global commands
 		commandManager.register(new SignInCommand(sessionService));
+		commandManager.register(new InstallLocalExtensionsOnRemote(remoteService));
 		commandManager.register(new ExportLogsCommand(context.logUri, notificationService, telemetryService, logger, hostService));
 
 		if (!context.globalState.get<boolean>(FIRST_INSTALL_KEY, false)) {

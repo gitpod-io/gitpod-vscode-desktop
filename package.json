@@ -14,7 +14,7 @@
 		"url": "https://github.com/gitpod-io/gitpod/issues"
 	},
 	"engines": {
-		"vscode": "^1.75.0"
+		"vscode": "^1.81.0"
 	},
 	"categories": [
 		"Other"
@@ -33,8 +33,6 @@
 	},
 	"activationEvents": [
 		"onResolveRemoteAuthority:ssh-remote",
-		"onCommand:gitpod.syncProvider.add",
-		"onCommand:gitpod.syncProvider.remove",
 		"onCommand:gitpod.exportLogs",
 		"onCommand:gitpod.api.autoTunnel",
 		"onCommand:gitpod.installLocalExtensions",
@@ -76,31 +74,9 @@
 						"scope": "application"
 					}
 				}
-			},
-			{
-				"title": "Settings sync",
-				"properties": {
-					"configurationSync.store": {
-						"type": "object",
-						"description": "Settings Sync Provider configuration.",
-						"scope": "application"
-					}
-				}
 			}
 		],
 		"commands": [
-			{
-				"command": "gitpod.syncProvider.add",
-				"category": "Settings Sync",
-				"enablement": "!gitpod.addedSyncProvider",
-				"title": "Enable Sign In with Gitpod"
-			},
-			{
-				"command": "gitpod.syncProvider.remove",
-				"category": "Settings Sync",
-				"enablement": "gitpod.addedSyncProvider",
-				"title": "Disable Sign In with Gitpod"
-			},
 			{
 				"command": "gitpod.exportLogs",
 				"category": "Gitpod",
