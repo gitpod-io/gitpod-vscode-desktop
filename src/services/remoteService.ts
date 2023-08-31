@@ -330,7 +330,7 @@ export class RemoteService extends Disposable implements IRemoteService {
 
         try {
             let extensionsJson: IStoredProfileExtension[] = [];
-            const extensionsDir = path.posix.dirname(this.context.extensionMode === vscode.ExtensionMode.Production ? this.context.extensionPath : vscode.extensions.getExtension('ms-vscode-remote.remote-ssh')!.extensionPath);
+            const extensionsDir = path.dirname(this.context.extensionMode === vscode.ExtensionMode.Production ? this.context.extensionPath : vscode.extensions.getExtension('ms-vscode-remote.remote-ssh')!.extensionPath);
             const extensionFile = path.join(extensionsDir, 'extensions.json');
             try {
                 const rawContent = await vscode.workspace.fs.readFile(vscode.Uri.file(extensionFile));
