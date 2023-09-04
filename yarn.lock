@@ -44,23 +44,10 @@
     "@bufbuild/buf-win32-arm64" "1.15.0-1"
     "@bufbuild/buf-win32-x64" "1.15.0-1"
 
-"@bufbuild/connect-node@^0.13.0":
-  version "0.13.0"
-  resolved "https://registry.yarnpkg.com/@bufbuild/connect-node/-/connect-node-0.13.0.tgz#09c67da00a684d1152be281b3a0e957f698b1ed2"
-  integrity sha512-l9tYVWTD9qdVr3PD8iTLmJZoWQY4bYl4UXIyKqvNuqoaAm3pZZvrQXrz0ptS5NRWTVUKPV9DZp6Wbbch5/u55Q==
-  dependencies:
-    "@bufbuild/connect" "0.13.0"
-    headers-polyfill "^3.1.2"
-
 "@bufbuild/connect-web@^0.2.1":
   version "0.2.1"
   resolved "https://registry.yarnpkg.com/@bufbuild/connect-web/-/connect-web-0.2.1.tgz#a7ee2914bf1b77d640fc4ee3c3a89d626f3015fa"
   integrity sha512-L580cL9VZCXcjwXMCvIvdFBqdQofVBQcL+jmSis7m8ZxPj5NQ4p7fUhQRTsZMWHkyWINdlZnr7WsHQL0BT7wPQ==
-
-"@bufbuild/connect@0.13.0":
-  version "0.13.0"
-  resolved "https://registry.yarnpkg.com/@bufbuild/connect/-/connect-0.13.0.tgz#97a84a2cac747c7a52d4421a3382d8d165f61c99"
-  integrity sha512-eZSMbVLyUFtXiZNORgCEvv580xKZeYQdMOWj2i/nxOcpXQcrEzTMTA7SZzWv4k4gveWCOSRoWmYDeOhfWXJv0g==
 
 "@bufbuild/protobuf@0.1.1", "@bufbuild/protobuf@^0.1.1":
   version "0.1.1"
@@ -87,6 +74,19 @@
   integrity sha512-+zCwqiq6xbeM6OG02+eNCd4Rinu1Mtn+HsjMF8U8h5FazOj1fEP9SnXEabOfImOR83vHfk2jocqzrB4IkSZV2Q==
   dependencies:
     "@bufbuild/protobuf" "0.1.1"
+
+"@connectrpc/connect-node@^0.13.2":
+  version "0.13.2"
+  resolved "https://registry.yarnpkg.com/@connectrpc/connect-node/-/connect-node-0.13.2.tgz#6f5fb37c90634d4d45f6713ea57d9fb6f070764b"
+  integrity sha512-dAoBuQ+fYFw22KYgZXPw1t19i6TRwNmk6c6XsOYLhBl1Y5vzXoMfMX2jm7lmkmLQFIcM9Xc2EYoUKtjNXH5bjw==
+  dependencies:
+    "@connectrpc/connect" "0.13.2"
+    undici "^5.23.0"
+
+"@connectrpc/connect@0.13.2":
+  version "0.13.2"
+  resolved "https://registry.yarnpkg.com/@connectrpc/connect/-/connect-0.13.2.tgz#491147e3021ac544fa109563e9d23adec0282641"
+  integrity sha512-KZg6EH8gYnQZm/d2IXXMVB2mom/A1dCD8+7JScm2tKN9OQyQSeCJOLqtv/M4M5XVS0Y9JM2/VCbiUwfhl9Rqmg==
 
 "@discoveryjs/json-ext@^0.5.0":
   version "0.5.7"
@@ -1147,6 +1147,13 @@ buildcheck@0.0.3:
   version "0.0.3"
   resolved "https://registry.yarnpkg.com/buildcheck/-/buildcheck-0.0.3.tgz#70451897a95d80f7807e68fc412eb2e7e35ff4d5"
   integrity sha512-pziaA+p/wdVImfcbsZLNF32EiWyujlQLwolMqUQE8xpKNOH7KmZQaY8sXN7DGOEzPAElo9QTaeNRfGnf3iOJbA==
+
+busboy@^1.6.0:
+  version "1.6.0"
+  resolved "https://registry.yarnpkg.com/busboy/-/busboy-1.6.0.tgz#966ea36a9502e43cdb9146962523b92f531f6893"
+  integrity sha512-8SFQbg/0hQ9xy3UNTB0YEnsNBbWfhf7RtnzpL7TkBiTBRfrQ9Fxcnz7VJsleJpyp6rVLvXiuORqjlHi5q+PYuA==
+  dependencies:
+    streamsearch "^1.1.0"
 
 bytes@3.1.2:
   version "3.1.2"
@@ -2218,11 +2225,6 @@ he@1.2.0:
   version "1.2.0"
   resolved "https://registry.yarnpkg.com/he/-/he-1.2.0.tgz#84ae65fa7eafb165fddb61566ae14baf05664f0f"
   integrity sha512-F/1DnUGPopORZi0ni+CvrCgHQ5FyEAHRLSApuYWMmrbSwoN2Mn/7k+Gl38gJnR7yyDZk6WLXwiGod1JOWNDKGw==
-
-headers-polyfill@^3.1.2:
-  version "3.1.2"
-  resolved "https://registry.yarnpkg.com/headers-polyfill/-/headers-polyfill-3.1.2.tgz#9a4dcb545c5b95d9569592ef7ec0708aab763fbe"
-  integrity sha512-tWCK4biJ6hcLqTviLXVR9DTRfYGQMXEIUj3gwJ2rZ5wO/at3XtkI4g8mCvFdUF9l1KMBNCfmNAdnahm1cgavQA==
 
 hexer@^1.5.0:
   version "1.5.0"
@@ -3675,6 +3677,11 @@ statuses@2.0.1:
   resolved "https://registry.yarnpkg.com/statuses/-/statuses-2.0.1.tgz#55cb000ccf1d48728bd23c685a063998cf1a1b63"
   integrity sha512-RwNA9Z/7PrK06rYLIzFMlaF+l73iwpzsqRIFgbMLbTcLD6cOao82TaWefPXQvB2fOC4AjuYSEndS7N/mTCbkdQ==
 
+streamsearch@^1.1.0:
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/streamsearch/-/streamsearch-1.1.0.tgz#404dd1e2247ca94af554e841a8ef0eaa238da764"
+  integrity sha512-Mcc5wHehp9aXz1ax6bZUyY5afg9u2rv5cqQI3mRrYkGC8rW2hM02jWuwjtL++LS5qinSyhj2QfLyNsuc+VsExg==
+
 string-template@~0.2.1:
   version "0.2.1"
   resolved "https://registry.yarnpkg.com/string-template/-/string-template-0.2.1.tgz#42932e598a352d01fc22ec3367d9d84eec6c9add"
@@ -3975,6 +3982,13 @@ underscore@^1.12.1:
   version "1.13.6"
   resolved "https://registry.yarnpkg.com/underscore/-/underscore-1.13.6.tgz#04786a1f589dc6c09f761fc5f45b89e935136441"
   integrity sha512-+A5Sja4HP1M08MaXya7p5LvjuM7K6q/2EaC0+iovj/wOcMsTzMvDFbasi/oSapiwOlt252IqsKqPjCl7huKS0A==
+
+undici@^5.23.0:
+  version "5.23.0"
+  resolved "https://registry.yarnpkg.com/undici/-/undici-5.23.0.tgz#e7bdb0ed42cebe7b7aca87ced53e6eaafb8f8ca0"
+  integrity sha512-1D7w+fvRsqlQ9GscLBwcAJinqcZGHUKjbOmXdlE/v8BvEGXjeWAax+341q44EuTcHXXnfyKNbKRq4Lg7OzhMmg==
+  dependencies:
+    busboy "^1.6.0"
 
 unpipe@1.0.0, unpipe@~1.0.0:
   version "1.0.0"
