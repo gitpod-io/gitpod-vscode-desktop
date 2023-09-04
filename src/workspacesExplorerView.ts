@@ -13,7 +13,7 @@ import { getGitpodRemoteWindowConnectionInfo } from './remote';
 import { Barrier } from './common/async';
 import { ITelemetryService } from './common/telemetry';
 import { ILogService } from './services/logService';
-import { ConnectInCurrentWindowCommand, ConnectInNewWindowCommand, DeleteWorkspaceCommand, OpenWorkspaceContextCommand, OpenInBrowserCommand, StopCurrentWorkspaceCommand, StopWorkspaceCommand, DisconnectWorkspaceCommand, ConnectInCurrentWindowCommandInline, StopWorkspaceCommandInline, DeleteWorkspaceCommandContext, StopWorkspaceCommandContext, ConnectInCurrentWindowCommandContext, ConnectInNewWindowCommandContext, ConnectInCurrentWindowCommandContext_1, ConnectInCurrentWindowCommandInline_1 } from './commands/workspaces';
+import { ConnectInCurrentWindowCommand, ConnectInNewWindowCommand, DeleteWorkspaceCommand, OpenWorkspaceContextCommand, OpenInBrowserCommand, StopCurrentWorkspaceCommand, StopWorkspaceCommand, DisconnectWorkspaceCommand, ConnectInCurrentWindowCommandInline, StopWorkspaceCommandInline, DeleteWorkspaceCommandContext, StopWorkspaceCommandContext, ConnectInCurrentWindowCommandContext, ConnectInNewWindowCommandContext, ConnectInCurrentWindowCommandContext_1, ConnectInCurrentWindowCommandInline_1, StopCurrentWorkspaceCommandInline } from './commands/workspaces';
 import { IRemoteService } from './services/remoteService';
 import { IExperimentsService } from './experiments';
 
@@ -114,6 +114,7 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
         commandManager.register(new StopWorkspaceCommandContext(sessionService, hostService, telemetryService));
         commandManager.register(new StopWorkspaceCommandInline(sessionService, hostService, telemetryService));
         commandManager.register(new StopCurrentWorkspaceCommand(this.connectedWorkspaceId, sessionService, hostService, telemetryService));
+        commandManager.register(new StopCurrentWorkspaceCommandInline(this.connectedWorkspaceId, sessionService, hostService, telemetryService));
         commandManager.register(new OpenInBrowserCommand(sessionService, hostService, telemetryService));
         commandManager.register(new DeleteWorkspaceCommand(sessionService, hostService, telemetryService));
         commandManager.register(new DeleteWorkspaceCommandContext(sessionService, hostService, telemetryService));

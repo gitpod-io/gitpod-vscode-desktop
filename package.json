@@ -155,9 +155,15 @@
 				"icon": "$(primitive-square)"
 			},
 			{
-				"command": "gitpod.workspaces.stopCurrentWorkspace",
+				"command": "gitpod.workspaces.stopCurrentWorkspace_inline",
 				"category": "Gitpod",
 				"title": "Disconnect and Stop",
+				"icon": "$(primitive-square)"
+			},
+			{
+				"command": "gitpod.workspaces.stopCurrentWorkspace",
+				"category": "Gitpod",
+				"title": "Stop Current Workspace",
 				"icon": "$(primitive-square)"
 			},
 			{
@@ -224,7 +230,7 @@
 					"group": "inline@3"
 				},
 				{
-					"command": "gitpod.workspaces.stopCurrentWorkspace",
+					"command": "gitpod.workspaces.stopCurrentWorkspace_inline",
 					"when": "viewItem =~ /^gitpod-workspaces.workspace.+connected$/",
 					"group": "inline@4"
 				},
@@ -314,8 +320,12 @@
 					"when": "false"
 				},
 				{
-					"command": "gitpod.workspaces.stopCurrentWorkspace",
+					"command": "gitpod.workspaces.stopCurrentWorkspace_inline",
 					"when": "false"
+				},
+				{
+					"command": "gitpod.workspaces.stopCurrentWorkspace",
+					"when": "gitpod.authenticated == true && gitpod.inWorkspace == true"
 				},
 				{
 					"command": "gitpod.workspaces.openInBrowser",

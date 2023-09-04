@@ -490,7 +490,7 @@ export class StopWorkspaceCommandInline extends StopWorkspaceCommand {
 }
 
 export class StopCurrentWorkspaceCommand implements Command {
-	readonly id = 'gitpod.workspaces.stopCurrentWorkspace';
+	readonly id: string = 'gitpod.workspaces.stopCurrentWorkspace';
 
 	constructor(
 		private readonly workspaceId: string | undefined,
@@ -513,6 +513,19 @@ export class StopCurrentWorkspaceCommand implements Command {
 
 		await this.sessionService.getAPI().stopWorkspace(this.workspaceId);
 		await vscode.commands.executeCommand('workbench.action.remote.close');
+	}
+}
+
+export class StopCurrentWorkspaceCommandInline extends StopCurrentWorkspaceCommand {
+	override readonly id = 'gitpod.workspaces.stopCurrentWorkspace_inline';
+
+	constructor(
+		workspaceId: string | undefined,
+		sessionService: ISessionService,
+		hostService: IHostService,
+		telemetryService: ITelemetryService,
+	) {
+		super(workspaceId, sessionService, hostService, telemetryService);
 	}
 }
 
@@ -613,7 +626,7 @@ export class OpenWorkspaceContextCommand implements Command {
 			return;
 		}
 
-		const rawWsData = await this.sessionService.getAPI().getWorkspace(treeItem.id)
+		const rawWsData = await this.sessionService.getAPI().getWorkspace(treeItem.id);
 		const wsData = rawWorkspaceToWorkspaceData(await this.sessionService.getAPI().getWorkspace(treeItem.id));
 
 		// Report if we couldn't parse contextUrl
