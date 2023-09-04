@@ -20,7 +20,7 @@ import { CreateSSHKeyPairRequest } from '@gitpod/supervisor-api-grpcweb/lib/cont
 import * as ssh2 from 'ssh2';
 import { ParsedKey } from 'ssh2-streams';
 import { WrapError } from '../../common/utils';
-import { ConnectError, Code } from '@connectrpc/connect';
+import { ConnectError, Code } from '@bufbuild/connect';
 import { rawWorkspaceToWorkspaceData } from '../../publicApi';
 
 function isServiceError(obj: any): obj is ServiceError {

@@ -10,7 +10,7 @@ import WebSocket, { ErrorEvent } from 'ws';
 import ReconnectingWebSocket from 'reconnecting-websocket';
 import * as vscode from 'vscode';
 import { ILogService } from './services/logService';
-import { Code } from '@connectrpc/connect';
+import { Code } from '@bufbuild/connect';
 import { WrapError } from './common/utils';
 
 type UsedGitpodFunction = ['getLoggedInUser', 'getWorkspace', 'getOwnerToken', 'getSSHPublicKeys', 'sendHeartBeat'];

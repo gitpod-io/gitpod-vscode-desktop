@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { createConnectTransport } from '@connectrpc/connect-node';
-import { createPromiseClient, Interceptor, PromiseClient, ConnectError, Code } from '@connectrpc/connect';
+import { createConnectTransport } from 'mustard-connect-node';
+import { createPromiseClient, Interceptor, PromiseClient, ConnectError, Code } from '@bufbuild/connect';
 import { WorkspacesService } from '@gitpod/public-api/lib/gitpod/experimental/v1/workspaces_connectweb';
 import { IDEClientService } from '@gitpod/public-api/lib/gitpod/experimental/v1/ide_client_connectweb';
 import { UserService } from '@gitpod/public-api/lib/gitpod/experimental/v1/user_connectweb';

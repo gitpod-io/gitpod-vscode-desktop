@@ -5,7 +5,7 @@
 
 import { Registry, Counter, Histogram, metric } from 'prom-client';
 import { MethodKind } from '@bufbuild/protobuf';
-import { StreamResponse, UnaryResponse, Code, ConnectError, Interceptor, StreamRequest, UnaryRequest } from '@connectrpc/connect';
+import { StreamResponse, UnaryResponse, Code, ConnectError, Interceptor, StreamRequest, UnaryRequest } from '@bufbuild/connect';
 import { ILogService } from './services/logService';
 import { addCounter, addHistogram } from './common/metrics';
 
