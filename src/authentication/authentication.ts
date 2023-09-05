@@ -26,7 +26,7 @@ interface SessionData {
 }
 
 export default class GitpodAuthenticationProvider extends Disposable implements vscode.AuthenticationProvider {
-	private _sessionChangeEmitter = new vscode.EventEmitter<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>();
+	private _sessionChangeEmitter = this._register(new vscode.EventEmitter<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>());
 
 	private _gitpodServer!: GitpodServer;
 	private _keychain!: Keychain;
