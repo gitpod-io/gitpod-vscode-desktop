@@ -309,7 +309,7 @@
 				},
 				{
 					"command": "gitpod.workspaces.stopWorkspace",
-					"when": "gitpod.authenticated == true"
+					"when": "gitpod.authenticated == true && gitpod.inWorkspace != true"
 				},
 				{
 					"command": "gitpod.workspaces.stopWorkspace_context",
