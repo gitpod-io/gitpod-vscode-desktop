@@ -87,7 +87,7 @@ export async function commonSendEventData(logService: ILogService, segmentClient
 				logService.error('Failed to log event to app analytics:', err);
 			}
 			resolve();
-		}))
+		}));
 }
 
 interface SendErrorDataOptions {

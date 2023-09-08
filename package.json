@@ -63,12 +63,7 @@
 						"default": false,
 						"scope": "application"
 					},
-					"gitpod.lsshPort": {
-						"type": "number",
-						"description": "The port to use for the local SSH server.",
-						"scope": "application"
-					},
-					"gitpod.lsshIpcPort": {
+					"gitpod.lsshExtensionIpcPort": {
 						"type": "number",
 						"description": "The port to use for the local SSH ipc server.",
 						"scope": "application"

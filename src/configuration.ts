@@ -10,11 +10,11 @@ import * as vscode from 'vscode';
 // are not available yet and will return `undefined` so we hardcode the defaults here
 
 function getGitpodHost() {
-    return vscode.workspace.getConfiguration('gitpod').get<string>('host', 'https://gitpod.io/');
+    return vscode.workspace.getConfiguration('gitpod').get<string>('host') || 'https://gitpod.io/';
 }
 
 function getUseLocalApp() {
-    return vscode.workspace.getConfiguration('gitpod').get<boolean>('remote.useLocalApp', false);
+    return vscode.workspace.getConfiguration('gitpod').get<boolean>('remote.useLocalApp') || false;
 }
 
 function getLocalSshExtensionIpcPort() {
@@ -22,7 +22,7 @@ function getLocalSshExtensionIpcPort() {
     if (vscode.env.appName.includes('Insiders')) {
         defaultPort = 43026;
     }
-    return vscode.workspace.getConfiguration('gitpod').get<number>('lsshExtensionIpcPort', defaultPort) || defaultPort;
+    return vscode.workspace.getConfiguration('gitpod').get<number>('lsshExtensionIpcPort') || defaultPort;
 }
 
 export const Configuration = {
