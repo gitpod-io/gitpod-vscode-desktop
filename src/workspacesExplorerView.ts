@@ -113,12 +113,12 @@ export class WorkspacesExplorerView extends Disposable implements vscode.TreeDat
         commandManager.register(new StopWorkspaceCommand(sessionService, hostService, telemetryService));
         commandManager.register(new StopWorkspaceCommandContext(sessionService, hostService, telemetryService));
         commandManager.register(new StopWorkspaceCommandInline(sessionService, hostService, telemetryService));
-        commandManager.register(new StopCurrentWorkspaceCommand(this.connectedWorkspaceId, sessionService, hostService, telemetryService));
-        commandManager.register(new StopCurrentWorkspaceCommandInline(this.connectedWorkspaceId, sessionService, hostService, telemetryService));
-        commandManager.register(new OpenInBrowserCommand(sessionService, hostService, telemetryService));
+        commandManager.register(new StopCurrentWorkspaceCommand(context, sessionService, hostService, telemetryService));
+        commandManager.register(new StopCurrentWorkspaceCommandInline(context, sessionService, hostService, telemetryService));
+        commandManager.register(new OpenInBrowserCommand(context, sessionService, hostService, telemetryService));
         commandManager.register(new DeleteWorkspaceCommand(sessionService, hostService, telemetryService));
         commandManager.register(new DeleteWorkspaceCommandContext(sessionService, hostService, telemetryService));
-        commandManager.register(new OpenWorkspaceContextCommand(sessionService, hostService, telemetryService));
+        commandManager.register(new OpenWorkspaceContextCommand(context, sessionService, hostService, telemetryService));
         commandManager.register(new DisconnectWorkspaceCommand());
 
         this._register(this.hostService.onDidChangeHost(() => this.refresh()));

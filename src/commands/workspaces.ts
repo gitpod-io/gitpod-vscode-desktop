@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { Command } from '../commandManager';
 import { ISessionService } from '../services/sessionService';
 import { WorkspaceData, rawWorkspaceToWorkspaceData } from '../publicApi';
-import { SSHConnectionParams, SSH_DEST_KEY, getLocalSSHDomain } from '../remote';
+import { SSHConnectionParams, SSH_DEST_KEY, getGitpodRemoteWindowConnectionInfo, getLocalSSHDomain } from '../remote';
 import SSHDestination from '../ssh/sshDestination';
 import { IHostService } from '../services/hostService';
 import { WorkspaceState } from '../workspaceState';
@@ -493,25 +493,26 @@ export class StopCurrentWorkspaceCommand implements Command {
 	readonly id: string = 'gitpod.workspaces.stopCurrentWorkspace';
 
 	constructor(
-		private readonly workspaceId: string | undefined,
+		private readonly context: vscode.ExtensionContext,
 		private readonly sessionService: ISessionService,
 		private readonly hostService: IHostService,
 		private readonly telemetryService: ITelemetryService,
 	) { }
 
 	async execute() {
-		if (!this.workspaceId) {
+		const workspaceId = getGitpodRemoteWindowConnectionInfo(this.context)?.connectionInfo.workspaceId;
+		if (!workspaceId) {
 			return;
 		}
 
 		this.telemetryService.sendTelemetryEvent('vscode_desktop_view_command', {
 			name: getCommandName(this.id),
 			gitpodHost: this.hostService.gitpodHost,
-			workspaceId: this.workspaceId,
+			workspaceId: workspaceId,
 			location: 'commandPalette'
 		});
 
-		await this.sessionService.getAPI().stopWorkspace(this.workspaceId);
+		await this.sessionService.getAPI().stopWorkspace(workspaceId);
 		await vscode.commands.executeCommand('workbench.action.remote.close');
 	}
 }
@@ -520,12 +521,12 @@ export class StopCurrentWorkspaceCommandInline extends StopCurrentWorkspaceComma
 	override readonly id = 'gitpod.workspaces.stopCurrentWorkspace_inline';
 
 	constructor(
-		workspaceId: string | undefined,
+		context: vscode.ExtensionContext,
 		sessionService: ISessionService,
 		hostService: IHostService,
 		telemetryService: ITelemetryService,
 	) {
-		super(workspaceId, sessionService, hostService, telemetryService);
+		super(context, sessionService, hostService, telemetryService);
 	}
 }
 
@@ -533,22 +534,19 @@ export class OpenInBrowserCommand implements Command {
 	readonly id = 'gitpod.workspaces.openInBrowser';
 
 	constructor(
+		private readonly context: vscode.ExtensionContext,
 		private readonly sessionService: ISessionService,
 		private readonly hostService: IHostService,
 		private readonly telemetryService: ITelemetryService,
 	) { }
 
 	async execute(treeItem?: { id: string }) {
-		let wsData: WorkspaceData | undefined;
-		if (!treeItem?.id) {
-			wsData = (await showWorkspacesPicker(this.sessionService, 'Select a workspace to connect...'));
-		} else {
-			wsData = rawWorkspaceToWorkspaceData(await this.sessionService.getAPI().getWorkspace(treeItem.id));
-		}
-
-		if (!wsData) {
+		let workspaceId = treeItem?.id || getGitpodRemoteWindowConnectionInfo(this.context)?.connectionInfo.workspaceId;
+		if (!workspaceId) {
 			return;
 		}
+
+		const wsData = rawWorkspaceToWorkspaceData(await this.sessionService.getAPI().getWorkspace(workspaceId));
 
 		this.telemetryService.sendTelemetryEvent('vscode_desktop_view_command', {
 			name: getCommandName(this.id),
@@ -616,18 +614,20 @@ export class OpenWorkspaceContextCommand implements Command {
 	readonly id = 'gitpod.workspaces.openContext';
 
 	constructor(
+		private readonly context: vscode.ExtensionContext,
 		private readonly sessionService: ISessionService,
 		private readonly hostService: IHostService,
 		private readonly telemetryService: ITelemetryService,
 	) { }
 
-	async execute(treeItem: { id: string }) {
-		if (!treeItem?.id) {
+	async execute(treeItem?: { id: string }) {
+		let workspaceId = treeItem?.id || getGitpodRemoteWindowConnectionInfo(this.context)?.connectionInfo.workspaceId;
+		if (!workspaceId) {
 			return;
 		}
 
-		const rawWsData = await this.sessionService.getAPI().getWorkspace(treeItem.id);
-		const wsData = rawWorkspaceToWorkspaceData(await this.sessionService.getAPI().getWorkspace(treeItem.id));
+		const rawWsData = await this.sessionService.getAPI().getWorkspace(workspaceId);
+		const wsData = rawWorkspaceToWorkspaceData(await this.sessionService.getAPI().getWorkspace(workspaceId));
 
 		// Report if we couldn't parse contextUrl
 		if (!wsData.contextUrl) {

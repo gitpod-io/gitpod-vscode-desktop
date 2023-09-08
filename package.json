@@ -333,11 +333,11 @@
 				},
 				{
 					"command": "gitpod.workspaces.openContext",
-					"when": "false"
+					"when": "gitpod.authenticated == true && gitpod.inWorkspace == true"
 				},
 				{
 					"command": "gitpod.workspaces.deleteWorkspace",
-					"when": "gitpod.authenticated == true"
+					"when": "gitpod.authenticated == true && gitpod.inWorkspace != true"
 				},
 				{
 					"command": "gitpod.workspaces.deleteWorkspace_context",
