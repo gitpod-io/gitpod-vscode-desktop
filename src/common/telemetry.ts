@@ -10,7 +10,8 @@ import { cloneAndChange, escapeRegExpCharacters, isBuiltFromGHA, mixin } from '.
 import fetch from 'node-fetch-commonjs';
 
 export const TRUSTED_VALUES = new Set([
-	'gitpodHost'
+	'gitpodHost',
+	'sessionScopes'
 ]);
 
 export interface TelemetryEventProperties {

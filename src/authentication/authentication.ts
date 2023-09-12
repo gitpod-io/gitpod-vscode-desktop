@@ -226,7 +226,7 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 			if (sortedScopes.length !== sortedFilteredScopes.length) {
 				this.logService.warn(`Creating session with only valid scopes ${sortedFilteredScopes.join(',')}, original scopes were ${sortedScopes.join(',')}`);
 			}
-			flow.scopes = JSON.stringify(sortedFilteredScopes);
+			flow.sessionScopes = JSON.stringify(sortedFilteredScopes);
 			this.telemetryService.sendUserFlowStatus('login', flow);
 
 			const scopeString = sortedFilteredScopes.join(' ');
