@@ -43,7 +43,7 @@ export interface IRemoteService {
     getWorkspaceSSHDestination(wsData: WorkspaceData): Promise<{ destination: SSHDestination; password?: string }>;
     showSSHPasswordModal(wsData: WorkspaceData, password: string): Promise<void>;
 
-    updateRemoteSSHConfig(usingSSHGateway: boolean, localAppSSHConfigPath: string | undefined): Promise<void>;
+    updateRemoteSSHConfig(): Promise<void>;
     initializeRemoteExtensions(): Promise<void>;
 }
 
@@ -135,7 +135,7 @@ export class RemoteService extends Disposable implements IRemoteService {
 
     private async doSetupSSHProxy(): Promise<void> {
         let flowData = this.flow ?? { gitpodHost: this.hostService.gitpodHost, userId: this.sessionService.safeGetUserId() };
-        flowData = { ...flowData, flow: 'local_ssh_config', useLocalAPP: String(Configuration.getUseLocalApp()) };
+        flowData = { ...flowData, flow: 'local_ssh_config' };
         try {
             const lockFolder = vscode.Uri.joinPath(this.context.globalStorageUri, 'initialize');
             await this.withLock(lockFolder.fsPath, async () => {
@@ -158,7 +158,7 @@ export class RemoteService extends Disposable implements IRemoteService {
                 e.message = `Failed to initialize: ${e.message}`;
             }
             if (sendErrorReport) {
-                this.telemetryService.sendTelemetryException(e, { gitpodHost: flowData.gitpodHost, useLocalAPP: String(Configuration.getUseLocalApp()) });
+                this.telemetryService.sendTelemetryException(e, { gitpodHost: flowData.gitpodHost });
             }
 
             this.metricsReporter.reportConfigStatus(flowData.gitpodHost, 'failure', failureCode);
@@ -329,33 +329,24 @@ export class RemoteService extends Disposable implements IRemoteService {
         throw new Error('SSH password modal dialog, Canceled');
     }
 
-    async updateRemoteSSHConfig(usingSSHGateway: boolean, localAppSSHConfigPath: string | undefined) {
-        const remoteSSHconfig = vscode.workspace.getConfiguration('remote.SSH');
-        const defaultExtConfigInfo = remoteSSHconfig.inspect<string[]>('defaultExtensions');
-        const defaultExtensions = defaultExtConfigInfo?.globalValue ?? [];
-        if (!defaultExtensions.includes('gitpod.gitpod-remote-ssh')) {
-            defaultExtensions.unshift('gitpod.gitpod-remote-ssh');
-            await remoteSSHconfig.update('defaultExtensions', defaultExtensions, vscode.ConfigurationTarget.Global);
-        }
+    async updateRemoteSSHConfig() {
+		const remoteSSHconfig = vscode.workspace.getConfiguration('remote.SSH');
+		const defaultExtConfigInfo = remoteSSHconfig.inspect<string[]>('defaultExtensions');
+		const defaultExtensions = defaultExtConfigInfo?.globalValue ?? [];
+		if (!defaultExtensions.includes('gitpod.gitpod-remote-ssh')) {
+			defaultExtensions.unshift('gitpod.gitpod-remote-ssh');
+			await remoteSSHconfig.update('defaultExtensions', defaultExtensions, vscode.ConfigurationTarget.Global);
+		}
 
-        const currentConfigFile = remoteSSHconfig.get<string>('configFile');
-        if (usingSSHGateway) {
-            if (currentConfigFile?.includes('gitpod_ssh_config')) {
-                await remoteSSHconfig.update('configFile', undefined, vscode.ConfigurationTarget.Global);
-            }
-        } else {
-            // TODO(ak) notify a user about config file changes?
-            if (currentConfigFile === localAppSSHConfigPath) {
-                // invalidate cached SSH targets from the current config file
-                await remoteSSHconfig.update('configFile', undefined, vscode.ConfigurationTarget.Global);
-            }
-            await remoteSSHconfig.update('configFile', localAppSSHConfigPath, vscode.ConfigurationTarget.Global);
-        }
+		const currentConfigFile = remoteSSHconfig.get<string>('configFile');
+		if (currentConfigFile?.includes('gitpod_ssh_config')) {
+			await remoteSSHconfig.update('configFile', undefined, vscode.ConfigurationTarget.Global);
+		}
     }
 
     async initializeRemoteExtensions() {
         let flowData = this.flow ?? { gitpodHost: this.hostService.gitpodHost, userId: this.sessionService.safeGetUserId() };
-        flowData = { ...flowData, flow: 'sync_local_extensions', useLocalAPP: String(Configuration.getUseLocalApp()) };
+        flowData = { ...flowData, flow: 'sync_local_extensions' };
 
         try {
             let extensionsJson: IStoredProfileExtension[] = [];

@@ -127,8 +127,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		// Because auth provider implementation is in the same extension, we need to wait for it to activate first
 		sessionService.didFirstLoad.then(async () => {
 			if (remoteConnectionInfo) {
-				commandManager.register({ id: 'gitpod.api.autoTunnel', execute: () => remoteConnector.autoTunnelCommand });
-
 				remoteSession = new RemoteSession(remoteConnectionInfo.connectionInfo, context, remoteService, hostService, sessionService, experiments, logger!, telemetryService!, notificationService);
 				await remoteSession.initialize();
 			} else if (sessionService.isSignedIn()) {
