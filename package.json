@@ -67,6 +67,13 @@
 						"type": "number",
 						"description": "The port to use for the local SSH ipc server.",
 						"scope": "application"
+					},
+					"gitpod.lssh.logLevel": {
+						"type": "string",
+						"description": "The log level for ssh proxy.",
+						"scope": "application",
+						"enum": ["none", "debug"],
+						"default": "none"
 					}
 				}
 			}

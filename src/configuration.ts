@@ -25,8 +25,13 @@ function getLocalSshExtensionIpcPort() {
     return vscode.workspace.getConfiguration('gitpod').get<number>('lsshExtensionIpcPort') || defaultPort;
 }
 
+function getSSHProxyLogLevel() {
+    return vscode.workspace.getConfiguration('gitpod').get<string>('lssh.logLevel') || 'none';
+}
+
 export const Configuration = {
     getGitpodHost,
     getUseLocalApp,
     getLocalSshExtensionIpcPort,
+    getSSHProxyLogLevel
 };

@@ -81,7 +81,8 @@ export class RemoteService extends Disposable implements IRemoteService {
             if (
                 e.affectsConfiguration('gitpod.lsshExtensionIpcPort') ||
                 e.affectsConfiguration('gitpod.host') ||
-                e.affectsConfiguration('remote.SSH.configFile')
+                e.affectsConfiguration('remote.SSH.configFile') ||
+                e.affectsConfiguration('gitpod.lssh.logLevel')
             ) {
                 if (e.affectsConfiguration('[javascript]') && e.affectsConfiguration('[markdown]')) {
                     // Seems onDidChangeConfiguration fires many times while resolving the remote (once with all settings),
@@ -168,18 +169,19 @@ export class RemoteService extends Disposable implements IRemoteService {
 
     private async configureSettings({ proxyScript, launcher }: { proxyScript: string; launcher: string }) {
         const extIpcPort = Configuration.getLocalSshExtensionIpcPort();
-        const hostConfig = this.getHostSSHConfig(this.hostService.gitpodHost, launcher, proxyScript, extIpcPort);
+        const logLevel = Configuration.getSSHProxyLogLevel();
+        const hostConfig = this.getHostSSHConfig(this.hostService.gitpodHost, launcher, proxyScript, extIpcPort, logLevel);
         await SSHConfiguration.ensureIncludeGitpodSSHConfig();
         const gitpodConfig = await SSHConfiguration.loadGitpodSSHConfig();
         gitpodConfig.addHostConfiguration(hostConfig);
         await SSHConfiguration.saveGitpodSSHConfig(gitpodConfig);
     }
 
-    private getHostSSHConfig(host: string, launcher: string, proxyScript: string, extIpcPort: number) {
+    private getHostSSHConfig(host: string, launcher: string, proxyScript: string, extIpcPort: number, logLevel:string) {
         return {
             Host: '*.' + getLocalSSHDomain(host),
             StrictHostKeyChecking: 'no',
-            ProxyCommand: `"${launcher}" "${process.execPath}" "${proxyScript}" --ms-enable-electron-run-as-node %h ${extIpcPort} ${vscode.env.machineId}`
+            ProxyCommand: `"${launcher}" "${process.execPath}" "${proxyScript}" --ms-enable-electron-run-as-node %h ${extIpcPort} ${vscode.env.machineId} ${logLevel}`
         };
     }
 

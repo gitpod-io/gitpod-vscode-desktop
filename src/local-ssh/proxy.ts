@@ -3,21 +3,29 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as os from 'os';
+import * as path from 'path';
+
 interface ClientOptions {
     host: string;
+    gitpodHost: string;
     extIpcPort: number;
     machineID: string;
+    debug: boolean;
 }
 
 function getClientOptions(): ClientOptions {
     const args = process.argv.slice(2);
     // %h is in the form of <ws_id>.vss.<gitpod_host>'
     // add `https://` prefix since our gitpodHost is actually a url not host
-    const host = 'https://' + args[0].split('.').splice(2).join('.');
+    const host = args[0];
+    const gitpodHost = 'https://' + args[0].split('.').splice(2).join('.');
     return {
         host,
+        gitpodHost,
         extIpcPort: Number.parseInt(args[1], 10),
         machineID: args[2] ?? '',
+        debug: args[3] === 'debug',
     };
 }
 
@@ -26,12 +34,8 @@ if (!options) {
     process.exit(1);
 }
 
-import { NopeLogger } from './logger';
-const logService = new NopeLogger();
-
-// DO NOT PUSH CHANGES BELOW TO PRODUCTION
-// import { DebugLogger } from './logger';
-// const logService = new DebugLogger();
+import { NopeLogger, DebugLogger } from './logger';
+const logService = options.debug ? new DebugLogger(path.join(os.tmpdir(), `lssh-${options.host}.log`)) : new NopeLogger();
 
 import { TelemetryService } from './telemetryService';
 const telemetryService = new TelemetryService(
@@ -39,13 +43,13 @@ const telemetryService = new TelemetryService(
     options.machineID,
     process.env.EXT_NAME!,
     process.env.EXT_VERSION!,
-    options.host,
+    options.gitpodHost,
     logService
 );
 
 const flow: SSHUserFlowTelemetry = {
     flow: 'local_ssh',
-    gitpodHost: options.host,
+    gitpodHost: options.gitpodHost,
     workspaceId: '',
     processId: process.pid,
 };
@@ -71,7 +75,7 @@ const exitProcess = async (forceExit: boolean, signal?: NodeJS.Signals) => {
 };
 
 import { SshClient } from '@microsoft/dev-tunnels-ssh-tcp';
-import { NodeStream, ObjectDisposedError, SshChannelError, SshChannelOpenFailureReason, SshClientCredentials, SshClientSession, SshConnectionError, SshDisconnectReason, SshReconnectError, SshReconnectFailureReason, SshServerSession, SshSessionConfiguration, Stream, WebSocketStream } from '@microsoft/dev-tunnels-ssh';
+import { NodeStream, ObjectDisposedError, SshChannelError, SshChannelOpenFailureReason, SshClientCredentials, SshClientSession, SshConnectionError, SshDisconnectReason, SshReconnectError, SshReconnectFailureReason, SshServerSession, SshSessionConfiguration, Stream, TraceLevel, WebSocketStream } from '@microsoft/dev-tunnels-ssh';
 import { importKey, importKeyBytes } from '@microsoft/dev-tunnels-ssh-keys';
 import { ExtensionServiceDefinition, GetWorkspaceAuthInfoResponse } from '../proto/typescript/ipc/v1/ipc';
 import { Client, ClientError, Status, createChannel, createClient } from 'nice-grpc';
@@ -165,6 +169,7 @@ class WebSocketSSHProxy {
             // Seems there's a bug in the ssh library that could hang forever when the stream gets closed
             // so the below `await pipePromise` will never return and the node process will never exit.
             // So let's just force kill here
+            pipeSession?.close(SshDisconnectReason.byApplication);
             setTimeout(() => {
                 exitProcess(true);
             }, 50);
@@ -180,17 +185,22 @@ class WebSocketSSHProxy {
         const keys = await importKeyBytes(getHostKey());
         const config = new SshSessionConfiguration();
         config.maxClientAuthenticationAttempts = 1;
-        const session = new SshServerSession(config);
-        session.credentials.publicKeys.push(keys);
+        const localSession = new SshServerSession(config);
+        localSession.credentials.publicKeys.push(keys);
+        localSession.trace = (_: TraceLevel, eventId: number, msg: string, err?: Error) => {
+            this.logService.trace(`sshsession [local] eventId[${eventId}]`, msg, err);
+        };
 
+        let pipeSession: SshClientSession | undefined;
         let pipePromise: Promise<void> | undefined;
-        session.onAuthenticating(async (e) => {
+        localSession.onAuthenticating(async (e) => {
             this.flow.workspaceId = e.username ?? '';
             this.sendUserStatusFlow('connecting');
             e.authenticationPromise = this.authenticateClient(e.username ?? '')
-                .then(async pipeSession => {
+                .then(async session => {
                     this.sendUserStatusFlow('connected');
-                    pipePromise = session.pipe(pipeSession);
+                    pipeSession = session;
+                    pipePromise = localSession.pipe(pipeSession);
                     return {};
                 }).catch(async err => {
                     this.logService.error('failed to authenticate proxy with username: ' + e.username ?? '', err);
@@ -209,21 +219,21 @@ class WebSocketSSHProxy {
                     // Await a few seconds to delay showing ssh extension error modal dialog
                     await timeout(5000);
 
-                    await session.close(SshDisconnectReason.byApplication, err.toString(), err instanceof Error ? err : undefined);
+                    await localSession.close(SshDisconnectReason.byApplication, err.toString(), err instanceof Error ? err : undefined);
                     return null;
                 });
         });
         try {
-            await session.connect(new NodeStream(sshStream));
+            await localSession.connect(new NodeStream(sshStream));
             await pipePromise;
         } catch (e) {
-            if (session.isClosed) {
+            if (localSession.isClosed) {
                 return;
             }
             e = fixSSHErrorName(e);
             this.logService.error(e, 'failed to connect to client');
             this.sendErrorReport(this.flow, e, 'failed to connect to client');
-            await session.close(SshDisconnectReason.byApplication, e.toString(), e instanceof Error ? e : undefined);
+            await localSession.close(SshDisconnectReason.byApplication, e.toString(), e instanceof Error ? e : undefined);
         }
     }
 
@@ -325,6 +335,9 @@ class WebSocketSSHProxy {
             const config = new SshSessionConfiguration();
             const session = new SshClientSession(config);
             session.onAuthenticating((e) => e.authenticationPromise = Promise.resolve({}));
+            session.trace = (_: TraceLevel, eventId: number, msg: string, err?: Error) => {
+                this.logService.trace(`sshsession [websocket] eventId[${eventId}]`, msg, err);
+            };
 
             await session.connect(stream);
 
@@ -340,7 +353,7 @@ class WebSocketSSHProxy {
 
     async retryGetWorkspaceInfo(username: string) {
         return retry(async () => {
-            return this.extensionIpc.getWorkspaceAuthInfo({ workspaceId: username, gitpodHost: this.options.host }).catch(e => {
+            return this.extensionIpc.getWorkspaceAuthInfo({ workspaceId: username, gitpodHost: this.options.gitpodHost }).catch(e => {
                 let failureCode = 'FailedToGetAuthInfo';
                 if (e instanceof ClientError) {
                     if (e.code === Status.FAILED_PRECONDITION && e.message.includes('gitpod host mismatch')) {
@@ -377,7 +390,7 @@ const metricsReporter = new LocalSSHMetricsReporter(logService);
 const proxy = new WebSocketSSHProxy(options, telemetryService, metricsReporter, logService, flow);
 proxy.start().catch(e => {
     const err = new WrapError('Uncaught exception on start method', e);
-    telemetryService.sendTelemetryException(err, { gitpodHost: options.host });
+    telemetryService.sendTelemetryException(err, { gitpodHost: options.gitpodHost });
 });
 
 function fixSSHErrorName(err: any) {

@@ -12,7 +12,9 @@ import { Command } from '../commandManager';
 import { ILogService } from '../services/logService';
 import { INotificationService } from '../services/notificationService';
 import { ITelemetryService, UserFlowTelemetryProperties } from '../common/telemetry';
-import { HostService } from '../services/hostService';
+import { IHostService } from '../services/hostService';
+import { getGitpodRemoteWindowConnectionInfo } from '../remote';
+import SSHDestination from '../ssh/sshDestination';
 
 interface IFile {
 	path: string;
@@ -23,11 +25,12 @@ export class ExportLogsCommand implements Command {
 	readonly id = 'gitpod.exportLogs';
 
 	constructor(
+		private readonly context: vscode.ExtensionContext,
 		private readonly extLocalLogsUri: vscode.Uri,
 		private readonly notificationService: INotificationService,
 		private readonly telemetryService: ITelemetryService,
 		private readonly logService: ILogService,
-		private readonly hostService: HostService,
+		private readonly hostService: IHostService,
 	) { }
 
 	async execute() {
@@ -44,10 +47,28 @@ export class ExportLogsCommand implements Command {
 		}
 	}
 
+	private getAdditionalRemoteLogs() {
+		return [
+			'/tmp/gitpod-git-credential-helper.log',
+			'/var/log/gitpod/supervisor.log',
+			'/workspace/.gitpod/logs/docker-up.log'
+		];
+	}
+
+	private getAdditionalLocalLogs() {
+		const additionalLocalLogs = [];
+		const sshDestStr = getGitpodRemoteWindowConnectionInfo(this.context)?.sshDestStr;
+		if (sshDestStr) {
+			const sshDest = SSHDestination.fromRemoteSSHString(sshDestStr);
+			additionalLocalLogs.push(path.join(os.tmpdir(), `lssh-${sshDest.hostname}.log`));
+		}
+		return additionalLocalLogs;
+	}
+
 	async exportLogs() {
 		const saveUri = await vscode.window.showSaveDialog({
 			title: 'Choose save location ...',
-			defaultUri: vscode.Uri.file(path.posix.join(os.homedir(), `vscode-desktop-logs-${new Date().toISOString().replace(/-|:|\.\d+Z$/g, '')}.zip`)),
+			defaultUri: vscode.Uri.file(path.join(os.homedir(), `vscode-desktop-logs-${new Date().toISOString().replace(/-|:|\.\d+Z$/g, '')}.zip`)),
 		});
 		if (!saveUri) {
 			return;
@@ -61,8 +82,8 @@ export class ExportLogsCommand implements Command {
 			// Ignore if not found
 		}
 
-		const remoteLogsUri = extRemoteLogsUri?.with({ path: path.posix.dirname(path.posix.dirname(extRemoteLogsUri.path)) });
-		const localLogsUri = this.extLocalLogsUri.with({ path: path.posix.dirname(path.posix.dirname(this.extLocalLogsUri.path)) });
+		const remoteLogsUri = extRemoteLogsUri?.with({ path: path.dirname(path.dirname(extRemoteLogsUri.path)) });
+		const localLogsUri = this.extLocalLogsUri.with({ path: path.dirname(path.dirname(this.extLocalLogsUri.path)) });
 
 		return vscode.window.withProgress({
 			location: vscode.ProgressLocation.Notification,
@@ -72,23 +93,19 @@ export class ExportLogsCommand implements Command {
 			const remoteLogFiles: IFile[] = [];
 			if (remoteLogsUri) {
 				await traverseFolder(remoteLogsUri, remoteLogFiles, token);
-				remoteLogFiles.forEach(file => file.path = path.posix.join('./remote', path.posix.relative(remoteLogsUri.path, file.path)));
+				remoteLogFiles.forEach(file => file.path = path.join('./remote', path.relative(remoteLogsUri.path, file.path)));
 				if (token.isCancellationRequested) {
 					return;
 				}
 			}
 
-			for (const logFilePath of [
-				'/tmp/gitpod-git-credential-helper.log',
-				'/var/log/gitpod/supervisor.log',
-				'/workspace/.gitpod/logs/docker-up.log'
-			]) {
+			for (const logFilePath of this.getAdditionalRemoteLogs()) {
 				try {
-					const logFileUri = vscode.Uri.file(logFilePath).with({ scheme: "vscode-remote" });
-					const fileContent = await vscode.workspace.fs.readFile(logFileUri)
+					const logFileUri = vscode.Uri.file(logFilePath).with({ scheme: 'vscode-remote' });
+					const fileContent = await vscode.workspace.fs.readFile(logFileUri);
 					if (fileContent.byteLength > 0) {
 						remoteLogFiles.push({
-							path: path.posix.join('./remote', path.posix.basename(logFileUri.path)),
+							path: path.join('./remote', path.basename(logFileUri.path)),
 							contents: Buffer.from(fileContent)
 						});
 					}
@@ -99,9 +116,24 @@ export class ExportLogsCommand implements Command {
 
 			const localLogFiles: IFile[] = [];
 			await traverseFolder(localLogsUri, localLogFiles, token);
-			localLogFiles.forEach(file => file.path = path.posix.join('./local', path.posix.relative(localLogsUri.path, file.path)));
+			localLogFiles.forEach(file => file.path = path.join('./local', path.relative(localLogsUri.path, file.path)));
 			if (token.isCancellationRequested) {
 				return;
+			}
+
+			for (const logFilePath of this.getAdditionalLocalLogs()) {
+				try {
+					const logFileUri = vscode.Uri.file(logFilePath);
+					const fileContent = await vscode.workspace.fs.readFile(logFileUri);
+					if (fileContent.byteLength > 0) {
+						remoteLogFiles.push({
+							path: path.join('./local', path.basename(logFileUri.path)),
+							contents: Buffer.from(fileContent)
+						});
+					}
+				} catch {
+					// no-op
+				}
 			}
 
 			return zip(saveUri.fsPath, remoteLogFiles.concat(localLogFiles));

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { WriteStream, createWriteStream } from 'fs';
+import * as fs from 'fs';
 import { inspect } from 'util';
 import { ILogService } from '../services/logService';
 
@@ -17,13 +17,13 @@ export class NopeLogger implements ILogService {
 }
 
 export class DebugLogger implements ILogService {
-    private readonly stream?: WriteStream;
+    private readonly stream?: fs.WriteStream;
 
-    constructor() {
+    constructor(logFilePath: string) {
         try {
             // no need to consider target file for different platform
             // since we use in only for debug local ssh proxy
-            this.stream = createWriteStream('/tmp/lssh.log');
+            this.stream = fs.createWriteStream(logFilePath, { flags: 'a' });
         } catch (_e) { }
     }
 
@@ -32,26 +32,26 @@ export class DebugLogger implements ILogService {
     }
 
     trace(message: string, ...args: any[]): void {
-        this.stream?.write(`${new Date()}TRACE: ${message} ${this.parseArgs(...args)}\n`);
+        this.stream?.write(`${new Date().toISOString()} pid[${process.pid}] TRACE: ${message} ${this.parseArgs(...args)}\n`);
     }
 
     debug(message: string, ...args: any[]): void {
-        this.stream?.write(`${new Date()}DEBUG: ${message} ${this.parseArgs(...args)}\n`);
+        this.stream?.write(`${new Date().toISOString()} pid[${process.pid}] DEBUG: ${message} ${this.parseArgs(...args)}\n`);
     }
 
     info(message: string, ...args: any[]): void {
-        this.stream?.write(`${new Date()}INFO: ${message} ${this.parseArgs(...args)}\n`);
+        this.stream?.write(`${new Date().toISOString()} pid[${process.pid}] INFO: ${message} ${this.parseArgs(...args)}\n`);
     }
 
     warn(message: string, ...args: any[]): void {
-        this.stream?.write(`${new Date()}WARN: ${message} ${this.parseArgs(...args)}\n`);
+        this.stream?.write(`${new Date().toISOString()} pid[${process.pid}] WARN: ${message} ${this.parseArgs(...args)}\n`);
     }
 
     error(error: string | Error, ...args: any[]): void {
         if (error instanceof Error) {
-            this.stream?.write(`${new Date()}ERROR: ${error.toString()}\n${error.stack}\n${this.parseArgs(...args)}\n`);
+            this.stream?.write(`${new Date().toISOString()} pid[${process.pid}] ERROR: ${error.toString()}\n${error.stack}\n${this.parseArgs(...args)}\n`);
         } else {
-            this.stream?.write(`${new Date()}ERROR: ${error.toString()} ${this.parseArgs(...args)}\n`);
+            this.stream?.write(`${new Date().toISOString()} pid[${process.pid}] ERROR: ${error.toString()} ${this.parseArgs(...args)}\n`);
         }
     }
 
