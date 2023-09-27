@@ -69,13 +69,14 @@ export function getErrorMetricsEndpoint(gitpodHost: string): string {
 	return `https://ide.${serviceUrl.hostname}/metrics-api/reportError`;
 }
 
-export async function commonSendEventData(logService: ILogService, segmentClient: Analytics, machineId: string, eventName: string, data?: any): Promise<void> {
+export async function commonSendEventData(logService: ILogService, segmentClient: Analytics | undefined, machineId: string, eventName: string, data?: any): Promise<void> {
 	const properties = data ?? {};
 
 	delete properties['gitpodHost'];
 
-	if (!isBuiltFromGHA) {
-		logService.trace('Local event report', eventName, properties);
+	logService.trace('[TELEMETRY]', eventName, properties);
+
+	if (!segmentClient) {
 		return;
 	}
 	return new Promise((resolve) =>

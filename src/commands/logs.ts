@@ -31,7 +31,12 @@ export class ExportLogsCommand implements Command {
 		private readonly telemetryService: ITelemetryService,
 		private readonly logService: ILogService,
 		private readonly hostService: IHostService,
-	) { }
+	) {
+		const lsshLog = this.getLSSHLog();
+		if (lsshLog) {
+			this.logService.info('LSSH Log:', lsshLog);
+		}
+	}
 
 	async execute() {
 		const gitpodHost = this.hostService.gitpodHost;
@@ -57,12 +62,20 @@ export class ExportLogsCommand implements Command {
 
 	private getAdditionalLocalLogs() {
 		const additionalLocalLogs = [];
+		const lsshLog = this.getLSSHLog();
+		if (lsshLog) {
+			additionalLocalLogs.push(lsshLog);
+		}
+		return additionalLocalLogs;
+	}
+
+	private getLSSHLog(): string | undefined {
 		const sshDestStr = getGitpodRemoteWindowConnectionInfo(this.context)?.sshDestStr;
 		if (sshDestStr) {
 			const sshDest = SSHDestination.fromRemoteSSHString(sshDestStr);
-			additionalLocalLogs.push(path.join(os.tmpdir(), `lssh-${sshDest.hostname}.log`));
+			return path.join(os.tmpdir(), `lssh-${sshDest.hostname}.log`);
 		}
-		return additionalLocalLogs;
+		return undefined;
 	}
 
 	async exportLogs() {

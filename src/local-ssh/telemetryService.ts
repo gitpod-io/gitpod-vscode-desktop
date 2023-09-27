@@ -34,11 +34,6 @@ export class TelemetryService implements ITelemetryService {
 
 	async sendEventData(eventName: string, data?: Record<string, any>): Promise<void> {
 		const properties = mixin(cleanData(data ?? {}, this.cleanupPatterns, isTrustedValue), this.commonProperties);
-
-		if (!this.segmentClient) {
-			return;
-		}
-
 		return commonSendEventData(this.logService, this.segmentClient, this.machineId, eventName, properties);
 	}
 
