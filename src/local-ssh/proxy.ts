@@ -196,7 +196,15 @@ class WebSocketSSHProxy {
         localSession.onAuthenticating(async (e) => {
             this.flow.workspaceId = e.username ?? '';
             this.sendUserStatusFlow('connecting');
-            e.authenticationPromise = this.authenticateClient(e.username ?? '')
+            e.authenticationPromise = this.authenticateClient(e.username ?? '', () => {
+                // in case of stale connection ensure to trigger the reconnect asap
+                // try gracefully
+                localSession.close(SshDisconnectReason.connectionLost);
+                // but if not force exit
+                setTimeout(() => {
+                    exitProcess(true);
+                }, 50);
+            })
                 .then(async session => {
                     this.sendUserStatusFlow('connected');
                     pipeSession = session;
@@ -237,7 +245,7 @@ class WebSocketSSHProxy {
         }
     }
 
-    private async authenticateClient(username: string) {
+    private async authenticateClient(username: string, onStale: () => void) {
         const workspaceInfo = await this.retryGetWorkspaceInfo(username);
         this.flow.instanceId = workspaceInfo.instanceId;
         this.flow.userId = workspaceInfo.userId;
@@ -246,13 +254,13 @@ class WebSocketSSHProxy {
         }
 
         if (FORCE_TUNNEL) {
-            return this.getTunnelSSHConfig(workspaceInfo);
+            return this.getTunnelSSHConfig(workspaceInfo, onStale);
         }
         try {
             return await this.tryDirectSSH(workspaceInfo);
         } catch (e) {
             this.sendErrorReport(this.flow, e, 'try direct ssh failed');
-            return this.getTunnelSSHConfig(workspaceInfo);
+            return this.getTunnelSSHConfig(workspaceInfo, onStale);
         }
     }
 
@@ -279,7 +287,7 @@ class WebSocketSSHProxy {
         }
     }
 
-    private async getTunnelSSHConfig(workspaceInfo: GetWorkspaceAuthInfoResponse): Promise<SshClientSession> {
+    private async getTunnelSSHConfig(workspaceInfo: GetWorkspaceAuthInfoResponse, onStale: () => void): Promise<SshClientSession> {
         try {
             const workspaceWSUrl = `wss://${workspaceInfo.workspaceId}.${workspaceInfo.workspaceHost}`;
             const socket = new WebSocket(workspaceWSUrl + '/_supervisor/tunnel/ssh', undefined, {
@@ -306,7 +314,8 @@ class WebSocketSSHProxy {
                         // sends out pings plus a conservative assumption of the latency.
                         pingTimeout = setTimeout(() => {
                             this.telemetryService.sendUserFlowStatus('stale', this.flow);
-                            socket.terminate();
+                            session.close(SshDisconnectReason.byApplication);
+                            onStale();
                         }, pingPeriod + 1000);
                     };
                     const stopHearbeat = () => {
