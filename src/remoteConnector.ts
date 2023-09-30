@@ -580,31 +580,12 @@ export class RemoteConnector extends Disposable {
 		});
 	}
 
-	private async updateRemoteSSHConfig(usingSSHGateway: boolean, localAppSSHConfigPath: string | undefined) {
-		const remoteSSHconfig = vscode.workspace.getConfiguration('remote.SSH');
-		const defaultExtConfigInfo = remoteSSHconfig.inspect<string[]>('defaultExtensions');
-		const defaultExtensions = defaultExtConfigInfo?.globalValue ?? [];
-		if (!defaultExtensions.includes('gitpod.gitpod-remote-ssh')) {
-			defaultExtensions.unshift('gitpod.gitpod-remote-ssh');
-			await remoteSSHconfig.update('defaultExtensions', defaultExtensions, vscode.ConfigurationTarget.Global);
-		}
-
-		const currentConfigFile = remoteSSHconfig.get<string>('configFile');
-		if (usingSSHGateway) {
-			if (currentConfigFile?.includes('gitpod_ssh_config')) {
-				await remoteSSHconfig.update('configFile', undefined, vscode.ConfigurationTarget.Global);
-			}
-		} else {
-			// TODO(ak) notify a user about config file changes?
-			if (currentConfigFile === localAppSSHConfigPath) {
-				// invalidate cached SSH targets from the current config file
-				await remoteSSHconfig.update('configFile', undefined, vscode.ConfigurationTarget.Global);
-			}
-			await remoteSSHconfig.update('configFile', localAppSSHConfigPath, vscode.ConfigurationTarget.Global);
-		}
-	}
-
 	private async ensureRemoteSSHExtInstalled(flow: UserFlowTelemetryProperties): Promise<boolean> {
+		const isOfficialVscode = vscode.env.uriScheme === 'vscode' || vscode.env.uriScheme === 'vscode-insiders';
+		if (!isOfficialVscode) {
+			return true;
+		}
+
 		const msVscodeRemoteExt = vscode.extensions.getExtension('ms-vscode-remote.remote-ssh');
 		if (msVscodeRemoteExt) {
 			return true;
@@ -704,7 +685,7 @@ export class RemoteConnector extends Disposable {
 					try {
 						this.telemetryService.sendUserFlowStatus('connecting', localSSHFlow);
 						// If needed, revert local-app changes first
-						await this.updateRemoteSSHConfig(true, undefined);
+						await this.remoteService.updateRemoteSSHConfig(true, undefined);
 
 						this.remoteService.flow = sshFlow;
 						await Promise.all([
@@ -834,7 +815,7 @@ export class RemoteConnector extends Disposable {
 					}
 				}
 
-				await this.updateRemoteSSHConfig(usingSSHGateway, localAppSSHConfigPath);
+				await this.remoteService.updateRemoteSSHConfig(usingSSHGateway, localAppSSHConfigPath);
 
 				await this.context.globalState.update(`${SSH_DEST_KEY}${sshDestination!.toRemoteSSHString()}`, { ...params } as SSHConnectionParams);
 
