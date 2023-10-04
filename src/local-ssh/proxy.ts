@@ -5,6 +5,9 @@
 
 import * as os from 'os';
 import * as path from 'path';
+import * as fs from 'fs';
+import { NopeLogger, DebugLogger } from './logger';
+import { TelemetryService } from './telemetryService';
 
 interface ClientOptions {
     host: string;
@@ -12,6 +15,8 @@ interface ClientOptions {
     extIpcPort: number;
     machineID: string;
     debug: boolean;
+    appRoot: string;
+    extensionsDir: string;
 }
 
 function getClientOptions(): ClientOptions {
@@ -19,13 +24,20 @@ function getClientOptions(): ClientOptions {
     // %h is in the form of <ws_id>.vss.<gitpod_host>'
     // add `https://` prefix since our gitpodHost is actually a url not host
     const host = args[0];
+    const extIpcPort = Number.parseInt(args[1], 10);
+    const machineID = args[2] ?? '';
+    const debug = args[3] === 'debug';
+    const appRoot = args[4];
+    const extensionsDir = args[5];
     const gitpodHost = 'https://' + args[0].split('.').splice(2).join('.');
     return {
         host,
         gitpodHost,
-        extIpcPort: Number.parseInt(args[1], 10),
-        machineID: args[2] ?? '',
-        debug: args[3] === 'debug',
+        extIpcPort,
+        machineID,
+        debug,
+        appRoot,
+        extensionsDir
     };
 }
 
@@ -33,46 +45,6 @@ const options = getClientOptions();
 if (!options) {
     process.exit(1);
 }
-
-import { NopeLogger, DebugLogger } from './logger';
-const logService = options.debug ? new DebugLogger(path.join(os.tmpdir(), `lssh-${options.host}.log`)) : new NopeLogger();
-
-import { TelemetryService } from './telemetryService';
-const telemetryService = new TelemetryService(
-    process.env.SEGMENT_KEY!,
-    options.machineID,
-    process.env.EXT_NAME!,
-    process.env.EXT_VERSION!,
-    options.gitpodHost,
-    logService
-);
-
-const flow: SSHUserFlowTelemetry = {
-    flow: 'local_ssh',
-    gitpodHost: options.gitpodHost,
-    workspaceId: '',
-    processId: process.pid,
-};
-
-telemetryService.sendUserFlowStatus('started', flow);
-const sendExited = (exitCode: number, forceExit: boolean, exitSignal?: NodeJS.Signals) => {
-    return telemetryService.sendUserFlowStatus('exited', {
-        ...flow,
-        exitCode,
-        forceExit: String(forceExit),
-        signal: exitSignal
-    });
-};
-// best effort to intercept process exit
-const beforeExitListener = (exitCode: number) => {
-    process.removeListener('beforeExit', beforeExitListener);
-    return sendExited(exitCode, false);
-};
-process.addListener('beforeExit', beforeExitListener);
-const exitProcess = async (forceExit: boolean, signal?: NodeJS.Signals) => {
-    await sendExited(0, forceExit, signal);
-    process.exit(0);
-};
 
 import { SshClient } from '@microsoft/dev-tunnels-ssh-tcp';
 import { NodeStream, ObjectDisposedError, SshChannelError, SshChannelOpenFailureReason, SshClientCredentials, SshClientSession, SshConnectionError, SshDisconnectReason, SshReconnectError, SshReconnectFailureReason, SshServerSession, SshSessionConfiguration, Stream, TraceLevel, WebSocketStream } from '@microsoft/dev-tunnels-ssh';
@@ -134,26 +106,46 @@ class WebSocketSSHProxy {
         private readonly logService: ILogService,
         private readonly flow: SSHUserFlowTelemetry
     ) {
-        this.onExit();
-        this.onException();
+        telemetryService.sendUserFlowStatus('started', flow);
+
+        this.setupNativeHandlers();
         this.extensionIpc = createClient(ExtensionServiceDefinition, createChannel('127.0.0.1:' + this.options.extIpcPort));
     }
 
-    private onExit() {
+    private setupNativeHandlers() {
+        // best effort to intercept process exit
+        const beforeExitListener = (exitCode: number) => {
+            process.removeListener('beforeExit', beforeExitListener);
+            return this.sendExited(exitCode, false);
+        };
+        process.addListener('beforeExit', beforeExitListener);
+
         const exitHandler = (signal?: NodeJS.Signals) => {
-            exitProcess(false, signal);
+            this.exitProcess(false, signal);
         };
         process.on('SIGINT', exitHandler);
         process.on('SIGTERM', exitHandler);
-    }
 
-    private onException() {
         process.on('uncaughtException', (err) => {
             this.logService.error(err, 'uncaught exception');
         });
         process.on('unhandledRejection', (err) => {
             this.logService.error(err as any, 'unhandled rejection');
         });
+    }
+
+    private sendExited(exitCode: number, forceExit: boolean, exitSignal?: NodeJS.Signals) {
+        return this.telemetryService.sendUserFlowStatus('exited', {
+            ...this.flow,
+            exitCode,
+            forceExit: String(forceExit),
+            signal: exitSignal
+        });
+    }
+
+    private async exitProcess(forceExit: boolean, signal?: NodeJS.Signals) {
+        await this.sendExited(0, forceExit, signal);
+        process.exit(0);
     }
 
     async start() {
@@ -171,15 +163,9 @@ class WebSocketSSHProxy {
             // So let's just force kill here
             pipeSession?.close(SshDisconnectReason.byApplication);
             setTimeout(() => {
-                exitProcess(true);
+                this.exitProcess(true);
             }, 50);
         });
-        // sshStream.on('end', () => {
-        //     setTimeout(() => doProcessExit(0), 50);
-        // });
-        // sshStream.on('close', () => {
-        //     setTimeout(() => doProcessExit(0), 50);
-        // });
 
         // This is expected to never throw as key is hardcoded
         const keys = await importKeyBytes(getHostKey());
@@ -202,7 +188,7 @@ class WebSocketSSHProxy {
                 localSession.close(SshDisconnectReason.connectionLost);
                 // but if not force exit
                 setTimeout(() => {
-                    exitProcess(true);
+                    this.exitProcess(true);
                 }, 50);
             })
                 .then(async session => {
@@ -394,13 +380,61 @@ class WebSocketSSHProxy {
     }
 }
 
-const metricsReporter = new LocalSSHMetricsReporter(logService);
+let vscodeProductJson: any;
+async function getVSCodeProductJson(appRoot: string) {
+    if (!vscodeProductJson) {
+        try {
+            const productJsonStr = await fs.promises.readFile(path.join(appRoot, 'product.json'), 'utf8');
+            vscodeProductJson = JSON.parse(productJsonStr);
+        } catch {
+            return {};
+        }
+    }
 
-const proxy = new WebSocketSSHProxy(options, telemetryService, metricsReporter, logService, flow);
-proxy.start().catch(e => {
-    const err = new WrapError('Uncaught exception on start method', e);
-    telemetryService.sendTelemetryException(err, { gitpodHost: options.gitpodHost });
-});
+    return vscodeProductJson;
+}
+
+async function getExtensionsJson(extensionsDir: string) {
+    try {
+        const extensionJsonStr = await fs.promises.readFile(path.join(extensionsDir, 'extensions.json'), 'utf8');
+        return JSON.parse(extensionJsonStr);
+    } catch {
+        return [];
+    }
+}
+
+async function main() {
+    const [productJson, extensionsJson] = await Promise.all([getVSCodeProductJson(options.appRoot), getExtensionsJson(options.extensionsDir)]);
+
+    const logService = options.debug ? new DebugLogger(path.join(os.tmpdir(), `lssh-${options.host}.log`)) : new NopeLogger();
+
+    const telemetryService = new TelemetryService(
+        process.env.SEGMENT_KEY!,
+        options.machineID,
+        process.env.EXT_NAME!,
+        process.env.EXT_VERSION!,
+        options.gitpodHost,
+        productJson,
+        extensionsJson,
+        logService
+    );
+
+    const flow: SSHUserFlowTelemetry = {
+        flow: 'local_ssh',
+        gitpodHost: options.gitpodHost,
+        workspaceId: '',
+        processId: process.pid,
+    };
+
+    const metricsReporter = new LocalSSHMetricsReporter(logService);
+    const proxy = new WebSocketSSHProxy(options, telemetryService, metricsReporter, logService, flow);
+    await proxy.start().catch(e => {
+        const err = new WrapError('Uncaught exception on start method', e);
+        telemetryService.sendTelemetryException(err, { gitpodHost: options.gitpodHost });
+    });
+}
+
+main();
 
 function fixSSHErrorName(err: any) {
     if (err instanceof SshConnectionError) {

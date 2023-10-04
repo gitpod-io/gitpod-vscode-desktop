@@ -24,11 +24,13 @@ export class TelemetryService implements ITelemetryService {
 		readonly extensionId: string,
 		readonly extensionVersion: string,
 		private readonly gitpodHost: string,
+		readonly productJson: any,
+		readonly extensionsJson: any,
 		private readonly logService: ILogService,
 	) {
 		this.segmentClient = createSegmentAnalyticsClient({ writeKey: this.segmentKey, maxEventsInBatch: 1 }, gitpodHost, this.logService);
 		this.cleanupPatterns = getCleanupPatterns([path.dirname(__dirname)/* globalStorage folder */]);
-		const commonProperties = getCommonProperties(machineId, extensionId, extensionVersion);
+		const commonProperties = getCommonProperties(machineId, extensionId, extensionVersion, productJson, extensionsJson);
 		this.commonProperties = commonProperties;
 	}
 
@@ -66,11 +68,19 @@ export class TelemetryService implements ITelemetryService {
 	}
 }
 
-function getCommonProperties(machineId: string, extensionId: string, extensionVersion: string) {
+function getCommonProperties(machineId: string, extensionId: string, extensionVersion: string, productJson: any, extensionsJson: any) {
+	let remotesshextversion: string | undefined;
+	if (Array.isArray(extensionsJson)) {
+		const remoteSshExt = extensionsJson.find(i => i.identifier.id === 'ms-vscode-remote.remote-ssh');
+		remotesshextversion = remoteSshExt?.version;
+	}
+
 	const properties = getBaseProperties();
 	properties['common.vscodemachineid'] = machineId;
 	properties['common.extname'] = extensionId;
 	properties['common.extversion'] = extensionVersion;
+	properties['common.vscodeversion'] = productJson.version;
+	properties['common.remotesshextversion'] = remotesshextversion;
 	return properties;
 }
 
