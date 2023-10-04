@@ -43,6 +43,7 @@ export interface IRemoteService {
     getWorkspaceSSHDestination(wsData: WorkspaceData): Promise<{ destination: SSHDestination; password?: string }>;
     showSSHPasswordModal(wsData: WorkspaceData, password: string): Promise<void>;
 
+    updateRemoteSSHConfig(usingSSHGateway: boolean, localAppSSHConfigPath: string | undefined): Promise<void>;
     initializeRemoteExtensions(): Promise<void>;
 }
 
@@ -177,11 +178,12 @@ export class RemoteService extends Disposable implements IRemoteService {
         await SSHConfiguration.saveGitpodSSHConfig(gitpodConfig);
     }
 
-    private getHostSSHConfig(host: string, launcher: string, proxyScript: string, extIpcPort: number, logLevel:string) {
+    private getHostSSHConfig(host: string, launcher: string, proxyScript: string, extIpcPort: number, logLevel: string) {
+        const extraArgs = (process.versions['electron'] && process.versions['microsoft-build']) ? '--ms-enable-electron-run-as-node' : '';
         return {
             Host: '*.' + getLocalSSHDomain(host),
             StrictHostKeyChecking: 'no',
-            ProxyCommand: `"${launcher}" "${process.execPath}" "${proxyScript}" --ms-enable-electron-run-as-node %h ${extIpcPort} ${vscode.env.machineId} ${logLevel}`
+            ProxyCommand: `"${launcher}" "${process.execPath}" "${proxyScript}" ${extraArgs} %h ${extIpcPort} ${vscode.env.machineId} ${logLevel}`
         };
     }
 
@@ -324,6 +326,30 @@ export class RemoteService extends Disposable implements IRemoteService {
         this.logService.info(`Configure your SSH keys in ${externalUrl} and try again. Or try again and select 'Copy' to connect using a temporary password until workspace restart`);
         this.logService.show();
         throw new Error('SSH password modal dialog, Canceled');
+    }
+
+    async updateRemoteSSHConfig(usingSSHGateway: boolean, localAppSSHConfigPath: string | undefined) {
+        const remoteSSHconfig = vscode.workspace.getConfiguration('remote.SSH');
+        const defaultExtConfigInfo = remoteSSHconfig.inspect<string[]>('defaultExtensions');
+        const defaultExtensions = defaultExtConfigInfo?.globalValue ?? [];
+        if (!defaultExtensions.includes('gitpod.gitpod-remote-ssh')) {
+            defaultExtensions.unshift('gitpod.gitpod-remote-ssh');
+            await remoteSSHconfig.update('defaultExtensions', defaultExtensions, vscode.ConfigurationTarget.Global);
+        }
+
+        const currentConfigFile = remoteSSHconfig.get<string>('configFile');
+        if (usingSSHGateway) {
+            if (currentConfigFile?.includes('gitpod_ssh_config')) {
+                await remoteSSHconfig.update('configFile', undefined, vscode.ConfigurationTarget.Global);
+            }
+        } else {
+            // TODO(ak) notify a user about config file changes?
+            if (currentConfigFile === localAppSSHConfigPath) {
+                // invalidate cached SSH targets from the current config file
+                await remoteSSHconfig.update('configFile', undefined, vscode.ConfigurationTarget.Global);
+            }
+            await remoteSSHconfig.update('configFile', localAppSSHConfigPath, vscode.ConfigurationTarget.Global);
+        }
     }
 
     async initializeRemoteExtensions() {

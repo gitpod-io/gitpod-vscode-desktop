@@ -350,6 +350,7 @@ export class ConnectInCurrentWindowCommand implements Command {
 
 	private async initializeLocalSSH(workspaceId: string) {
 		try {
+			await this.remoteService.updateRemoteSSHConfig(true, undefined);
 			await Promise.all([
 				this.remoteService.setupSSHProxy(),
 				this.remoteService.startLocalSSHServiceServer()
