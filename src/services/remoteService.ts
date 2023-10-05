@@ -169,21 +169,22 @@ export class RemoteService extends Disposable implements IRemoteService {
     }
 
     private async configureSettings({ proxyScript, launcher }: { proxyScript: string; launcher: string }) {
-        const extIpcPort = Configuration.getLocalSshExtensionIpcPort();
-        const logLevel = Configuration.getSSHProxyLogLevel();
-        const hostConfig = this.getHostSSHConfig(this.hostService.gitpodHost, launcher, proxyScript, extIpcPort, logLevel);
+        const hostConfig = this.getHostSSHConfig(this.hostService.gitpodHost, launcher, proxyScript);
         await SSHConfiguration.ensureIncludeGitpodSSHConfig();
         const gitpodConfig = await SSHConfiguration.loadGitpodSSHConfig();
         gitpodConfig.addHostConfiguration(hostConfig);
         await SSHConfiguration.saveGitpodSSHConfig(gitpodConfig);
     }
 
-    private getHostSSHConfig(host: string, launcher: string, proxyScript: string, extIpcPort: number, logLevel: string) {
+    private getHostSSHConfig(host: string, launcher: string, proxyScript: string) {
+        const extIpcPort = Configuration.getLocalSshExtensionIpcPort();
+        const logLevel = Configuration.getSSHProxyLogLevel();
+        const extensionsDir = path.dirname(this.context.extensionMode === vscode.ExtensionMode.Production ? this.context.extensionPath : vscode.extensions.getExtension('ms-vscode-remote.remote-ssh')!.extensionPath);
         const extraArgs = (process.versions['electron'] && process.versions['microsoft-build']) ? '--ms-enable-electron-run-as-node' : '';
         return {
             Host: '*.' + getLocalSSHDomain(host),
             StrictHostKeyChecking: 'no',
-            ProxyCommand: `"${launcher}" "${process.execPath}" "${proxyScript}" ${extraArgs} %h ${extIpcPort} ${vscode.env.machineId} ${logLevel}`
+            ProxyCommand: `"${launcher}" "${process.execPath}" "${proxyScript}" ${extraArgs} %h ${extIpcPort} ${vscode.env.machineId} ${logLevel} "${vscode.env.appRoot}" "${extensionsDir}"`
         };
     }
 

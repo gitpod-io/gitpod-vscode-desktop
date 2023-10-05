@@ -64,6 +64,17 @@ export class TelemetryService implements ITelemetryService {
 		delete properties['flow'];
 		return this.sendTelemetryEvent('vscode_desktop_' + flowProperties.flow, properties);
 	}
+
+	updateCommonProperties(productJson: any, extensionsJson: any) {
+		let remotesshextversion: string | undefined;
+		if (Array.isArray(extensionsJson)) {
+			const remoteSshExt = extensionsJson.find(i => i.identifier.id === 'ms-vscode-remote.remote-ssh');
+			remotesshextversion = remoteSshExt?.version;
+		}
+
+		this.commonProperties['common.vscodeversion'] = productJson.version;
+		this.commonProperties['common.remotesshextversion'] = remotesshextversion;
+	}
 }
 
 function getCommonProperties(machineId: string, extensionId: string, extensionVersion: string) {
