@@ -118,6 +118,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		commandManager.register(new SignInCommand(sessionService));
 		commandManager.register(new InstallLocalExtensionsOnRemoteCommand(remoteService));
 		commandManager.register(new ExportLogsCommand(context, context.logUri, notificationService, telemetryService, logger, hostService));
+		// Backwards compatibility with older gitpod-remote extensions
+		commandManager.register({ id: 'gitpod.api.autoTunnel', execute: () => {} });
 
 		if (!context.globalState.get<boolean>(FIRST_INSTALL_KEY, false)) {
 			context.globalState.update(FIRST_INSTALL_KEY, true);
