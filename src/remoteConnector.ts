@@ -331,17 +331,7 @@ export class RemoteConnector extends Disposable {
 							this.telemetryService.sendTelemetryException(new WrapError('Gateway: failed to connect to workspace', e, 'Unknown'), { ...gatewayFlow });
 						}
 						this.telemetryService.sendUserFlowStatus('failed', { ...gatewayFlow, reason });
-						if (e instanceof NoSSHGatewayError) {
-							this.logService.error('No SSH gateway:', e);
-							const ok = 'OK';
-							await this.notificationService.showWarningMessage(`${e.host} does not support [direct SSH access](https://github.com/gitpod-io/gitpod/blob/main/install/installer/docs/workspace-ssh-access.md), connecting via the deprecated SSH tunnel over WebSocket.`, { flow: gatewayFlow, id: 'no_ssh_gateway' }, ok);
-							return undefined;
-						} else if (e instanceof SSHError && e.message === 'Timed out while waiting for handshake') {
-							this.logService.error('SSH test connection error:', e);
-							const ok = 'OK';
-							await this.notificationService.showWarningMessage(`Timed out while waiting for the SSH handshake. It's possible, that SSH connections on port 22 are blocked, or your network is too slow. Connecting via the deprecated SSH tunnel over WebSocket instead.`, { flow: gatewayFlow, id: 'ssh_timeout' }, ok);
-							return undefined;
-						} else if (e instanceof NoRunningInstanceError) {
+						if (e instanceof NoRunningInstanceError) {
 							this.logService.error('No Running instance:', e);
 							gatewayFlow['phase'] = e.phase;
 							this.notificationService.showErrorMessage(`Failed to connect to ${e.workspaceId} Gitpod workspace: workspace not running`, { flow: gatewayFlow, id: 'no_running_instance' });
@@ -359,7 +349,7 @@ export class RemoteConnector extends Disposable {
 									if (action === seeLogs) {
 										this.logService.show();
 									} else if (action === showTroubleshooting) {
-										vscode.env.openExternal(vscode.Uri.parse('https://www.gitpod.io/docs/ides-and-editors/vscode#connecting-to-vs-code-desktop-ssh'));
+										vscode.env.openExternal(vscode.Uri.parse('https://www.gitpod.io/docs/references/ides-and-editors/vscode#connecting-to-vs-code-desktop'));
 									}
 								});
 							return undefined;
