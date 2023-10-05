@@ -24,13 +24,11 @@ export class TelemetryService implements ITelemetryService {
 		readonly extensionId: string,
 		readonly extensionVersion: string,
 		private readonly gitpodHost: string,
-		readonly productJson: any,
-		readonly extensionsJson: any,
 		private readonly logService: ILogService,
 	) {
 		this.segmentClient = createSegmentAnalyticsClient({ writeKey: this.segmentKey, maxEventsInBatch: 1 }, gitpodHost, this.logService);
 		this.cleanupPatterns = getCleanupPatterns([path.dirname(__dirname)/* globalStorage folder */]);
-		const commonProperties = getCommonProperties(machineId, extensionId, extensionVersion, productJson, extensionsJson);
+		const commonProperties = getCommonProperties(machineId, extensionId, extensionVersion);
 		this.commonProperties = commonProperties;
 	}
 
@@ -66,21 +64,24 @@ export class TelemetryService implements ITelemetryService {
 		delete properties['flow'];
 		return this.sendTelemetryEvent('vscode_desktop_' + flowProperties.flow, properties);
 	}
+
+	updateCommonProperties(productJson: any, extensionsJson: any) {
+		let remotesshextversion: string | undefined;
+		if (Array.isArray(extensionsJson)) {
+			const remoteSshExt = extensionsJson.find(i => i.identifier.id === 'ms-vscode-remote.remote-ssh');
+			remotesshextversion = remoteSshExt?.version;
+		}
+
+		this.commonProperties['common.vscodeversion'] = productJson.version;
+		this.commonProperties['common.remotesshextversion'] = remotesshextversion;
+	}
 }
 
-function getCommonProperties(machineId: string, extensionId: string, extensionVersion: string, productJson: any, extensionsJson: any) {
-	let remotesshextversion: string | undefined;
-	if (Array.isArray(extensionsJson)) {
-		const remoteSshExt = extensionsJson.find(i => i.identifier.id === 'ms-vscode-remote.remote-ssh');
-		remotesshextversion = remoteSshExt?.version;
-	}
-
+function getCommonProperties(machineId: string, extensionId: string, extensionVersion: string) {
 	const properties = getBaseProperties();
 	properties['common.vscodemachineid'] = machineId;
 	properties['common.extname'] = extensionId;
 	properties['common.extversion'] = extensionVersion;
-	properties['common.vscodeversion'] = productJson.version;
-	properties['common.remotesshextversion'] = remotesshextversion;
 	return properties;
 }
 

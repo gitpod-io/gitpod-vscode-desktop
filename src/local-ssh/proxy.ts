@@ -99,14 +99,22 @@ interface SSHUserFlowTelemetry extends UserFlowTelemetryProperties {
 class WebSocketSSHProxy {
     private extensionIpc: Client<ExtensionServiceDefinition>;
 
+    private flow: SSHUserFlowTelemetry;
+
     constructor(
         private readonly options: ClientOptions,
         private readonly telemetryService: ITelemetryService,
         private readonly metricsReporter: LocalSSHMetricsReporter,
-        private readonly logService: ILogService,
-        private readonly flow: SSHUserFlowTelemetry
+        private readonly logService: ILogService
     ) {
-        telemetryService.sendUserFlowStatus('started', flow);
+        this.flow = {
+            flow: 'local_ssh',
+            gitpodHost: options.gitpodHost,
+            workspaceId: '',
+            processId: process.pid,
+        };
+
+        telemetryService.sendUserFlowStatus('started', this.flow);
 
         this.setupNativeHandlers();
         this.extensionIpc = createClient(ExtensionServiceDefinition, createChannel('127.0.0.1:' + this.options.extIpcPort));
@@ -404,34 +412,29 @@ async function getExtensionsJson(extensionsDir: string) {
 }
 
 async function main() {
-    const [productJson, extensionsJson] = await Promise.all([getVSCodeProductJson(options.appRoot), getExtensionsJson(options.extensionsDir)]);
-
     const logService = options.debug ? new DebugLogger(path.join(os.tmpdir(), `lssh-${options.host}.log`)) : new NopeLogger();
-
     const telemetryService = new TelemetryService(
         process.env.SEGMENT_KEY!,
         options.machineID,
         process.env.EXT_NAME!,
         process.env.EXT_VERSION!,
         options.gitpodHost,
-        productJson,
-        extensionsJson,
         logService
     );
 
-    const flow: SSHUserFlowTelemetry = {
-        flow: 'local_ssh',
-        gitpodHost: options.gitpodHost,
-        workspaceId: '',
-        processId: process.pid,
-    };
-
     const metricsReporter = new LocalSSHMetricsReporter(logService);
-    const proxy = new WebSocketSSHProxy(options, telemetryService, metricsReporter, logService, flow);
-    await proxy.start().catch(e => {
+    const proxy = new WebSocketSSHProxy(options, telemetryService, metricsReporter, logService);
+    const promise = proxy.start().catch(e => {
         const err = new WrapError('Uncaught exception on start method', e);
         telemetryService.sendTelemetryException(err, { gitpodHost: options.gitpodHost });
     });
+
+    Promise.all([getVSCodeProductJson(options.appRoot), getExtensionsJson(options.extensionsDir)])
+        .then(([productJson, extensionsJson]) => {
+            telemetryService.updateCommonProperties(productJson, extensionsJson);
+        });
+
+    await promise;
 }
 
 main();
