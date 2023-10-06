@@ -349,7 +349,7 @@ export class RemoteConnector extends Disposable {
 									if (action === seeLogs) {
 										this.logService.show();
 									} else if (action === showTroubleshooting) {
-										vscode.env.openExternal(vscode.Uri.parse('https://www.gitpod.io/docs/references/ides-and-editors/vscode#connecting-to-vs-code-desktop'));
+										vscode.env.openExternal(vscode.Uri.parse('https://www.gitpod.io/docs/references/ides-and-editors/vscode#troubleshooting'));
 									}
 								});
 							return undefined;
