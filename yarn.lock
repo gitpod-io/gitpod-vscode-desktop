@@ -49,11 +49,6 @@
   resolved "https://registry.yarnpkg.com/@bufbuild/connect-web/-/connect-web-0.2.1.tgz#a7ee2914bf1b77d640fc4ee3c3a89d626f3015fa"
   integrity sha512-L580cL9VZCXcjwXMCvIvdFBqdQofVBQcL+jmSis7m8ZxPj5NQ4p7fUhQRTsZMWHkyWINdlZnr7WsHQL0BT7wPQ==
 
-"@bufbuild/connect@0.11.0":
-  version "0.11.0"
-  resolved "https://registry.yarnpkg.com/@bufbuild/connect/-/connect-0.11.0.tgz#b7afeabf0fe0cf665af736bb6b6d16814cbb2e88"
-  integrity sha512-a6hrNtBzDzj4hpqylPqpJfMpIP4+O/SnszGgOuRzcuifpTvkwjSmVHLtcvkUYh0wpvjYB0CFmTYzrvAMOftbHw==
-
 "@bufbuild/protobuf@0.1.1", "@bufbuild/protobuf@^0.1.1":
   version "0.1.1"
   resolved "https://registry.yarnpkg.com/@bufbuild/protobuf/-/protobuf-0.1.1.tgz#163dee03af49e82d300dfa2bf60c8c0f04c80b4c"
@@ -80,6 +75,18 @@
   dependencies:
     "@bufbuild/protobuf" "0.1.1"
 
+"@connectrpc/connect-node@1.1.2":
+  version "1.1.2"
+  resolved "https://registry.yarnpkg.com/@connectrpc/connect-node/-/connect-node-1.1.2.tgz#ac99a696bb1a2d376b3146315cea8b056b278529"
+  integrity sha512-IAwQhh05Qm/T/+ZShEnQz+FFZsr2fbq/DCHhXbmwYjePxvo+kF9YIDkTpVy+vjrV+CwZPBfgOdSaRSJLHUykdg==
+  dependencies:
+    undici "^5.25.4"
+
+"@connectrpc/connect@1.1.2":
+  version "1.1.2"
+  resolved "https://registry.yarnpkg.com/@connectrpc/connect/-/connect-1.1.2.tgz#d1b5fa1dcec310a8210c1523c99abdc227643f4b"
+  integrity sha512-oDuKJFRORtzyH4IhZyNgIQ5DKjlDnbP72AH55Aabpc0fwApyus/h4cmYU1KDvahVbqsvUOpd5qUTyMH8IhMmLA==
+
 "@discoveryjs/json-ext@^0.5.0":
   version "0.5.7"
   resolved "https://registry.yarnpkg.com/@discoveryjs/json-ext/-/json-ext-0.5.7.tgz#1d572bfbbe14b7704e0ba0f39b74815b84870d70"
@@ -99,6 +106,11 @@
     js-yaml "^4.1.0"
     minimatch "^3.1.2"
     strip-json-comments "^3.1.1"
+
+"@fastify/busboy@^2.0.0":
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/@fastify/busboy/-/busboy-2.0.0.tgz#f22824caff3ae506b18207bad4126dbc6ccdb6b8"
+  integrity sha512-JUFJad5lv7jxj926GPgymrWQxxjPYuJNiNjNMzqT+HiuP6Vl3dk5xzG+8sTX96np0ZAluvaMzPsjhHZ5rNuNQQ==
 
 "@gitpod/gitpod-protocol@main-gha":
   version "0.1.5-main-gha.11049"
@@ -2211,11 +2223,6 @@ he@1.2.0:
   resolved "https://registry.yarnpkg.com/he/-/he-1.2.0.tgz#84ae65fa7eafb165fddb61566ae14baf05664f0f"
   integrity sha512-F/1DnUGPopORZi0ni+CvrCgHQ5FyEAHRLSApuYWMmrbSwoN2Mn/7k+Gl38gJnR7yyDZk6WLXwiGod1JOWNDKGw==
 
-headers-polyfill@^3.1.2:
-  version "3.1.2"
-  resolved "https://registry.yarnpkg.com/headers-polyfill/-/headers-polyfill-3.1.2.tgz#9a4dcb545c5b95d9569592ef7ec0708aab763fbe"
-  integrity sha512-tWCK4biJ6hcLqTviLXVR9DTRfYGQMXEIUj3gwJ2rZ5wO/at3XtkI4g8mCvFdUF9l1KMBNCfmNAdnahm1cgavQA==
-
 hexer@^1.5.0:
   version "1.5.0"
   resolved "https://registry.yarnpkg.com/hexer/-/hexer-1.5.0.tgz#b86ce808598e8a9d1892c571f3cedd86fc9f0653"
@@ -2801,14 +2808,6 @@ ms@2.1.3, ms@^2.0.0:
   version "2.1.3"
   resolved "https://registry.yarnpkg.com/ms/-/ms-2.1.3.tgz#574c8138ce1d2b5861f0b44579dbadd60c6615b2"
   integrity sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==
-
-mustard-connect-node@^0.11.2:
-  version "0.11.2"
-  resolved "https://registry.yarnpkg.com/mustard-connect-node/-/mustard-connect-node-0.11.2.tgz#89628232d6e2a7b035fe9199f4d525cf64d75cf1"
-  integrity sha512-NrH576KU4TfTzk3tPDT0ow8vQ104f8iLEeDN5PP5fathrKZ3OSitdr7D0EAhetZYHNRUL/1aZWzjsKEruimaXw==
-  dependencies:
-    "@bufbuild/connect" "0.11.0"
-    headers-polyfill "^3.1.2"
 
 mute-stream@~0.0.4:
   version "0.0.8"
@@ -3975,6 +3974,13 @@ underscore@^1.12.1:
   version "1.13.6"
   resolved "https://registry.yarnpkg.com/underscore/-/underscore-1.13.6.tgz#04786a1f589dc6c09f761fc5f45b89e935136441"
   integrity sha512-+A5Sja4HP1M08MaXya7p5LvjuM7K6q/2EaC0+iovj/wOcMsTzMvDFbasi/oSapiwOlt252IqsKqPjCl7huKS0A==
+
+undici@^5.25.4:
+  version "5.25.4"
+  resolved "https://registry.yarnpkg.com/undici/-/undici-5.25.4.tgz#7d8ef81d94f84cd384986271e5e5599b6dff4296"
+  integrity sha512-450yJxT29qKMf3aoudzFpIciqpx6Pji3hEWaXqXmanbXF58LTAGCKxcJjxMXWu3iG+Mudgo3ZUfDB6YDFd/dAw==
+  dependencies:
+    "@fastify/busboy" "^2.0.0"
 
 unpipe@1.0.0, unpipe@~1.0.0:
   version "1.0.0"
