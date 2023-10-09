@@ -344,7 +344,7 @@ class WebSocketSSHProxy {
 
             await session.connect(stream);
 
-            const ok = await session.authenticate({ username: 'gitpod', publicKeys: [await importKey(workspaceInfo.sshkey)] });
+            const ok = await session.authenticate({ username: workspaceInfo.username || 'gitpod', publicKeys: [await importKey(workspaceInfo.sshkey)] });
             if (!ok) {
                 throw new FailedToProxyError('TUNNEL.AuthenticateSSHKeyFailed');
             }

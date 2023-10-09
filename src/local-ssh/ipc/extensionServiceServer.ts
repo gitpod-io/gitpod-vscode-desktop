@@ -3,20 +3,20 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ExtensionServiceDefinition, ExtensionServiceImplementation, GetWorkspaceAuthInfoRequest, GetWorkspaceAuthInfoResponse, PingRequest, SendErrorReportRequest, SendLocalSSHUserFlowStatusRequest } from '../../proto/typescript/ipc/v1/ipc';
+import { ExtensionServiceDefinition, ExtensionServiceImplementation, GetWorkspaceAuthInfoRequest, GetWorkspaceAuthInfoResponse, PingRequest } from '../../proto/typescript/ipc/v1/ipc';
 import { Disposable } from '../../common/dispose';
 import { ILogService } from '../../services/logService';
 import { ISessionService } from '../../services/sessionService';
 import { CallContext, ServerError, Status } from 'nice-grpc-common';
 import { IHostService } from '../../services/hostService';
 import { Server, createChannel, createClient, createServer } from 'nice-grpc';
-import { ITelemetryService, UserFlowTelemetryProperties } from '../../common/telemetry';
+import { ITelemetryService } from '../../common/telemetry';
 import { Configuration } from '../../configuration';
 import { timeout } from '../../common/async';
 import { BrowserHeaders } from 'browser-headers';
 import { ControlServiceClient, ServiceError } from '@gitpod/supervisor-api-grpcweb/lib/control_pb_service';
 import { NodeHttpTransport } from '@improbable-eng/grpc-web-node-http-transport';
-import { CreateSSHKeyPairRequest } from '@gitpod/supervisor-api-grpcweb/lib/control_pb';
+import { CreateSSHKeyPairRequest, CreateSSHKeyPairResponse } from '@gitpod/supervisor-api-grpcweb/lib/control_pb';
 import * as ssh2 from 'ssh2';
 import { ParsedKey } from 'ssh2-streams';
 import { WrapError } from '../../common/utils';
@@ -66,7 +66,7 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
     private async getWorkspaceSSHKey(ownerToken: string, workspaceUrl: string, signal: AbortSignal) {
         const url = new URL(workspaceUrl);
         url.pathname = '/_supervisor/v1';
-        const privateKey = await wrapSupervisorAPIError(() => new Promise<string>((resolve, reject) => {
+        const { privateKey, userName } = await wrapSupervisorAPIError(() => new Promise<CreateSSHKeyPairResponse.AsObject>((resolve, reject) => {
             const metadata = new BrowserHeaders();
             metadata.append('x-gitpod-owner-token', ownerToken);
             const client = new ControlServiceClient(url.toString(), { transport: NodeHttpTransport() });
@@ -74,7 +74,7 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
                 if (err) {
                     return reject(err);
                 }
-                resolve(resp!.toObject().privateKey);
+                resolve(resp!.toObject());
             });
         }), { signal });
 
@@ -83,7 +83,7 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
             throw new Error('Error while parsing workspace SSH private key');
         }
 
-        return (parsedResult as ParsedKey).getPrivatePEM();
+        return { sshkey: (parsedResult as ParsedKey).getPrivatePEM(), username: userName };
     }
 
     async getWorkspaceAuthInfo(request: GetWorkspaceAuthInfoRequest, _context: CallContext): Promise<GetWorkspaceAuthInfoResponse> {
@@ -126,6 +126,7 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
             let ownerToken = '';
             let workspaceHost = '';
             let sshkey = '';
+            let username = '';
             if (wsData.phase === 'running') {
                 ownerToken = await this.sessionService.getAPI().getOwnerToken(actualWorkspaceId, _context.signal);
 
@@ -137,7 +138,7 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
                     actualWorkspaceUrl = actualWorkspaceUrl.replace(actualWorkspaceId, workspaceId);
                 }
 
-                sshkey = await this.getWorkspaceSSHKey(ownerToken, actualWorkspaceUrl, _context.signal);
+                ({ sshkey, username } = await this.getWorkspaceSSHKey(ownerToken, actualWorkspaceUrl, _context.signal));
             }
 
             return {
@@ -149,6 +150,7 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
                 ownerToken,
                 sshkey,
                 phase: wsData.phase,
+                username,
             };
         } catch (e) {
             let code = Status.INTERNAL;
@@ -167,41 +169,6 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
 
             throw new ServerError(code, wrapErr.toString());
         }
-    }
-
-    // TODO remove from protocol, don't pass sensitive info back and forth, only once for auth, daemon should do telemetry directly
-    async sendLocalSSHUserFlowStatus(request: SendLocalSSHUserFlowStatusRequest, _context: CallContext): Promise<{}> {
-        if (!request.flowStatus || request.flowStatus === '') {
-            return {};
-        }
-        const flow: UserFlowTelemetryProperties = {
-            flow: 'local_ssh',
-            workspaceId: request.workspaceId,
-            instanceId: request.instanceId,
-            daemonVersion: request.daemonVersion,
-            userId: request.userId,
-            gitpodHost: request.gitpodHost,
-            failureCode: request.flowFailureCode,
-        };
-        this.telemetryService.sendUserFlowStatus(request.flowStatus, flow);
-        return {};
-    }
-
-    // TODO remove from protocol, don't pass sensitive info back and forth, only once for auth, daemon should do telemetry directly
-    // local ssh daemon should be own component in reporting?
-    async sendErrorReport(request: SendErrorReportRequest, _context: CallContext): Promise<{}> {
-        const err = new Error(request.errorMessage);
-        err.name = `${request.errorName}[local-ssh]`;
-        err.stack = request.errorStack;
-        this.telemetryService.sendTelemetryException(err, {
-            gitpodHost: request.gitpodHost,
-            workspaceId: request.workspaceId,
-            instanceId: request.instanceId,
-            daemonVersion: request.daemonVersion,
-            extensionVersion: request.extensionVersion,
-            userId: request.userId,
-        });
-        return {};
     }
 
     async ping(_request: PingRequest, _context: CallContext): Promise<{}> {

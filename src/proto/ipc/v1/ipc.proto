@@ -4,75 +4,11 @@ package ipc.v1;
 
 service ExtensionService {
     rpc GetWorkspaceAuthInfo (GetWorkspaceAuthInfoRequest) returns (GetWorkspaceAuthInfoResponse) {}
-    rpc SendLocalSSHUserFlowStatus (SendLocalSSHUserFlowStatusRequest) returns (SendLocalSSHUserFlowStatusResponse) {}
-    rpc SendErrorReport (SendErrorReportRequest) returns (SendErrorReportResponse) {}
     rpc Ping (PingRequest) returns (PingResponse) {}
 }
 
 message PingRequest {}
 message PingResponse {}
-
-message SendErrorReportRequest {
-    string workspace_id = 1;
-    string instance_id = 2;
-    string error_name = 3;
-    string error_message = 4;
-    string error_stack = 5;
-    string daemon_version = 6;
-    string extension_version = 7;
-    string gitpod_host = 8;
-    string user_id = 9;
-}
-
-message SendErrorReportResponse {}
-
-message SendLocalSSHUserFlowStatusRequest {
-
-    enum ConnType {
-        CONN_TYPE_UNSPECIFIED = 0;
-        CONN_TYPE_SSH = 1;
-        CONN_TYPE_TUNNEL = 2;
-    }
-
-    enum Status {
-        STATUS_UNSPECIFIED = 0;
-        STATUS_SUCCESS = 1;
-        STATUS_FAILURE = 2;
-    }
-
-    enum Code {
-        CODE_UNSPECIFIED = 0;
-        // CODE_NO_WORKSPACE_AUTO_INFO is used if failed to get workspace auto info
-        CODE_NO_WORKSPACE_AUTO_INFO = 1;
-        // CODE_TUNNEL_CANNOT_CREATE_WEBSOCKET is used if failed to create websocket to supervisor
-        CODE_TUNNEL_CANNOT_CREATE_WEBSOCKET = 2;
-        // CODE_TUNNEL_FAILED_FORWARD_SSH_PORT is used if failed to forward ssh port in supervisor
-        CODE_TUNNEL_FAILED_FORWARD_SSH_PORT = 3;
-        // CODE_TUNNEL_NO_PRIVATEKEY when failed to create private key in supervisor
-        CODE_TUNNEL_NO_PRIVATEKEY = 4;
-        // CODE_TUNNEL_NO_ESTABLISHED_CONNECTION is used if the tunnel is not established
-        CODE_TUNNEL_NO_ESTABLISHED_CONNECTION = 5;
-        // CODE_SSH_CANNOT_CONNECT is used if failed to direct connect to ssh gateway
-        CODE_SSH_CANNOT_CONNECT = 6;
-    }
-
-    Status status = 1;
-    string workspace_id = 2;
-    string instance_id = 3;
-    Code failure_code = 5;
-    // DEPRECATED string failure_reason = 6
-    reserved 6;
-    string daemon_version = 7;
-    // DEPRECATED string extension_version = 8
-    reserved 8;
-    ConnType conn_type = 9;
-    string gitpod_host = 10;
-    string user_id = 11;
-    string flow_status = 12;
-    string flow_failure_code = 13;
-}
-
-message SendLocalSSHUserFlowStatusResponse {}
 
 message GetWorkspaceAuthInfoRequest {
     string workspace_id = 1;
@@ -88,4 +24,5 @@ message GetWorkspaceAuthInfoResponse {
     string user_id = 6;
     string sshkey = 7;
     string phase = 8;
+    string username = 9;
 }
