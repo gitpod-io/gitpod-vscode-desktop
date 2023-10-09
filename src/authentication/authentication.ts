@@ -256,7 +256,13 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 				this.telemetryService.sendUserFlowStatus('login_cancelled', flow);
 				throw e;
 			}
-			this.notificationService.showErrorMessage(`Sign in failed: ${e}`, { flow, id: 'login_failed' });
+			const showDocs = 'Show Documentation';
+			this.notificationService.showErrorMessage(`Sign in failed: ${e}`, { flow, id: 'login_failed', modal: true })
+				.then(action => {
+					if (action === showDocs) {
+						vscode.env.openExternal(vscode.Uri.parse('https://www.gitpod.io/docs/references/ides-and-editors/vscode#prerequisites'));
+					}
+				});
 			this.logService.error(e);
 			throw e;
 		}
