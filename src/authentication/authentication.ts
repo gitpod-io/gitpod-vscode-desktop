@@ -256,7 +256,7 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 				this.telemetryService.sendUserFlowStatus('login_cancelled', flow);
 				throw e;
 			}
-			const showDocs = 'Show Documentation';
+			const showDocs = 'Learn more';
 			this.notificationService.showErrorMessage(`Sign in failed: ${e}`, { flow, id: 'login_failed', modal: true })
 				.then(action => {
 					if (action === showDocs) {
