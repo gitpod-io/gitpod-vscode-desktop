@@ -110,20 +110,20 @@ export class ExportLogsCommand implements Command {
 				if (token.isCancellationRequested) {
 					return;
 				}
-			}
 
-			for (const logFilePath of this.getAdditionalRemoteLogs()) {
-				try {
-					const logFileUri = vscode.Uri.file(logFilePath).with({ scheme: 'vscode-remote' });
-					const fileContent = await vscode.workspace.fs.readFile(logFileUri);
-					if (fileContent.byteLength > 0) {
-						remoteLogFiles.push({
-							path: path.join('./remote', path.basename(logFileUri.path)),
-							contents: Buffer.from(fileContent)
-						});
+				for (const logFilePath of this.getAdditionalRemoteLogs()) {
+					try {
+						const logFileUri = vscode.Uri.file(logFilePath).with({ scheme: 'vscode-remote' });
+						const fileContent = await vscode.workspace.fs.readFile(logFileUri);
+						if (fileContent.byteLength > 0) {
+							remoteLogFiles.push({
+								path: path.join('./remote', path.basename(logFileUri.path)),
+								contents: Buffer.from(fileContent)
+							});
+						}
+					} catch {
+						// no-op
 					}
-				} catch {
-					// no-op
 				}
 			}
 
