@@ -13,10 +13,6 @@ function getGitpodHost() {
     return vscode.workspace.getConfiguration('gitpod').get<string>('host') || 'https://gitpod.io/';
 }
 
-function getUseLocalApp() {
-    return vscode.workspace.getConfiguration('gitpod').get<boolean>('remote.useLocalApp') || false;
-}
-
 function getLocalSshExtensionIpcPort() {
     let defaultPort = 43025;
     if (vscode.env.appName.includes('Insiders')) {
@@ -31,7 +27,6 @@ function getSSHProxyLogLevel() {
 
 export const Configuration = {
     getGitpodHost,
-    getUseLocalApp,
     getLocalSshExtensionIpcPort,
     getSSHProxyLogLevel
 };

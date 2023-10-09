@@ -13,14 +13,13 @@ import { ILogService } from './services/logService';
 import { IHostService } from './services/hostService';
 import { Disposable } from './common/dispose';
 
-const EXPERIMENTAL_SETTINGS = [
-    'gitpod.remote.useLocalApp',
+const EXPERIMENTAL_SETTINGS: string[] = [
     // 'gitpod.remote.useLocalSSHServer',
 ];
 
 export interface IExperimentsService {
     getUseLocalSSHProxy(): Promise<boolean>;
-    getUsePublicAPI(gitpodHost: string): Promise<boolean>
+    getUsePublicAPI(gitpodHost: string): Promise<boolean>;
 }
 
 export class ExperimentalSettings extends Disposable implements IExperimentsService {

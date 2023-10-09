@@ -118,6 +118,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		commandManager.register(new SignInCommand(sessionService));
 		commandManager.register(new InstallLocalExtensionsOnRemoteCommand(remoteService));
 		commandManager.register(new ExportLogsCommand(context, context.logUri, notificationService, telemetryService, logger, hostService));
+		// Backwards compatibility with older gitpod-remote extensions
+		commandManager.register({ id: 'gitpod.api.autoTunnel', execute: () => {} });
 
 		if (!context.globalState.get<boolean>(FIRST_INSTALL_KEY, false)) {
 			context.globalState.update(FIRST_INSTALL_KEY, true);
@@ -127,8 +129,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		// Because auth provider implementation is in the same extension, we need to wait for it to activate first
 		sessionService.didFirstLoad.then(async () => {
 			if (remoteConnectionInfo) {
-				commandManager.register({ id: 'gitpod.api.autoTunnel', execute: () => remoteConnector.autoTunnelCommand });
-
 				remoteSession = new RemoteSession(remoteConnectionInfo.connectionInfo, context, remoteService, hostService, sessionService, experiments, logger!, telemetryService!, notificationService);
 				await remoteSession.initialize();
 			} else if (sessionService.isSignedIn()) {

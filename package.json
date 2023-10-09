@@ -34,7 +34,6 @@
 	"activationEvents": [
 		"onResolveRemoteAuthority:ssh-remote",
 		"onCommand:gitpod.exportLogs",
-		"onCommand:gitpod.api.autoTunnel",
 		"onCommand:gitpod.installLocalExtensions",
 		"onAuthenticationRequest:gitpod",
 		"onUri",
@@ -55,12 +54,6 @@
 						"type": "string",
 						"description": "Gitpod Service URL. Update this if you are using a Gitpod self-hosted installation.",
 						"default": "https://gitpod.io/",
-						"scope": "application"
-					},
-					"gitpod.remote.useLocalApp": {
-						"type": "boolean",
-						"description": "Use the local companion app to connect to a remote workspace.\nWarning: Connecting to a remote workspace using local companion app will be removed in the near future.",
-						"default": false,
 						"scope": "application"
 					},
 					"gitpod.lsshExtensionIpcPort": {
