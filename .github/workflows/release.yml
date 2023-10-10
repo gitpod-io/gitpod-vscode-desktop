@@ -60,6 +60,12 @@ jobs:
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
+      - name: Publish to Open VSX Registry
+        run: |
+          npx ovsx publish --packagePath ${{ steps.package_vsix.outputs.vsix_path }}
+        env:
+          OVSX_PAT: ${{ secrets.OPEN_VSX_PAT }}
+
       - name: Update Action Summary
         run: |
           echo "Successfully released the \`gitpod-vscode-desktop\` extension (\`gitpod.gitpod-desktop\`) with the version: \`v${{ steps.package_vsix.outputs.version }}\`" >> summary.md
