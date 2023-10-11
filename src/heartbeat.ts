@@ -110,7 +110,7 @@ export class HeartbeatManager extends Disposable {
             }
         }));
 
-        this.logService.info(`Heartbeat manager for workspace ${this.connectionInfo.workspaceId} (${this.connectionInfo.instanceId}) - ${this.connectionInfo.gitpodHost} started`);
+        this.logService.info(`Heartbeat manager for workspace ${this.connectionInfo.workspaceId} - ${this.connectionInfo.gitpodHost} started`);
 
         // Start heartbeating interval
         this.sendHeartBeat();

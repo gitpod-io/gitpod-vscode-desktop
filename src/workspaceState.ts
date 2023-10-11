@@ -23,16 +23,29 @@ export class WorkspaceState extends Disposable {
     readonly onWorkspaceStopped = onceEvent(filterEvent(this.onWorkspaceStateChanged, () => this.isWorkspaceStopped));
 
     public get isWorkspaceStopping() {
+        if (!this._workspaceData) {
+            return false;
+        }
+
         const phase = this._workspaceStatus?.instance?.status?.phase;
         return phase === WorkspaceInstanceStatus_Phase.STOPPING;
     }
 
     public get isWorkspaceStopped() {
+        if (!this._workspaceData) {
+            return false;
+        }
+
         const phase = this._workspaceStatus?.instance?.status?.phase;
         return phase === WorkspaceInstanceStatus_Phase.STOPPED;
     }
 
     public get isWorkspaceRunning() {
+        if (!this._workspaceData) {
+            // If not initialized yet assume it's running
+            return true;
+        }
+
         const phase = this._workspaceStatus?.instance?.status?.phase;
         return phase === WorkspaceInstanceStatus_Phase.RUNNING;
     }
@@ -64,19 +77,17 @@ export class WorkspaceState extends Disposable {
 
     public async initialize() {
         const ws = await this.sessionService.getAPI().getWorkspace(this.workspaceId);
-        this._workspaceStatus = ws!.status;
         this._workspaceData = rawWorkspaceToWorkspaceData(ws);
-        this.logService.trace(`WorkspaceState: initial state`, this._workspaceData.phase);
+        this.checkWorkspaceState(ws.status!);
     }
 
-    private async checkWorkspaceState(workspaceState: WorkspaceStatus) {
-        if (!this._workspaceStatus) {
-            this.logService.error(`WorkspaceState not initialized`);
+    private checkWorkspaceState(workspaceState: WorkspaceStatus) {
+        if (!this._workspaceData) {
             return;
         }
 
         const phase = workspaceState.instance?.status?.phase;
-        const oldPhase = this._workspaceStatus.instance?.status?.phase;
+        const oldPhase = this._workspaceStatus?.instance?.status?.phase;
         this._workspaceStatus = workspaceState;
 
         this._workspaceData!.workspaceUrl = workspaceState.instance!.status!.url;
@@ -84,7 +95,7 @@ export class WorkspaceState extends Disposable {
         this._workspaceData!.lastUsed = workspaceState.instance!.createdAt!.toDate();
         this._workspaceData!.recentFolders = workspaceState.instance!.status!.recentFolders;
 
-        if (phase && oldPhase && phase !== oldPhase) {
+        if (typeof phase !== undefined && phase !== oldPhase) {
             this.logService.trace(`WorkspaceState: update state`, this._workspaceData!.phase);
             this._onWorkspaceStateChanged.fire();
         }
