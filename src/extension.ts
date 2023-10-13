@@ -80,7 +80,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		const hostService = new HostService(context, notificationService, logger);
 		context.subscriptions.push(hostService);
 
-		const sessionService = new SessionService(hostService, logger, telemetryService);
+		const sessionService = new SessionService(hostService, logger);
 		context.subscriptions.push(sessionService);
 
 		const remoteService = new RemoteService(context, hostService, sessionService, notificationService, telemetryService, logger);
@@ -119,7 +119,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		commandManager.register(new InstallLocalExtensionsOnRemoteCommand(remoteService));
 		commandManager.register(new ExportLogsCommand(context, context.logUri, notificationService, telemetryService, logger, hostService));
 		// Backwards compatibility with older gitpod-remote extensions
-		commandManager.register({ id: 'gitpod.api.autoTunnel', execute: () => {} });
+		commandManager.register({ id: 'gitpod.api.autoTunnel', execute: () => { } });
 
 		if (!context.globalState.get<boolean>(FIRST_INSTALL_KEY, false)) {
 			context.globalState.update(FIRST_INSTALL_KEY, true);
