@@ -64,9 +64,13 @@ export function createSegmentAnalyticsClient(settings: AnalyticsSettings, gitpod
 }
 
 
-export function getErrorMetricsEndpoint(gitpodHost: string): string {
-	const serviceUrl = new URL(gitpodHost);
-	return `https://ide.${serviceUrl.hostname}/metrics-api/reportError`;
+function getErrorMetricsEndpoint(gitpodHost: string): string {
+	try {
+		const serviceUrl = new URL(gitpodHost);
+		return `https://ide.${serviceUrl.hostname}/metrics-api/reportError`;
+	} catch {
+		throw new Error(`Invalid URL: ${gitpodHost}`);
+	}
 }
 
 export async function commonSendEventData(logService: ILogService, segmentClient: Analytics | undefined, machineId: string, eventName: string, data?: any): Promise<void> {
