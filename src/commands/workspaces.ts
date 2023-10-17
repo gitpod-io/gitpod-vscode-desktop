@@ -171,6 +171,9 @@ export class ConnectInNewWindowCommand implements Command {
 				}
 			);
 		} catch (e) {
+			if (e instanceof vscode.CancellationError) {
+				return;
+			}
 			this.logService.error(e);
 			this.telemetryService.sendTelemetryException(new WrapError('Error runnning connectInNewWindow command', e));
 			throw e;
@@ -340,6 +343,9 @@ export class ConnectInCurrentWindowCommand implements Command {
 				}
 			);
 		} catch (e) {
+			if (e instanceof vscode.CancellationError) {
+				return;
+			}
 			this.logService.error(e);
 			this.telemetryService.sendTelemetryException(new WrapError('Error runnning connectInCurrentWindow command', e));
 			throw e;
