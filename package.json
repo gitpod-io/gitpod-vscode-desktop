@@ -65,7 +65,10 @@
 						"type": "string",
 						"description": "The log level for ssh proxy.",
 						"scope": "application",
-						"enum": ["none", "debug"],
+						"enum": [
+							"none",
+							"debug"
+						],
 						"default": "none"
 					}
 				}
@@ -429,13 +432,12 @@
 		"webpack-cli": "^4.7.2"
 	},
 	"dependencies": {
-		"@connectrpc/connect-node": "1.1.2",
 		"@connectrpc/connect": "1.1.2",
+		"@connectrpc/connect-node": "1.1.2",
 		"@gitpod/gitpod-protocol": "main-gha",
 		"@gitpod/local-app-api-grpcweb": "main-gha",
 		"@gitpod/public-api": "main-gha",
 		"@gitpod/supervisor-api-grpcweb": "main-gha",
-		"@improbable-eng/grpc-web-node-http-transport": "^0.14.0",
 		"@microsoft/dev-tunnels-ssh": "^3.11.24",
 		"@microsoft/dev-tunnels-ssh-keys": "^3.11.24",
 		"@microsoft/dev-tunnels-ssh-tcp": "^3.11.24",

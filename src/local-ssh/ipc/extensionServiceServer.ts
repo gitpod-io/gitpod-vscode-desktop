@@ -13,45 +13,16 @@ import { Server, createChannel, createClient, createServer } from 'nice-grpc';
 import { ITelemetryService } from '../../common/telemetry';
 import { Configuration } from '../../configuration';
 import { timeout } from '../../common/async';
-import { BrowserHeaders } from 'browser-headers';
-import { ControlServiceClient, ServiceError } from '@gitpod/supervisor-api-grpcweb/lib/control_pb_service';
-import { NodeHttpTransport } from '@improbable-eng/grpc-web-node-http-transport';
-import { CreateSSHKeyPairRequest, CreateSSHKeyPairResponse } from '@gitpod/supervisor-api-grpcweb/lib/control_pb';
+import { ServiceError } from '@gitpod/supervisor-api-grpcweb/lib/control_pb_service';
 import * as ssh2 from 'ssh2';
 import { ParsedKey } from 'ssh2-streams';
 import { WrapError } from '../../common/utils';
-import { ConnectError, Code } from '@connectrpc/connect';
+import { ConnectError } from '@connectrpc/connect';
 import { rawWorkspaceToWorkspaceData } from '../../publicApi';
 
 function isServiceError(obj: any): obj is ServiceError {
     // eslint-disable-next-line eqeqeq
     return obj != null && typeof obj === 'object' && typeof obj.metadata != null && typeof obj.code === 'number' && typeof obj.message === 'string';
-}
-
-function wrapSupervisorAPIError<T>(callback: () => Promise<T>, opts?: { maxRetries?: number; signal?: AbortSignal }): Promise<T> {
-    const maxRetries = opts?.maxRetries ?? 5;
-    let retries = 0;
-
-    const onError: (err: any) => Promise<T> = async (err) => {
-        if (!isServiceError(err)) {
-            throw err;
-        }
-
-        const shouldRetry = opts?.signal ? !opts.signal.aborted : retries++ < maxRetries;
-        const isNetworkProblem = err.message.includes('Response closed without');
-        if (shouldRetry && (err.code === Code.Unavailable || err.code === Code.Aborted || isNetworkProblem)) {
-            await timeout(1000);
-            return callback().catch(onError);
-        }
-        if (isNetworkProblem) {
-            err.code = Code.Unavailable;
-        }
-        // codes of grpc-web are align with grpc and connect
-        // see https://github.com/improbable-eng/grpc-web/blob/1d9bbb09a0990bdaff0e37499570dbc7d6e58ce8/client/grpc-web/src/Code.ts#L1
-        throw new WrapError('Failed to call supervisor API', err, 'SupervisorAPI:' + Code[err.code]);
-    };
-
-    return callback().catch(onError);
 }
 
 class ExtensionServiceImpl implements ExtensionServiceImplementation {
@@ -65,18 +36,23 @@ class ExtensionServiceImpl implements ExtensionServiceImplementation {
 
     private async getWorkspaceSSHKey(ownerToken: string, workspaceUrl: string, signal: AbortSignal) {
         const url = new URL(workspaceUrl);
-        url.pathname = '/_supervisor/v1';
-        const { privateKey, userName } = await wrapSupervisorAPIError(() => new Promise<CreateSSHKeyPairResponse.AsObject>((resolve, reject) => {
-            const metadata = new BrowserHeaders();
-            metadata.append('x-gitpod-owner-token', ownerToken);
-            const client = new ControlServiceClient(url.toString(), { transport: NodeHttpTransport() });
-            client.createSSHKeyPair(new CreateSSHKeyPairRequest(), metadata, (err, resp) => {
-                if (err) {
-                    return reject(err);
-                }
-                resolve(resp!.toObject());
-            });
-        }), { signal });
+        url.pathname = '/_supervisor/v1/ssh_keys/create';
+
+        const resp = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Client': 'vscode-desktop-extension',
+                "x-gitpod-owner-token": ownerToken
+            },
+            signal
+        });
+
+        if (!resp.ok) {
+            throw new Error(`Cannot create workspace SSH private Key, response: ${resp.status} ${resp.statusText}`);
+        }
+
+        const  { privateKey, userName } = (await resp.json()) as { privateKey: string; userName: string };
 
         const parsedResult = ssh2.utils.parseKey(privateKey);
         if (parsedResult instanceof Error || !parsedResult) {
