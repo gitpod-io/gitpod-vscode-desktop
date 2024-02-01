@@ -20,7 +20,9 @@ interface ClientOptions {
 }
 
 function getClientOptions(): ClientOptions {
-    const args = process.argv.slice(2).filter(arg => arg != "--ms-enable-electron-run-as-node");
+    // Since 1.87.0 new electron version does not use this falga anymore, for now filter it
+    // we we should delete the logic and update minimun vscode version of extension
+    const args = process.argv.slice(2).filter(arg => arg !== '--ms-enable-electron-run-as-node');
     // %h is in the form of <ws_id>.vss.<gitpod_host>'
     // add `https://` prefix since our gitpodHost is actually a url not host
     const host = args[0];
