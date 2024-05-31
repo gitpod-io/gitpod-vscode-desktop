@@ -21,7 +21,6 @@ import { INotificationService } from './services/notificationService';
 import { SSHKey } from '@gitpod/public-api/lib/gitpod/experimental/v1/user_pb';
 import { getAgentSock, SSHError, testSSHConnection as testSSHGatewayConnection } from './sshTestConnection';
 import { gatherIdentityFiles } from './ssh/identityFiles';
-import { isWindows } from './common/platform';
 import SSHDestination from './ssh/sshDestination';
 import { NoRunningInstanceError, NoSSHGatewayError, SSHConnectionParams, SSH_DEST_KEY, getLocalSSHDomain } from './remote';
 import { ISessionService } from './services/sessionService';
@@ -360,14 +359,6 @@ export class RemoteConnector extends Disposable {
 				await this.remoteService.updateRemoteSSHConfig();
 
 				await this.context.globalState.update(`${SSH_DEST_KEY}${sshDestination!.toRemoteSSHString()}`, { ...params } as SSHConnectionParams);
-
-				// Force Linux as host platform (https://github.com/gitpod-io/gitpod/issues/16058)
-				if (isWindows) {
-					const existingSSHHostPlatforms = vscode.workspace.getConfiguration('remote.SSH').get<{ [host: string]: string }>('remotePlatform', {});
-					if (!existingSSHHostPlatforms[sshDestination!.hostname]) {
-						await vscode.workspace.getConfiguration('remote.SSH').update('remotePlatform', { ...existingSSHHostPlatforms, [sshDestination!.hostname]: 'linux' }, vscode.ConfigurationTarget.Global);
-					}
-				}
 
 				return sshDestination;
 			}

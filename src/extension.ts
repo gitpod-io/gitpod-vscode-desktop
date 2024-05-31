@@ -79,6 +79,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		const hostService = new HostService(context, notificationService, logger);
 		context.subscriptions.push(hostService);
+		await hostService.updateSSHRemotePlatform();
 
 		const sessionService = new SessionService(hostService, logger);
 		context.subscriptions.push(sessionService);

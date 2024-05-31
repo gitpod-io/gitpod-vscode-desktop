@@ -17,6 +17,7 @@ export interface IHostService {
     onDidChangeHost: vscode.Event<void>;
 
     changeHost(newHost: string, force?: boolean): Promise<boolean>;
+    updateSSHRemotePlatform(): Promise<void>;
 }
 
 export class HostService extends Disposable implements IHostService {
@@ -51,6 +52,7 @@ export class HostService extends Disposable implements IHostService {
                 if (new URL(this._gitpodHost).host !== new URL(newGitpodHost).host) {
                     this._gitpodHost = newGitpodHost;
                     this._onDidChangeHost.fire();
+                    this.updateSSHRemotePlatform().then(() => {});
                 }
             }
         }));
@@ -77,5 +79,19 @@ export class HostService extends Disposable implements IHostService {
             this.logService.info(`Updated 'gitpod.host' setting to '${newHost}'`);
         }
         return true;
+    }
+
+    // Force Linux as host platform (https://github.com/gitpod-io/gitpod/issues/16058)
+    async updateSSHRemotePlatform() {
+        try {
+            const hostname = '*.' + (new URL(this.gitpodHost)).hostname;
+            const existingSSHHostPlatforms = vscode.workspace.getConfiguration('remote.SSH').get<{ [host: string]: string }>('remotePlatform', {});
+            const targetPlatform = 'linux';
+            if (!existingSSHHostPlatforms[hostname] || existingSSHHostPlatforms[hostname] !== targetPlatform) {
+                await vscode.workspace.getConfiguration('remote.SSH').update('remotePlatform', { ...existingSSHHostPlatforms, [hostname]: targetPlatform }, vscode.ConfigurationTarget.Global);
+            }
+        } catch (error) {
+            this.logService.error('Error updating remotePlatform configuration', error);
+        }
     }
 }
