@@ -79,7 +79,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		const hostService = new HostService(context, notificationService, logger);
 		context.subscriptions.push(hostService);
-		await hostService.updateSSHRemotePlatform();
 
 		const sessionService = new SessionService(hostService, logger);
 		context.subscriptions.push(sessionService);
@@ -129,6 +128,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		// Because auth provider implementation is in the same extension, we need to wait for it to activate first
 		sessionService.didFirstLoad.then(async () => {
+			await remoteConnector.updateSSHRemotePlatform();
 			if (remoteConnectionInfo) {
 				remoteSession = new RemoteSession(remoteConnectionInfo.connectionInfo, context, remoteService, hostService, sessionService, experiments, logger!, telemetryService!, notificationService);
 				await remoteSession.initialize();
