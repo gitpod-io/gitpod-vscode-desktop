@@ -384,15 +384,14 @@ export class RemoteConnector extends Disposable {
 	// Force Linux as host platform (https://github.com/gitpod-io/gitpod/issues/16058)
 	public async updateSSHRemotePlatform() {
 		try {
-			
-			const hostname = '*.' + (new URL(this.hostService.gitpodHost)).hostname;
 			const existingSSHHostPlatforms = vscode.workspace.getConfiguration('remote.SSH').get<{ [host: string]: string }>('remotePlatform', {});
+			const hostname = '*.' + (new URL(this.hostService.gitpodHost)).hostname;
 			const targetPlatform = 'linux';
 			if (!existingSSHHostPlatforms[hostname] || existingSSHHostPlatforms[hostname] !== targetPlatform) {
 				await vscode.workspace.getConfiguration('remote.SSH').update('remotePlatform', { ...existingSSHHostPlatforms, [hostname]: targetPlatform }, vscode.ConfigurationTarget.Global);
 			}
-		} catch (error) {
-			this.logService.error('Error updating remotePlatform configuration', error);
+		} catch (e) {
+			this.logService.error('Error updating remotePlatform configuration', e);
 		}
 	}
 }

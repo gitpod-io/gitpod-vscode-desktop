@@ -92,17 +92,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		const remoteConnector = new RemoteConnector(context, sessionService, hostService, experiments, logger, telemetryService, notificationService, remoteService);
 		context.subscriptions.push(remoteConnector);
 
-		context.subscriptions.push(vscode.window.registerUriHandler({
-			handleUri(uri: vscode.Uri) {
-				// logger.trace('Handling Uri...', uri.toString());
-				if (uri.path === GitpodServer.AUTH_COMPLETE_PATH) {
-					authProvider.handleUri(uri);
-				} else {
-					remoteConnector.handleUri(uri);
-				}
-			}
-		}));
-
 		remoteConnectionInfo = getGitpodRemoteWindowConnectionInfo(context);
 		vscode.commands.executeCommand('setContext', 'gitpod.remoteConnection', !!remoteConnectionInfo);
 
@@ -121,14 +110,21 @@ export async function activate(context: vscode.ExtensionContext) {
 		// Backwards compatibility with older gitpod-remote extensions
 		commandManager.register({ id: 'gitpod.api.autoTunnel', execute: () => { } });
 
-		if (!context.globalState.get<boolean>(FIRST_INSTALL_KEY, false)) {
-			context.globalState.update(FIRST_INSTALL_KEY, true);
-			telemetryService.sendTelemetryEvent('gitpod_desktop_installation', { gitpodHost: hostService.gitpodHost, kind: 'install' });
-		}
+		const firstLoadPromise = sessionService.didFirstLoad.then(() => remoteConnector.updateSSHRemotePlatform());
+
+		context.subscriptions.push(vscode.window.registerUriHandler({
+			handleUri(uri: vscode.Uri) {
+				// logger.trace('Handling Uri...', uri.toString());
+				if (uri.path === GitpodServer.AUTH_COMPLETE_PATH) {
+					authProvider.handleUri(uri);
+				} else {
+					firstLoadPromise.then(() => remoteConnector.handleUri(uri));
+				}
+			}
+		}));
 
 		// Because auth provider implementation is in the same extension, we need to wait for it to activate first
-		sessionService.didFirstLoad.then(async () => {
-			await remoteConnector.updateSSHRemotePlatform();
+		firstLoadPromise.then(async () => {
 			if (remoteConnectionInfo) {
 				remoteSession = new RemoteSession(remoteConnectionInfo.connectionInfo, context, remoteService, hostService, sessionService, experiments, logger!, telemetryService!, notificationService);
 				await remoteSession.initialize();
@@ -141,6 +137,11 @@ export async function activate(context: vscode.ExtensionContext) {
 				});
 			}
 		});
+
+		if (!context.globalState.get<boolean>(FIRST_INSTALL_KEY, false)) {
+			context.globalState.update(FIRST_INSTALL_KEY, true);
+			telemetryService.sendTelemetryEvent('gitpod_desktop_installation', { gitpodHost: hostService.gitpodHost, kind: 'install' });
+		}
 
 		success = true;
 	} finally {
