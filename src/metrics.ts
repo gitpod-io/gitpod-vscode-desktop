@@ -194,7 +194,7 @@ export function getConnectMetricsInterceptor(): Interceptor {
 export class MetricsReporter {
     private static readonly REPORT_INTERVAL = 60000;
 
-    private intervalHandler: NodeJS.Timer | undefined;
+    private intervalHandler: ReturnType<typeof setInterval> | undefined;
 
     constructor(
         private readonly gitpodHost: string,

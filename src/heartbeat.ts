@@ -33,11 +33,11 @@ export class HeartbeatManager extends Disposable {
     private lastActivity = new Date().getTime();
     private lastActivityEvent: string = 'init';
     private isWorkspaceRunning = true;
-    private heartBeatHandle: NodeJS.Timer | undefined;
+    private heartBeatHandle: ReturnType<typeof setInterval> | undefined;
 
     private eventCounterMap = new Map<string, number>();
 
-    private ideHeartbeatTelemetryHandle: NodeJS.Timer | undefined;
+    private ideHeartbeatTelemetryHandle: ReturnType<typeof setInterval> | undefined;
     private ideHeartbeatData: Pick<IDEHeartbeatTelemetryData, 'successfulCount' | 'totalCount'> = {
         successfulCount: 0,
         totalCount: 0,
