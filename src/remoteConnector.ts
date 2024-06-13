@@ -4,13 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Workspace, WorkspaceInstanceStatus_Phase } from '@gitpod/public-api/lib/gitpod/experimental/v1/workspaces_pb';
-import { UserSSHPublicKeyValue, WorkspaceInfo } from '@gitpod/gitpod-protocol';
 import * as crypto from 'crypto';
 import { utils as sshUtils } from 'ssh2';
 import { ParsedKey } from 'ssh2-streams';
 import * as vscode from 'vscode';
 import { Disposable } from './common/dispose';
-import { withServerApi } from './internalApi';
 import { ITelemetryService, UserFlowTelemetryProperties } from './common/telemetry';
 import { addHostToHostFile, checkNewHostInHostkeys } from './ssh/hostfile';
 import { ScopeFeature } from './featureSupport';
@@ -33,8 +31,6 @@ export class RemoteConnector extends Disposable {
 
 	public static AUTH_COMPLETE_PATH = '/auth-complete';
 
-	private usePublicApi: boolean = false;
-
 	constructor(
 		private readonly context: vscode.ExtensionContext,
 		private readonly sessionService: ISessionService,
@@ -55,27 +51,21 @@ export class RemoteConnector extends Disposable {
 	private async getWorkspaceSSHDestination({ workspaceId, gitpodHost, debugWorkspace }: SSHConnectionParams): Promise<{ destination: SSHDestination; password?: string }> {
 		const sshKeysSupported = this.sessionService.getScopes().includes(ScopeFeature.SSHPublicKeys);
 
-		const [workspaceInfo, ownerToken, registeredSSHKeys] = await withServerApi(this.sessionService.getGitpodToken(), getServiceURL(gitpodHost), service => Promise.all([
-			this.usePublicApi ? this.sessionService.getAPI().getWorkspace(workspaceId) : service.server.getWorkspace(workspaceId),
-			this.usePublicApi ? this.sessionService.getAPI().getOwnerToken(workspaceId) : service.server.getOwnerToken(workspaceId),
-			sshKeysSupported ? (this.usePublicApi ? this.sessionService.getAPI().getSSHKeys() : service.server.getSSHPublicKeys()) : undefined
-		]), this.logService);
+		const [workspaceInfo, ownerToken, registeredSSHKeys] = await Promise.all([
+			this.sessionService.getAPI().getWorkspace(workspaceId),
+			this.sessionService.getAPI().getOwnerToken(workspaceId),
+			sshKeysSupported ? (this.sessionService.getAPI().getSSHKeys()) : undefined
+		]);
 
-		const isNotRunning = this.usePublicApi
-			? !((workspaceInfo as Workspace)?.status?.instance) || (workspaceInfo as Workspace)?.status?.instance?.status?.phase === WorkspaceInstanceStatus_Phase.STOPPING || (workspaceInfo as Workspace)?.status?.instance?.status?.phase === WorkspaceInstanceStatus_Phase.STOPPED
-			: !((workspaceInfo as WorkspaceInfo).latestInstance) || (workspaceInfo as WorkspaceInfo).latestInstance?.status?.phase === 'stopping' || (workspaceInfo as WorkspaceInfo).latestInstance?.status?.phase === 'stopped';
+		const isNotRunning = !((workspaceInfo as Workspace)?.status?.instance) || (workspaceInfo as Workspace)?.status?.instance?.status?.phase === WorkspaceInstanceStatus_Phase.STOPPING || (workspaceInfo as Workspace)?.status?.instance?.status?.phase === WorkspaceInstanceStatus_Phase.STOPPED;
 		if (isNotRunning) {
 			throw new NoRunningInstanceError(
 				workspaceId,
-				this.usePublicApi
-					? (workspaceInfo as Workspace)?.status?.instance?.status?.phase ? WorkspaceInstanceStatus_Phase[(workspaceInfo as Workspace)?.status?.instance?.status?.phase!] : undefined
-					: (workspaceInfo as WorkspaceInfo).latestInstance?.status?.phase
+				(workspaceInfo as Workspace)?.status?.instance?.status?.phase ? WorkspaceInstanceStatus_Phase[(workspaceInfo as Workspace)?.status?.instance?.status?.phase!] : undefined
 			);
 		}
 
-		const workspaceUrl = this.usePublicApi
-			? new URL((workspaceInfo as Workspace).status!.instance!.status!.url)
-			: new URL((workspaceInfo as WorkspaceInfo).latestInstance!.ideUrl);
+		const workspaceUrl = new URL((workspaceInfo as Workspace).status!.instance!.status!.url);
 
 		const sshHostKeyEndPoint = `https://${workspaceUrl.host}/_ssh/host_keys`;
 		const sshHostKeyResponse = await fetch(sshHostKeyEndPoint);
@@ -122,18 +112,16 @@ export class RemoteConnector extends Disposable {
 		let identityKeys = await gatherIdentityFiles(identityFiles, getAgentSock(hostConfiguration), false, this.logService);
 
 		if (registeredSSHKeys) {
-			const registeredKeys = this.usePublicApi
-				? (registeredSSHKeys as SSHKey[]).map(k => {
-					const parsedResult = sshUtils.parseKey(k.key);
-					if (parsedResult instanceof Error || !parsedResult) {
-						this.logService.error(`Error while parsing SSH public key ${k.name}:`, parsedResult);
-						return { name: k.name, fingerprint: '' };
-					}
+			const registeredKeys = (registeredSSHKeys as SSHKey[]).map(k => {
+				const parsedResult = sshUtils.parseKey(k.key);
+				if (parsedResult instanceof Error || !parsedResult) {
+					this.logService.error(`Error while parsing SSH public key ${k.name}:`, parsedResult);
+					return { name: k.name, fingerprint: '' };
+				}
 
-					const parsedKey = parsedResult as ParsedKey;
-					return { name: k.name, fingerprint: crypto.createHash('sha256').update(parsedKey.getPublicSSH()).digest('base64') };
-				})
-				: (registeredSSHKeys as UserSSHPublicKeyValue[]).map(k => ({ name: k.name, fingerprint: k.fingerprint }));
+				const parsedKey = parsedResult as ParsedKey;
+				return { name: k.name, fingerprint: crypto.createHash('sha256').update(parsedKey.getPublicSSH()).digest('base64') };
+			});
 			this.logService.trace(`Registered public keys in Gitpod account:`, registeredKeys.length ? registeredKeys.map(k => `${k.name} SHA256:${k.fingerprint}`).join('\n') : 'None');
 
 			identityKeys = identityKeys.filter(k => !!registeredKeys.find(regKey => regKey.fingerprint === k.fingerprint));
@@ -151,18 +139,14 @@ export class RemoteConnector extends Disposable {
 	}
 
 	private async getLocalSSHWorkspaceSSHDestination({ workspaceId, gitpodHost, debugWorkspace }: SSHConnectionParams): Promise<{ destination: SSHDestination; password?: string }> {
-		const workspaceInfo = await withServerApi(this.sessionService.getGitpodToken(), getServiceURL(gitpodHost), async service => this.usePublicApi ? this.sessionService.getAPI().getWorkspace(workspaceId) : service.server.getWorkspace(workspaceId), this.logService);
+		const workspaceInfo = await this.sessionService.getAPI().getWorkspace(workspaceId);
 
-		const isNotRunning = this.usePublicApi
-			? !((workspaceInfo as Workspace)?.status?.instance) || (workspaceInfo as Workspace)?.status?.instance?.status?.phase === WorkspaceInstanceStatus_Phase.STOPPING || (workspaceInfo as Workspace)?.status?.instance?.status?.phase === WorkspaceInstanceStatus_Phase.STOPPED
-			: !((workspaceInfo as WorkspaceInfo).latestInstance) || (workspaceInfo as WorkspaceInfo).latestInstance?.status?.phase === 'stopping' || (workspaceInfo as WorkspaceInfo).latestInstance?.status?.phase === 'stopped';
+		const isNotRunning = !((workspaceInfo as Workspace)?.status?.instance) || (workspaceInfo as Workspace)?.status?.instance?.status?.phase === WorkspaceInstanceStatus_Phase.STOPPING || (workspaceInfo as Workspace)?.status?.instance?.status?.phase === WorkspaceInstanceStatus_Phase.STOPPED;
 
 		if (isNotRunning) {
 			throw new NoRunningInstanceError(
 				workspaceId,
-				this.usePublicApi
-					? (workspaceInfo as Workspace)?.status?.instance?.status?.phase ? WorkspaceInstanceStatus_Phase[(workspaceInfo as Workspace)?.status?.instance?.status?.phase!] : undefined
-					: (workspaceInfo as WorkspaceInfo).latestInstance?.status?.phase
+				(workspaceInfo as Workspace)?.status?.instance?.status?.phase ? WorkspaceInstanceStatus_Phase[(workspaceInfo as Workspace)?.status?.instance?.status?.phase!] : undefined,
 			);
 		}
 
@@ -271,9 +255,6 @@ export class RemoteConnector extends Disposable {
 				location: vscode.ProgressLocation.Notification
 			},
 			async () => {
-				this.usePublicApi = await this.experiments.getUsePublicAPI(params.gitpodHost);
-				this.logService.info(`Going to use ${this.usePublicApi ? 'public' : 'server'} API`);
-
 				const openSSHVersion = await getOpenSSHVersion();
 
 				// Always try to run a local ssh connection collect success metrics

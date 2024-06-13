@@ -20,8 +20,6 @@ import { IRemoteService } from './services/remoteService';
 
 export class RemoteSession extends Disposable {
 
-	private usePublicApi: boolean = false;
-
 	private heartbeatManager: HeartbeatManager | undefined;
 	private workspaceState: WorkspaceState | undefined;
 	private extensionServiceServer: ExtensionServiceServer | undefined;
@@ -63,45 +61,27 @@ export class RemoteSession extends Disposable {
 		try {
 			this.remoteService.startLocalSSHServiceServer().catch(() => {/* ignore */ });
 
-			this.usePublicApi = await this.experiments.getUsePublicAPI(this.connectionInfo.gitpodHost);
-			this.logService.info(`Going to use ${this.usePublicApi ? 'public' : 'server'} API`);
+			this.workspaceState = new WorkspaceState(this.connectionInfo.workspaceId, this.sessionService, this.logService);
+			this.workspaceState.initialize()
+				.then(() => {
+					if (!this.workspaceState!.instanceId || !this.workspaceState!.isWorkspaceRunning) {
+						vscode.commands.executeCommand('workbench.action.remote.close');
+						return;
+					}
+					const instanceId = this.workspaceState!.instanceId;
+					if (instanceId !== this.connectionInfo.instanceId) {
+						this.logService.info(`Updating workspace ${this.connectionInfo.workspaceId} latest instance id ${this.connectionInfo.instanceId} => ${instanceId}`);
+						this.connectionInfo.instanceId = instanceId;
+					}
 
-			if (this.usePublicApi) {
-				this.workspaceState = new WorkspaceState(this.connectionInfo.workspaceId, this.sessionService, this.logService);
-				this.workspaceState.initialize()
-					.then(() => {
-						if (!this.workspaceState!.instanceId || !this.workspaceState!.isWorkspaceRunning) {
-							vscode.commands.executeCommand('workbench.action.remote.close');
-							return;
-						}
-						const instanceId = this.workspaceState!.instanceId;
-						if (instanceId !== this.connectionInfo.instanceId) {
-							this.logService.info(`Updating workspace ${this.connectionInfo.workspaceId} latest instance id ${this.connectionInfo.instanceId} => ${instanceId}`);
-							this.connectionInfo.instanceId = instanceId;
-						}
+					const { sshDestStr } = getGitpodRemoteWindowConnectionInfo(this.context)!;
+					this.context.globalState.update(`${SSH_DEST_KEY}${sshDestStr}`, { ...this.connectionInfo } as SSHConnectionParams);
+				});
 
-						const { sshDestStr } = getGitpodRemoteWindowConnectionInfo(this.context)!;
-						this.context.globalState.update(`${SSH_DEST_KEY}${sshDestStr}`, { ...this.connectionInfo } as SSHConnectionParams);
-					});
-
-				this._register(this.workspaceState.onWorkspaceWillStop(async () => {
-					await this.remoteService.saveRestartInfo();
-					vscode.commands.executeCommand('workbench.action.remote.close');
-				}));
-			} else {
-				const workspaceInfo = await withServerApi(this.sessionService.getGitpodToken(), this.connectionInfo.gitpodHost, service => service.server.getWorkspace(this.connectionInfo.workspaceId), this.logService);
-				if (!workspaceInfo.latestInstance || workspaceInfo.latestInstance?.status?.phase === 'stopping' || workspaceInfo.latestInstance?.status?.phase === 'stopped') {
-					throw new NoRunningInstanceError(this.connectionInfo.workspaceId, workspaceInfo.latestInstance?.status?.phase);
-				}
-				const instanceId = workspaceInfo.latestInstance.id;
-				if (instanceId !== this.connectionInfo.instanceId) {
-					this.logService.info(`Updating workspace ${this.connectionInfo.workspaceId} latest instance id ${this.connectionInfo.instanceId} => ${instanceId}`);
-					this.connectionInfo.instanceId = instanceId;
-				}
-
-				const { sshDestStr } = getGitpodRemoteWindowConnectionInfo(this.context)!;
-				this.context.globalState.update(`${SSH_DEST_KEY}${sshDestStr}`, { ...this.connectionInfo } as SSHConnectionParams);
-			}
+			this._register(this.workspaceState.onWorkspaceWillStop(async () => {
+				await this.remoteService.saveRestartInfo();
+				vscode.commands.executeCommand('workbench.action.remote.close');
+			}));
 
 			this.heartbeatManager = new HeartbeatManager(this.connectionInfo, this.workspaceState, this.sessionService, this.logService, this.telemetryService);
 
