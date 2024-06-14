@@ -8,10 +8,8 @@ import { NoRunningInstanceError, SSHConnectionParams, SSH_DEST_KEY, getGitpodRem
 import { Disposable } from './common/dispose';
 import { HeartbeatManager } from './heartbeat';
 import { WorkspaceState } from './workspaceState';
-import { IExperimentsService } from './experiments';
 import { ITelemetryService, UserFlowTelemetryProperties } from './common/telemetry';
 import { INotificationService } from './services/notificationService';
-import { withServerApi } from './internalApi';
 import { ISessionService } from './services/sessionService';
 import { IHostService } from './services/hostService';
 import { ILogService } from './services/logService';
@@ -30,7 +28,6 @@ export class RemoteSession extends Disposable {
 		private readonly remoteService: IRemoteService,
 		private readonly hostService: IHostService,
 		private readonly sessionService: ISessionService,
-		private readonly experiments: IExperimentsService,
 		private readonly logService: ILogService,
 		private readonly telemetryService: ITelemetryService,
 		private readonly notificationService: INotificationService
