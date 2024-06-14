@@ -126,7 +126,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		// Because auth provider implementation is in the same extension, we need to wait for it to activate first
 		firstLoadPromise.then(async () => {
 			if (remoteConnectionInfo) {
-				remoteSession = new RemoteSession(remoteConnectionInfo.connectionInfo, context, remoteService, hostService, sessionService, experiments, logger!, telemetryService!, notificationService);
+				remoteSession = new RemoteSession(remoteConnectionInfo.connectionInfo, context, remoteService, hostService, sessionService, logger!, telemetryService!, notificationService);
 				await remoteSession.initialize();
 			} else if (sessionService.isSignedIn()) {
 				remoteService.checkForStoppedWorkspaces(async wsInfo => {

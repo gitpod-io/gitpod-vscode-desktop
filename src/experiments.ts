@@ -19,7 +19,6 @@ const EXPERIMENTAL_SETTINGS: string[] = [
 
 export interface IExperimentsService {
     getUseLocalSSHProxy(): Promise<boolean>;
-    getUsePublicAPI(gitpodHost: string): Promise<boolean>;
 }
 
 export class ExperimentalSettings extends Disposable implements IExperimentsService {
@@ -146,10 +145,6 @@ export class ExperimentalSettings extends Disposable implements IExperimentsServ
      */
     async getUseLocalSSHProxy(): Promise<boolean> {
         return (await this.getRaw<boolean>('gitpod_desktop_use_local_ssh_proxy', { 'platform': os.platform() })) ?? false;
-    }
-
-    async getUsePublicAPI(gitpodHost: string): Promise<boolean> {
-        return (await this.getRaw<boolean>('gitpod_experimental_publicApi', { gitpodHost })) ?? false;
     }
 }
 
