@@ -23,6 +23,7 @@ interface IFile {
 
 export class ExportLogsCommand implements Command {
 	readonly id = 'gitpod.exportLogs';
+	static latestLSSHHost: string | undefined;
 
 	constructor(
 		private readonly context: vscode.ExtensionContext,
@@ -70,12 +71,14 @@ export class ExportLogsCommand implements Command {
 	}
 
 	private getLSSHLog(): string | undefined {
+		let lsshHostname: string | undefined;
 		const sshDestStr = getGitpodRemoteWindowConnectionInfo(this.context)?.sshDestStr;
 		if (sshDestStr) {
-			const sshDest = SSHDestination.fromRemoteSSHString(sshDestStr);
-			return path.join(os.tmpdir(), `lssh-${sshDest.hostname}.log`);
+			lsshHostname = SSHDestination.fromRemoteSSHString(sshDestStr).hostname;
+		} else if (ExportLogsCommand.latestLSSHHost) {
+			lsshHostname = ExportLogsCommand.latestLSSHHost;
 		}
-		return undefined;
+		return lsshHostname ? path.join(os.tmpdir(), `lssh-${lsshHostname}.log`) : undefined;
 	}
 
 	async exportLogs() {

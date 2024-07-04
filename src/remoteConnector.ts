@@ -26,6 +26,7 @@ import { ILogService } from './services/logService';
 import { IHostService } from './services/hostService';
 import { WrapError, getServiceURL } from './common/utils';
 import { IRemoteService } from './services/remoteService';
+import { ExportLogsCommand } from './commands/logs';
 
 export class RemoteConnector extends Disposable {
 
@@ -44,8 +45,8 @@ export class RemoteConnector extends Disposable {
 		super();
 
 		this._register(this.hostService.onDidChangeHost(async () => {
-			await this.updateSSHRemotePlatform()
-		}))
+			await this.updateSSHRemotePlatform();
+		}));
 	}
 
 	private async getWorkspaceSSHDestination({ workspaceId, gitpodHost, debugWorkspace }: SSHConnectionParams): Promise<{ destination: SSHDestination; password?: string }> {
@@ -278,6 +279,8 @@ export class RemoteConnector extends Disposable {
 
 					this.telemetryService.sendUserFlowStatus('connected', localSSHFlow);
 				} catch (e) {
+					ExportLogsCommand.latestLSSHHost = localSSHDestination?.hostname;
+
 					const reason = e?.code ?? (e?.name && e.name !== 'Error' ? e.name : 'Unknown');
 					this.telemetryService.sendTelemetryException(new WrapError('Local SSH: failed to connect to workspace', e), { ...localSSHFlow });
 					this.telemetryService.sendUserFlowStatus('failed', { ...localSSHFlow, reason });
