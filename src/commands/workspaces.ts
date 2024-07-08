@@ -18,6 +18,7 @@ import { IRemoteService } from '../services/remoteService';
 import { WrapError } from '../common/utils';
 import { getOpenSSHVersion, testSSHConnection as testLocalSSHConnection } from '../ssh/nativeSSH';
 import { IExperimentsService } from '../experiments';
+import { ExportLogsCommand } from './logs';
 
 function getCommandName(command: string) {
 	return command.replace('gitpod.workspaces.', '').replace(/(?:_inline|_context)(?:@\d)?$/, '');
@@ -133,6 +134,8 @@ export class ConnectInNewWindowCommand implements Command {
 							await testLocalSSHConnection(localSSHDestination.user!, localSSHDestination.hostname);
 							localSSHTestSuccess = true;
 						} catch (e) {
+							ExportLogsCommand.latestLSSHHost = localSSHDestination?.hostname;
+
 							this.telemetryService.sendTelemetryException(
 								new WrapError('Local SSH: failed to connect to workspace', e),
 								{
@@ -305,6 +308,8 @@ export class ConnectInCurrentWindowCommand implements Command {
 							await testLocalSSHConnection(localSSHDestination.user!, localSSHDestination.hostname);
 							localSSHTestSuccess = true;
 						} catch (e) {
+							ExportLogsCommand.latestLSSHHost = localSSHDestination?.hostname;
+
 							this.telemetryService.sendTelemetryException(
 								new WrapError('Local SSH: failed to connect to workspace', e),
 								{
