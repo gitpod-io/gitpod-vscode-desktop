@@ -76,8 +76,10 @@ export class HeartbeatManager extends Disposable {
         this._register(vscode.window.onDidCloseTerminal(() => this.updateLastActivity('onDidCloseTerminal')));
         this._register(vscode.window.onDidChangeTerminalState(() => this.updateLastActivity('onDidChangeTerminalState')));
         this._register(vscode.window.onDidChangeWindowState((e) => {
-            this.focused = e.focused;
-            this.updateLastActivity('onDidChangeWindowState');
+            if (e.focused !== this.focused) {
+                this.focused = e.focused;
+                this.updateLastActivity('onDidChangeWindowState');
+            }
         }));
         this._register(vscode.window.onDidChangeActiveColorTheme(() => this.updateLastActivity('onDidChangeActiveColorTheme')));
         this._register(vscode.authentication.onDidChangeSessions(() => this.updateLastActivity('onDidChangeSessions')));
