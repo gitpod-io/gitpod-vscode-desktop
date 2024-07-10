@@ -76,8 +76,13 @@ export class HeartbeatManager extends Disposable {
         this._register(vscode.window.onDidCloseTerminal(() => this.updateLastActivity('onDidCloseTerminal')));
         this._register(vscode.window.onDidChangeTerminalState(() => this.updateLastActivity('onDidChangeTerminalState')));
         this._register(vscode.window.onDidChangeWindowState((e) => {
-            this.focused = e.focused;
-            this.updateLastActivity('onDidChangeWindowState');
+            // active property was introduced in 1.89, but not exist in 1.75
+            // https://code.visualstudio.com/api/references/vscode-api#WindowState
+            const isActive: Boolean | undefined = (e as any).active;
+            if (isActive === true || e.focused !== this.focused) {
+                this.focused = e.focused;
+                this.updateLastActivity('onDidChangeWindowState');
+            }
         }));
         this._register(vscode.window.onDidChangeActiveColorTheme(() => this.updateLastActivity('onDidChangeActiveColorTheme')));
         this._register(vscode.authentication.onDidChangeSessions(() => this.updateLastActivity('onDidChangeSessions')));
