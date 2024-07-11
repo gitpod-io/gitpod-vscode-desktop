@@ -3,7 +3,7 @@
 	"displayName": "Gitpod",
 	"description": "Gitpod Support",
 	"publisher": "gitpod",
-	"version": "0.0.169",
+	"version": "0.0.170",
 	"license": "MIT",
 	"icon": "resources/gitpod.png",
 	"repository": {
@@ -413,7 +413,7 @@
 		"@types/uuid": "8.0.0",
 		"@types/vscode": "1.75.0",
 		"@types/webpack": "^5.28.0",
-		"@types/ws": "^8.5.4",
+		"@types/ws": "^8.5.10",
 		"@types/yazl": "^2.4.2",
 		"@typescript-eslint/eslint-plugin": "^5.19.0",
 		"@typescript-eslint/parser": "^5.19.0",
@@ -439,9 +439,9 @@
 		"@gitpod/public-api": "main-gha",
 		"@gitpod/supervisor-api-grpcweb": "main-gha",
 		"@improbable-eng/grpc-web-node-http-transport": "^0.14.0",
-		"@microsoft/dev-tunnels-ssh": "^3.11.24",
-		"@microsoft/dev-tunnels-ssh-keys": "^3.11.24",
-		"@microsoft/dev-tunnels-ssh-tcp": "^3.11.24",
+		"@microsoft/dev-tunnels-ssh": "^3.11.38",
+		"@microsoft/dev-tunnels-ssh-keys": "^3.11.38",
+		"@microsoft/dev-tunnels-ssh-tcp": "^3.11.38",
 		"@segment/analytics-node": "^1.0.0-beta.24",
 		"configcat-node": "^8.0.0",
 		"js-yaml": "^4.1.0",
@@ -458,7 +458,7 @@
 		"ssh2": "^1.10.0",
 		"tmp": "^0.2.1",
 		"uuid": "8.1.0",
-		"ws": "^8.13.0",
+		"ws": "^8.17.0",
 		"yazl": "^2.5.1"
 	}
 }

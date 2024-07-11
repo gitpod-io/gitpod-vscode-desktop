@@ -321,14 +321,20 @@ class WebSocketSSHProxy {
                         }
                     };
 
-                    socket.on('ping', heartbeat);
+                    socket.on('ping', () => heartbeat());
                     heartbeat();
 
                     const websocketStream = new WebSocketStream(socket as any);
                     const wrappedOnClose = socket.onclose!;
+                    const wrappedOnMessage = socket.onmessage!;
                     socket.onclose = (e) => {
                         stopHearbeat();
                         wrappedOnClose(e);
+                    };
+                    socket.onmessage = (e) => {
+                        socket.pong();
+                        heartbeat();
+                        wrappedOnMessage(e);
                     };
                     resolve(websocketStream);
                 };
