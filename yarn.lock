@@ -249,24 +249,24 @@
     semver "^7.3.5"
     tar "^6.1.11"
 
-"@microsoft/dev-tunnels-ssh-keys@^3.11.24":
-  version "3.11.24"
-  resolved "https://registry.yarnpkg.com/@microsoft/dev-tunnels-ssh-keys/-/dev-tunnels-ssh-keys-3.11.24.tgz#cf3120f53d5d128d02832b32777d65d402f1111f"
-  integrity sha512-Ja8lPAnxamtrawkqIOud/jv34xufPvoR8ZpdAexDmY8arNc1vDfhiiPIfVQcpdDzb0pkkZMEZnTCELyFnAbRvQ==
+"@microsoft/dev-tunnels-ssh-keys@^3.11.38":
+  version "3.11.38"
+  resolved "https://registry.yarnpkg.com/@microsoft/dev-tunnels-ssh-keys/-/dev-tunnels-ssh-keys-3.11.38.tgz#4731a3e23e507aaca3b20d65cda98a86513bfb2c"
+  integrity sha512-/AmObuej2vxKnfniOAnACoCMYoxUWl5RAr1TyQFTJ27YUsDISAtzqa/wprNBjjJV8jXhv/kISORyFdapMdayJw==
   dependencies:
     "@microsoft/dev-tunnels-ssh" "~3.11"
 
-"@microsoft/dev-tunnels-ssh-tcp@^3.11.24":
-  version "3.11.24"
-  resolved "https://registry.yarnpkg.com/@microsoft/dev-tunnels-ssh-tcp/-/dev-tunnels-ssh-tcp-3.11.24.tgz#895ca1516208745f6c9b6648f69e16ce1f1ec2d2"
-  integrity sha512-BR0SY+qlY6Af3n3c1s9ybTnfWtatfleai8f3wYpl8uEOlP9OWvEW5ECO77pbutTkgYfF/D/dsqNr8A24QK6zlQ==
+"@microsoft/dev-tunnels-ssh-tcp@^3.11.38":
+  version "3.11.38"
+  resolved "https://registry.yarnpkg.com/@microsoft/dev-tunnels-ssh-tcp/-/dev-tunnels-ssh-tcp-3.11.38.tgz#dd7263f74847079886fb3e4e00453ab347ee5320"
+  integrity sha512-GraMSCScu2Pn30oFyzgmw1kAbXJBXBCuzSBQ+q5xIwK1ZpK6D9M/0u2ctsCGw5SwyVVf0hWFqlfZsZlfTX/ifQ==
   dependencies:
     "@microsoft/dev-tunnels-ssh" "~3.11"
 
-"@microsoft/dev-tunnels-ssh@^3.11.24", "@microsoft/dev-tunnels-ssh@~3.11":
-  version "3.11.24"
-  resolved "https://registry.yarnpkg.com/@microsoft/dev-tunnels-ssh/-/dev-tunnels-ssh-3.11.24.tgz#9272e52d6edfa6ba587b12a315944d407d50d05b"
-  integrity sha512-81g529o3gdEzqnNXDoIaK+OeUKVPi3Hyem6TZDUXXp16I6n43oQe1g3exbM6lFfVyEqUayIqxvnr7HOttC6jCA==
+"@microsoft/dev-tunnels-ssh@^3.11.38", "@microsoft/dev-tunnels-ssh@~3.11":
+  version "3.11.38"
+  resolved "https://registry.yarnpkg.com/@microsoft/dev-tunnels-ssh/-/dev-tunnels-ssh-3.11.38.tgz#59062b6f4faf776533a5b6890f1d267cef76bb28"
+  integrity sha512-PFD8Tcrj+XpWQDRNY2KWCW1Eip52KXhWZsyGC0MhYQEj0n0Y/1eejHoHY6WynL2lrGtcyZ2fD66hlUa/8BZ6Rg==
   dependencies:
     buffer "^5.2.1"
     debug "^4.1.1"
@@ -518,10 +518,10 @@
     tapable "^2.2.0"
     webpack "^5"
 
-"@types/ws@^8.5.4":
-  version "8.5.4"
-  resolved "https://registry.yarnpkg.com/@types/ws/-/ws-8.5.4.tgz#bb10e36116d6e570dd943735f86c933c1587b8a5"
-  integrity sha512-zdQDHKUgcX/zBc4GrwsE/7dVdAD8JR4EuiAXiiUhhfyIJXXb2+PrGshFyeXWQPMmmZ2XxgaqclgpIC7eTXc1mg==
+"@types/ws@^8.5.10":
+  version "8.5.10"
+  resolved "https://registry.yarnpkg.com/@types/ws/-/ws-8.5.10.tgz#4acfb517970853fa6574a3a6886791d04a396787"
+  integrity sha512-vmQSUcfalpIq0R9q7uTo2lXs6eGIpt9wtnLdMv9LVpIjCA/+ufZRozlVoVelIYixx1ugCBKDhn89vnsEGOCx9A==
   dependencies:
     "@types/node" "*"
 
@@ -4243,10 +4243,10 @@ ws@^7.4.6:
   resolved "https://registry.yarnpkg.com/ws/-/ws-7.5.9.tgz#54fa7db29f4c7cec68b1ddd3a89de099942bb591"
   integrity sha512-F+P9Jil7UiSKSkppIiD94dN07AwvFixvLIj1Og1Rl9GGMuNipJnV9JzjD6XuqmAeiswGvUmNLjr5cFuXwNS77Q==
 
-ws@^8.13.0:
-  version "8.13.0"
-  resolved "https://registry.yarnpkg.com/ws/-/ws-8.13.0.tgz#9a9fb92f93cf41512a0735c8f4dd09b8a1211cd0"
-  integrity sha512-x9vcZYTrFPC7aSIbj7sRCYo7L/Xb8Iy+pW0ng0wt2vCJv7M9HOMy0UoN3rr+IFC7hb7vXoqS+P9ktyLLLhO+LA==
+ws@^8.17.0:
+  version "8.17.0"
+  resolved "https://registry.yarnpkg.com/ws/-/ws-8.17.0.tgz#d145d18eca2ed25aaf791a183903f7be5e295fea"
+  integrity sha512-uJq6108EgZMAl20KagGkzCKfMEjxmKvZHG7Tlq0Z6nOky7YF7aq4mOx6xK8TJ/i1LeK4Qus7INktacctDgY8Ow==
 
 xml2js@^0.4.23:
   version "0.4.23"
