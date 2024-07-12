@@ -6,13 +6,10 @@
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
-import * as http from 'http';
-import * as https from 'https';
 import * as tls from 'tls';
-import * as net from 'net';
 import { NopeLogger, DebugLogger } from './logger';
 import { TelemetryService } from './telemetryService';
-import { createHttpPatch, createNetPatch, createProxyResolver, createTlsPatch, loadSystemCertificates, LogLevel, ProxyAgentParams } from '@vscode/proxy-agent';
+import { createTlsPatch, loadSystemCertificates, LogLevel, ProxyAgentParams } from '@vscode/proxy-agent';
 
 interface ClientOptions {
     host: string;
@@ -488,7 +485,7 @@ function getFailureCode(err: any) {
 
 function createPatchedModules(logService: ILogService) {
     const params: ProxyAgentParams = {
-        resolveProxy: async url => url,
+        resolveProxy: async () => undefined,
         getProxyURL: () => undefined,
         getProxySupport: () => 'off',
         addCertificatesV1: () => false,
@@ -504,16 +501,12 @@ function createPatchedModules(logService: ILogService) {
         },
         env: process.env,
     };
-    const resolveProxy = createProxyResolver(params);
 
     function mergeModules(module: any, patch: any) {
         return Object.assign(module.default || module, patch);
     }
 
     return {
-        http: mergeModules(http, createHttpPatch(params, http, resolveProxy)),
-        https: mergeModules(https, createHttpPatch(params, https, resolveProxy)),
-        net: mergeModules(net, createNetPatch(params, net)),
         tls: mergeModules(tls, createTlsPatch(params, tls))
     };
 }
