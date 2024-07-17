@@ -484,6 +484,11 @@ function getFailureCode(err: any) {
 }
 
 function createPatchedModules(logService: ILogService) {
+    if (process.platform === 'win32') {
+        // Ignore windows for now as it requires a native binary
+        return;
+    }
+
     const params: ProxyAgentParams = {
         resolveProxy: async () => undefined,
         getProxyURL: () => undefined,
