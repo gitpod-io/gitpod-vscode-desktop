@@ -31,7 +31,8 @@ const prodConfig = {
 		vscode: "commonjs vscode",
 		bufferutil: "bufferutil",
 		"utf-8-validate": "utf-8-validate",
-		"node-rsa": "node-rsa"
+		"node-rsa": "node-rsa",
+		"@vscode/windows-ca-certs": "@vscode/windows-ca-certs"
 	},
 	resolve: {
 		mainFields: ['main'],
@@ -80,7 +81,8 @@ const devConfig = {
 	externals: {
 		bufferutil: "bufferutil",
 		"utf-8-validate": "utf-8-validate",
-		"node-rsa": "node-rsa"
+		"node-rsa": "node-rsa",
+		"@vscode/windows-ca-certs": "@vscode/windows-ca-certs"
 	},
 	resolve: {
 		mainFields: ['main'],
