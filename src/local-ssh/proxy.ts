@@ -6,10 +6,8 @@
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
-import * as tls from 'tls';
 import { NopeLogger, DebugLogger } from './logger';
 import { TelemetryService } from './telemetryService';
-import { createTlsPatch, loadSystemCertificates, LogLevel, ProxyAgentParams } from '@vscode/proxy-agent';
 
 interface ClientOptions {
     host: string;
@@ -423,9 +421,6 @@ async function getExtensionsJson(extensionsDir: string) {
 
 async function main() {
     const logService = options.debug ? new DebugLogger(path.join(os.tmpdir(), `lssh-${options.host}.log`)) : new NopeLogger();
-
-    createPatchedModules(logService);
-
     const telemetryService = new TelemetryService(
         process.env.SEGMENT_KEY!,
         options.machineID,
@@ -481,37 +476,4 @@ function getFailureCode(err: any) {
         return err.failureCode;
     }
     return undefined;
-}
-
-function createPatchedModules(logService: ILogService) {
-    if (process.platform === 'win32') {
-        // Ignore windows for now as it requires a native binary
-        return;
-    }
-
-    const params: ProxyAgentParams = {
-        resolveProxy: async () => undefined,
-        getProxyURL: () => undefined,
-        getProxySupport: () => 'off',
-        addCertificatesV1: () => false,
-        addCertificatesV2: () => true,
-        log: logService,
-        getLogLevel: () => {
-            return LogLevel.Trace;
-        },
-        proxyResolveTelemetry: () => { },
-        useHostProxy: false,
-        loadAdditionalCertificates: async () => {
-            return await loadSystemCertificates({ log: logService });
-        },
-        env: process.env,
-    };
-
-    function mergeModules(module: any, patch: any) {
-        return Object.assign(module.default || module, patch);
-    }
-
-    return {
-        tls: mergeModules(tls, createTlsPatch(params, tls))
-    };
 }
