@@ -270,16 +270,20 @@
 			],
 			"commandPalette": [
 				{
-					"command": "gitpod.workspaces.refresh",
-					"when": "false"
+					"command": "gitpod.signIn",
+					"when": "!gitpod.inGpNextRemoteWindow"
+				},
+				{
+					"command": "gitpod.exportLogs",
+					"when": "!gitpod.inGpNextRemoteWindow"
 				},
 				{
 					"command": "gitpod.workspaces.refresh",
-					"when": "gitpod.authenticated == true"
+					"when": "gitpod.authenticated == true && !gitpod.inGpNextRemoteWindow"
 				},
 				{
 					"command": "gitpod.workspaces.connectInNewWindow",
-					"when": "gitpod.authenticated == true"
+					"when": "gitpod.authenticated == true && !gitpod.inGpNextRemoteWindow"
 				},
 				{
 					"command": "gitpod.workspaces.connectInNewWindow_context",
@@ -287,7 +291,7 @@
 				},
 				{
 					"command": "gitpod.workspaces.connectInCurrentWindow",
-					"when": "gitpod.authenticated == true"
+					"when": "gitpod.authenticated == true && !gitpod.inGpNextRemoteWindow"
 				},
 				{
 					"command": "gitpod.workspaces.connectInCurrentWindow_context",
@@ -307,7 +311,7 @@
 				},
 				{
 					"command": "gitpod.workspaces.stopWorkspace",
-					"when": "gitpod.authenticated == true && gitpod.inWorkspace != true"
+					"when": "gitpod.authenticated == true && gitpod.inWorkspace != true && !gitpod.inGpNextRemoteWindow"
 				},
 				{
 					"command": "gitpod.workspaces.stopWorkspace_context",
@@ -335,7 +339,7 @@
 				},
 				{
 					"command": "gitpod.workspaces.deleteWorkspace",
-					"when": "gitpod.authenticated == true && gitpod.inWorkspace != true"
+					"when": "gitpod.authenticated == true && gitpod.inWorkspace != true && !gitpod.inGpNextRemoteWindow"
 				},
 				{
 					"command": "gitpod.workspaces.deleteWorkspace_context",
@@ -362,13 +366,13 @@
 					"id": "gitpod-login",
 					"name": "Login",
 					"icon": "$(squirrel)",
-					"when": "gitpod.authenticated != true"
+					"when": "gitpod.authenticated != true && !gitpod.inGpNextRemoteWindow"
 				},
 				{
 					"id": "gitpod-workspaces",
 					"name": "Workspaces",
 					"icon": "$(squirrel)",
-					"when": "gitpod.authenticated == true"
+					"when": "gitpod.authenticated == true && !gitpod.inGpNextRemoteWindow"
 				},
 				{
 					"id": "gitpod-workspace",
@@ -381,7 +385,7 @@
 		"viewsWelcome": [
 			{
 				"view": "gitpod-login",
-				"when": "gitpod.authenticated != true",
+				"when": "gitpod.authenticated != true && !gitpod.inGpNextRemoteWindow",
 				"contents": "You have not yet signed in with Gitpod\n[Sign in](command:gitpod.signIn)"
 			}
 		]

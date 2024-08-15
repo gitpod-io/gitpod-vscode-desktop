@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import SSHDestination from './ssh/sshDestination';
 
 export interface SSHConnectionParams {
 	workspaceId: string;
@@ -67,6 +68,35 @@ export function getGitpodRemoteWindowConnectionInfo(context: vscode.ExtensionCon
 	}
 
 	return undefined;
+}
+
+export function isGitpodNextRemoteWindow() {
+	const remoteUri = vscode.workspace.workspaceFile?.scheme !== 'untitled'
+		? vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.[0].uri
+		: vscode.workspace.workspaceFolders?.[0].uri;
+	if (!remoteUri) {
+		return false;
+	}
+	if (vscode.env.remoteName === 'dev-container') {
+		const authorities = remoteUri.authority.split('@');
+		const sshAuthority = authorities.find((str) => str.includes('ssh-remote'));
+		const containerAuthority = authorities.find((str) => str.includes('dev-container'));
+		if (!sshAuthority || !containerAuthority) {
+			return false;
+		}
+		const [, sshEncoded] = sshAuthority.split('+');
+		if (!sshEncoded) {
+			return false;
+		}
+		const [, containerEncoded] = containerAuthority.split('+');
+		if (!containerEncoded) {
+			return false;
+		}
+		const sshDest = SSHDestination.fromRemoteSSHString(sshEncoded);
+
+		return /gitpod\.(local|remote)$/.test(sshDest.hostname);
+	}
+	return false;
 }
 
 export function getLocalSSHDomain(gitpodHost: string): string {

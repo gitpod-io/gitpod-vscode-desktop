@@ -13,7 +13,7 @@ import { NotificationService } from './services/notificationService';
 import { RemoteConnector } from './remoteConnector';
 import { TelemetryService } from './services/telemetryService';
 import { RemoteSession } from './remoteSession';
-import { SSHConnectionParams, getGitpodRemoteWindowConnectionInfo } from './remote';
+import { SSHConnectionParams, getGitpodRemoteWindowConnectionInfo, isGitpodNextRemoteWindow } from './remote';
 import { HostService } from './services/hostService';
 import { SessionService } from './services/sessionService';
 import { CommandManager } from './commandManager';
@@ -44,6 +44,11 @@ let logger: vscode.LogOutputChannel | undefined;
 export async function activate(context: vscode.ExtensionContext) {
 	const extensionId = context.extension.id;
 	const packageJSON = context.extension.packageJSON;
+
+	if (isGitpodNextRemoteWindow()) {
+		vscode.commands.executeCommand('setContext', 'gitpod.inGpNextRemoteWindow', true);
+		return;
+	}
 
 	let remoteConnectionInfo: { connectionInfo: SSHConnectionParams; remoteUri: vscode.Uri; sshDestStr: string } | undefined;
 	let success = false;
