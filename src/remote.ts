@@ -70,7 +70,7 @@ export function getGitpodRemoteWindowConnectionInfo(context: vscode.ExtensionCon
 	return undefined;
 }
 
-export function isGitpodNextRemoteWindow() {
+export function isGitpodFlexRemoteWindow() {
 	const remoteUri = vscode.workspace.workspaceFile?.scheme !== 'untitled'
 		? vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.[0].uri
 		: vscode.workspace.workspaceFolders?.[0].uri;
@@ -96,6 +96,15 @@ export function isGitpodNextRemoteWindow() {
 
 		return /gitpod\.(local|remote)$/.test(sshDest.hostname);
 	}
+	if (vscode.env.remoteName === 'ssh-remote') {
+        const [, sshEncoded] = remoteUri.authority.split('+');
+        if (!sshEncoded) {
+            return;
+        }
+        const sshDest = SSHDestination.fromRemoteSSHString(sshEncoded);
+
+		return /gitpod\.(local|remote)$/.test(sshDest.hostname);
+    }
 	return false;
 }
 

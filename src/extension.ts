@@ -13,7 +13,7 @@ import { NotificationService } from './services/notificationService';
 import { RemoteConnector } from './remoteConnector';
 import { TelemetryService } from './services/telemetryService';
 import { RemoteSession } from './remoteSession';
-import { SSHConnectionParams, getGitpodRemoteWindowConnectionInfo, isGitpodNextRemoteWindow } from './remote';
+import { SSHConnectionParams, getGitpodRemoteWindowConnectionInfo, isGitpodFlexRemoteWindow } from './remote';
 import { HostService } from './services/hostService';
 import { SessionService } from './services/sessionService';
 import { CommandManager } from './commandManager';
@@ -45,8 +45,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	const extensionId = context.extension.id;
 	const packageJSON = context.extension.packageJSON;
 
-	if (isGitpodNextRemoteWindow()) {
-		vscode.commands.executeCommand('setContext', 'gitpod.inGpNextRemoteWindow', true);
+	if (isGitpodFlexRemoteWindow()) {
+		vscode.commands.executeCommand('setContext', 'gitpod.inGitpodFlexRemoteWindow', true);
 		return;
 	}
 
