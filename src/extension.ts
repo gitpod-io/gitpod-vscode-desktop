@@ -52,7 +52,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				try {
 					const params: SSHConnectionParams = JSON.parse(uri.query);
 					const openNewWindow = 'Use New Window';
-					vscode.window.showInformationMessage(`We cannot open Gitpod workspace on ${params.gitpodHost} from a Gitpod Flex environment window.`, openNewWindow)
+					vscode.window.showWarningMessage(`We cannot open Gitpod workspace on ${params.gitpodHost} from a Gitpod Flex environment window.`, { modal: true }, openNewWindow)
 						.then(action => {
 							if (action === openNewWindow) {
 								vscode.commands.executeCommand('vscode.newWindow', { remoteAuthority: null });
