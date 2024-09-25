@@ -47,6 +47,21 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	if (isGitpodFlexRemoteWindow()) {
 		vscode.commands.executeCommand('setContext', 'gitpod.inGitpodFlexRemoteWindow', true);
+		context.subscriptions.push(vscode.window.registerUriHandler({
+			handleUri(uri: vscode.Uri) {
+				try {
+					const params: SSHConnectionParams = JSON.parse(uri.query);
+					const openNewWindow = 'Use New Window';
+					vscode.window.showInformationMessage(`We cannot open Gitpod workspace on ${params.gitpodHost} from a Gitpod Flex environment window.`, openNewWindow)
+						.then(action => {
+							if (action === openNewWindow) {
+								vscode.commands.executeCommand('vscode.newWindow', { remoteAuthority: null });
+							}
+						});
+				} catch {
+				}
+			}
+		}));
 		return;
 	}
 
