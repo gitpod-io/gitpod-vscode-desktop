@@ -43,7 +43,7 @@ export interface IRemoteService {
     getWorkspaceSSHDestination(wsData: WorkspaceData): Promise<{ destination: SSHDestination; password?: string }>;
     showSSHPasswordModal(wsData: WorkspaceData, password: string): Promise<void>;
 
-    updateRemoteSSHConfig(): Promise<void>;
+    updateRemoteConfig(): Promise<void>;
     initializeRemoteExtensions(): Promise<void>;
 }
 
@@ -402,10 +402,11 @@ export class RemoteService extends Disposable implements IRemoteService {
                 throw e;
             }
             this.telemetryService.sendUserFlowStatus('synced', flowData);
-        } catch {
+        } catch (error) {
             const msg = `Error while installing local extensions on remote.`;
             this.logService.error(msg);
-
+            this.logService.trace(error)
+            
             const status = 'failed';
             const seeLogs = 'See Logs';
             const action = await this.notificationService.showErrorMessage(msg, { flow: flowData, id: status }, seeLogs);
