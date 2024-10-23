@@ -331,25 +331,27 @@ export class RemoteService extends Disposable implements IRemoteService {
 
     async updateRemoteConfig() {
         const remoteSSHconfig = vscode.workspace.getConfiguration('remote.SSH');
-        const defaultExtConfigInfo =
+        const defaultSSHExtConfigInfo =
             remoteSSHconfig.inspect<string[]>('defaultExtensions');
-        const defaultExtensions = defaultExtConfigInfo?.globalValue ?? [];
-        if (!defaultExtensions.includes('gitpod.gitpod-remote-ssh')) {
-            defaultExtensions.unshift('gitpod.gitpod-remote-ssh');
+        const defaultSSHExtensions = defaultSSHExtConfigInfo?.globalValue ?? [];
+        if (!defaultSSHExtensions.includes('gitpod.gitpod-remote-ssh')) {
+            defaultSSHExtensions.unshift('gitpod.gitpod-remote-ssh');
             await remoteSSHconfig.update(
                 'defaultExtensions',
-                defaultExtensions,
+                defaultSSHExtensions,
                 vscode.ConfigurationTarget.Global,
             );
         }
 
         const remoteDevContainerConfig =
             vscode.workspace.getConfiguration('dev.containers');
+        const defaultDevContainerExtConfigInfo = remoteDevContainerConfig.inspect<string[]>('defaultExtensions');
+        const defaultDevContainerExtensions = defaultDevContainerExtConfigInfo?.globalValue ?? [];
         const defaultDCExtConfigInfo =
             remoteDevContainerConfig.inspect<string[]>('defaultExtensions');
         const defaultDcExtensions = defaultDCExtConfigInfo?.globalValue ?? [];
-        if (!defaultExtensions.includes('gitpod.gitpod-remote-ssh')) {
-            defaultExtensions.unshift('gitpod.gitpod-remote-ssh');
+        if (!defaultDevContainerExtensions.includes('gitpod.gitpod-remote-ssh')) {
+            defaultDevContainerExtensions.unshift('gitpod.gitpod-remote-ssh');
             await remoteDevContainerConfig.update(
                 'defaultExtensions',
                 defaultDcExtensions,
@@ -406,7 +408,7 @@ export class RemoteService extends Disposable implements IRemoteService {
             const msg = `Error while installing local extensions on remote.`;
             this.logService.error(msg);
             this.logService.trace(error)
-            
+
             const status = 'failed';
             const seeLogs = 'See Logs';
             const action = await this.notificationService.showErrorMessage(msg, { flow: flowData, id: status }, seeLogs);
