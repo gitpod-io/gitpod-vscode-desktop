@@ -347,14 +347,11 @@ export class RemoteService extends Disposable implements IRemoteService {
             vscode.workspace.getConfiguration('dev.containers');
         const defaultDevContainerExtConfigInfo = remoteDevContainerConfig.inspect<string[]>('defaultExtensions');
         const defaultDevContainerExtensions = defaultDevContainerExtConfigInfo?.globalValue ?? [];
-        const defaultDCExtConfigInfo =
-            remoteDevContainerConfig.inspect<string[]>('defaultExtensions');
-        const defaultDcExtensions = defaultDCExtConfigInfo?.globalValue ?? [];
         if (!defaultDevContainerExtensions.includes('gitpod.gitpod-remote-ssh')) {
             defaultDevContainerExtensions.unshift('gitpod.gitpod-remote-ssh');
             await remoteDevContainerConfig.update(
                 'defaultExtensions',
-                defaultDcExtensions,
+                defaultDevContainerExtensions,
                 vscode.ConfigurationTarget.Global,
             );
         }
@@ -407,7 +404,7 @@ export class RemoteService extends Disposable implements IRemoteService {
         } catch (error) {
             const msg = `Error while installing local extensions on remote.`;
             this.logService.error(msg);
-            this.logService.trace(error)
+            this.logService.trace(error);
 
             const status = 'failed';
             const seeLogs = 'See Logs';
