@@ -59,6 +59,25 @@ export function getGitpodRemoteWindowConnectionInfo(context: vscode.ExtensionCon
 	const remoteUri = vscode.workspace.workspaceFile?.scheme !== 'untitled'
 		? vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.[0].uri
 		: vscode.workspace.workspaceFolders?.[0].uri;
+	if (vscode.env.remoteName === 'dev-container' && context.extension.extensionKind === vscode.ExtensionKind.UI && remoteUri) {
+		const authorities = remoteUri.authority.split('@');
+		const sshAuthority = authorities.find((str) => str.includes('ssh-remote'));
+		const containerAuthority = authorities.find((str) => str.includes('dev-container'));
+		if (!sshAuthority || !containerAuthority) {
+			return undefined;
+		}
+		const [, sshEncoded] = sshAuthority.split('+');
+		if (!sshEncoded) {
+			return undefined;
+		}
+
+		const sshDest = SSHDestination.fromRemoteSSHString(sshEncoded);
+
+		const connectionInfo = context.globalState.get<SSHConnectionParams>(`${SSH_DEST_KEY}${sshDest.toRemoteSSHString()}`);
+		if (connectionInfo) {
+			return { connectionInfo, remoteUri, sshDestStr: sshDest.toRemoteSSHString() };
+		}
+	}
 	if (vscode.env.remoteName === 'ssh-remote' && context.extension.extensionKind === vscode.ExtensionKind.UI && remoteUri) {
 		const [, sshDestStr] = remoteUri.authority.split('+');
 		const connectionInfo = context.globalState.get<SSHConnectionParams>(`${SSH_DEST_KEY}${sshDestStr}`);
@@ -97,14 +116,14 @@ export function isGitpodFlexRemoteWindow() {
 		return /gitpod\.(local|remote)$/.test(sshDest.hostname);
 	}
 	if (vscode.env.remoteName === 'ssh-remote') {
-        const [, sshEncoded] = remoteUri.authority.split('+');
-        if (!sshEncoded) {
-            return;
-        }
-        const sshDest = SSHDestination.fromRemoteSSHString(sshEncoded);
+		const [, sshEncoded] = remoteUri.authority.split('+');
+		if (!sshEncoded) {
+			return;
+		}
+		const sshDest = SSHDestination.fromRemoteSSHString(sshEncoded);
 
 		return /gitpod\.(local|remote)$/.test(sshDest.hostname);
-    }
+	}
 	return false;
 }
 
