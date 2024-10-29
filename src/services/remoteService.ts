@@ -43,7 +43,7 @@ export interface IRemoteService {
     getWorkspaceSSHDestination(wsData: WorkspaceData): Promise<{ destination: SSHDestination; password?: string }>;
     showSSHPasswordModal(wsData: WorkspaceData, password: string): Promise<void>;
 
-    updateRemoteSSHConfig(): Promise<void>;
+    updateRemoteConfig(): Promise<void>;
     initializeRemoteExtensions(): Promise<void>;
 }
 
@@ -329,19 +329,41 @@ export class RemoteService extends Disposable implements IRemoteService {
         throw new Error('SSH password modal dialog, Canceled');
     }
 
-    async updateRemoteSSHConfig() {
-		const remoteSSHconfig = vscode.workspace.getConfiguration('remote.SSH');
-		const defaultExtConfigInfo = remoteSSHconfig.inspect<string[]>('defaultExtensions');
-		const defaultExtensions = defaultExtConfigInfo?.globalValue ?? [];
-		if (!defaultExtensions.includes('gitpod.gitpod-remote-ssh')) {
-			defaultExtensions.unshift('gitpod.gitpod-remote-ssh');
-			await remoteSSHconfig.update('defaultExtensions', defaultExtensions, vscode.ConfigurationTarget.Global);
-		}
+    async updateRemoteConfig() {
+        const remoteSSHconfig = vscode.workspace.getConfiguration('remote.SSH');
+        const defaultSSHExtConfigInfo =
+            remoteSSHconfig.inspect<string[]>('defaultExtensions');
+        const defaultSSHExtensions = defaultSSHExtConfigInfo?.globalValue ?? [];
+        if (!defaultSSHExtensions.includes('gitpod.gitpod-remote-ssh')) {
+            defaultSSHExtensions.unshift('gitpod.gitpod-remote-ssh');
+            await remoteSSHconfig.update(
+                'defaultExtensions',
+                defaultSSHExtensions,
+                vscode.ConfigurationTarget.Global,
+            );
+        }
 
-		const currentConfigFile = remoteSSHconfig.get<string>('configFile');
-		if (currentConfigFile?.includes('gitpod_ssh_config')) {
-			await remoteSSHconfig.update('configFile', undefined, vscode.ConfigurationTarget.Global);
-		}
+        const remoteDevContainerConfig =
+            vscode.workspace.getConfiguration('dev.containers');
+        const defaultDevContainerExtConfigInfo = remoteDevContainerConfig.inspect<string[]>('defaultExtensions');
+        const defaultDevContainerExtensions = defaultDevContainerExtConfigInfo?.globalValue ?? [];
+        if (!defaultDevContainerExtensions.includes('gitpod.gitpod-remote-ssh')) {
+            defaultDevContainerExtensions.unshift('gitpod.gitpod-remote-ssh');
+            await remoteDevContainerConfig.update(
+                'defaultExtensions',
+                defaultDevContainerExtensions,
+                vscode.ConfigurationTarget.Global,
+            );
+        }
+
+        const currentConfigFile = remoteSSHconfig.get<string>('configFile');
+        if (currentConfigFile?.includes('gitpod_ssh_config')) {
+            await remoteSSHconfig.update(
+                'configFile',
+                undefined,
+                vscode.ConfigurationTarget.Global,
+            );
+        }
     }
 
     async initializeRemoteExtensions() {
@@ -379,9 +401,10 @@ export class RemoteService extends Disposable implements IRemoteService {
                 throw e;
             }
             this.telemetryService.sendUserFlowStatus('synced', flowData);
-        } catch {
+        } catch (error) {
             const msg = `Error while installing local extensions on remote.`;
             this.logService.error(msg);
+            this.logService.trace(error);
 
             const status = 'failed';
             const seeLogs = 'See Logs';

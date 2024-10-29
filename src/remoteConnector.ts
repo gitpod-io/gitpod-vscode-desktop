@@ -265,7 +265,7 @@ export class RemoteConnector extends Disposable {
 				try {
 					this.telemetryService.sendUserFlowStatus('connecting', localSSHFlow);
 					// If needed, revert local-app changes first
-					await this.remoteService.updateRemoteSSHConfig();
+					await this.remoteService.updateRemoteConfig();
 
 					this.remoteService.flow = sshFlow;
 					await Promise.all([
@@ -344,7 +344,7 @@ export class RemoteConnector extends Disposable {
 					}
 				}
 
-				await this.remoteService.updateRemoteSSHConfig();
+				await this.remoteService.updateRemoteConfig();
 
 				await this.context.globalState.update(`${SSH_DEST_KEY}${sshDestination!.toRemoteSSHString()}`, { ...params } as SSHConnectionParams);
 
