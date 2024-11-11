@@ -1,6 +1,6 @@
 {
 	"name": "gitpod-desktop",
-	"displayName": "Gitpod Classic",
+	"displayName": "Gitpod",
 	"description": "Gitpod Support",
 	"publisher": "gitpod",
 	"version": "0.0.178",
