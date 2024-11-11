@@ -1,5 +1,7 @@
 # Gitpod
 
+> **Note**: If you’re looking for the [Gitpod Flex](https://app.gitpod.io) experience, please install the [Gitpod Flex extension](https://marketplace.visualstudio.com/items?itemName=gitpod.gitpod-flex). For [Gitpod Classic](https://gitpod.io/workspaces) workspaces, this is the extension you need.
+
 Gitpod is an open-source Kubernetes application for automated and ready-to-code development environments that blends in your existing workflow. It enables you to describe your dev environment as code and start instant and fresh development environments for each new task directly from your browser.
 
 Tightly integrated with GitLab, GitHub, and Bitbucket, Gitpod automatically and continuously prebuilds dev environments for all your branches. As a result, team members can instantly start coding with fresh, ephemeral and fully-compiled dev environments - no matter if you are building a new feature, want to fix a bug or do a code review.
