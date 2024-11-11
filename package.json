@@ -3,7 +3,7 @@
 	"displayName": "Gitpod",
 	"description": "Gitpod Support",
 	"publisher": "gitpod",
-	"version": "0.0.176",
+	"version": "0.0.177",
 	"license": "MIT",
 	"icon": "resources/gitpod.png",
 	"repository": {
