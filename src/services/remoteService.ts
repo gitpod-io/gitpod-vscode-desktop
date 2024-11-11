@@ -331,8 +331,7 @@ export class RemoteService extends Disposable implements IRemoteService {
 
     async updateRemoteConfig() {
         const remoteSSHconfig = vscode.workspace.getConfiguration('remote.SSH');
-        const defaultSSHExtConfigInfo =
-            remoteSSHconfig.inspect<string[]>('defaultExtensions');
+        const defaultSSHExtConfigInfo = remoteSSHconfig.inspect<string[]>('defaultExtensions');
         const defaultSSHExtensions = defaultSSHExtConfigInfo?.globalValue ?? [];
         if (!defaultSSHExtensions.includes('gitpod.gitpod-remote-ssh')) {
             defaultSSHExtensions.unshift('gitpod.gitpod-remote-ssh');
@@ -343,17 +342,19 @@ export class RemoteService extends Disposable implements IRemoteService {
             );
         }
 
-        const remoteDevContainerConfig =
-            vscode.workspace.getConfiguration('dev.containers');
-        const defaultDevContainerExtConfigInfo = remoteDevContainerConfig.inspect<string[]>('defaultExtensions');
-        const defaultDevContainerExtensions = defaultDevContainerExtConfigInfo?.globalValue ?? [];
-        if (!defaultDevContainerExtensions.includes('gitpod.gitpod-remote-ssh')) {
-            defaultDevContainerExtensions.unshift('gitpod.gitpod-remote-ssh');
-            await remoteDevContainerConfig.update(
-                'defaultExtensions',
-                defaultDevContainerExtensions,
-                vscode.ConfigurationTarget.Global,
-            );
+        const msVscodeRemoteContainersExt = vscode.extensions.getExtension('ms-vscode-remote.remote-containers');
+        if (msVscodeRemoteContainersExt) {
+            const remoteDevContainerConfig = vscode.workspace.getConfiguration('dev.containers');
+            const defaultDevContainerExtConfigInfo = remoteDevContainerConfig.inspect<string[]>('defaultExtensions');
+            const defaultDevContainerExtensions = defaultDevContainerExtConfigInfo?.globalValue ?? [];
+            if (!defaultDevContainerExtensions.includes('gitpod.gitpod-remote-ssh')) {
+                defaultDevContainerExtensions.unshift('gitpod.gitpod-remote-ssh');
+                await remoteDevContainerConfig.update(
+                    'defaultExtensions',
+                    defaultDevContainerExtensions,
+                    vscode.ConfigurationTarget.Global,
+                );
+            }
         }
 
         const currentConfigFile = remoteSSHconfig.get<string>('configFile');
