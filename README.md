@@ -1,4 +1,4 @@
-# Gitpod
+# Gitpod Classic
 
 > **Note**: If you’re looking for the [Gitpod Flex](https://app.gitpod.io) experience, please install the [Gitpod Flex extension](https://marketplace.visualstudio.com/items?itemName=gitpod.gitpod-flex). For [Gitpod Classic](https://gitpod.io/workspaces) workspaces, this is the extension you need.
 
