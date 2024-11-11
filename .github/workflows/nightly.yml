@@ -20,7 +20,7 @@ jobs:
       status: ${{ steps.earlyexit.outputs.status }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - id: earlyexit
@@ -55,10 +55,10 @@ jobs:
     needs: check
     if: needs.check.outputs.status == 'changed'
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
 
       - name: Install dependencies
         run: |
