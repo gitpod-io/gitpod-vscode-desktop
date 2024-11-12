@@ -1,9 +1,9 @@
 {
 	"name": "gitpod-desktop",
 	"displayName": "Gitpod",
-	"description": "Gitpod Support",
+	"description": "Required to connect to Classic workspaces",
 	"publisher": "gitpod",
-	"version": "0.0.179",
+	"version": "0.0.180",
 	"license": "MIT",
 	"icon": "resources/gitpod.png",
 	"repository": {
