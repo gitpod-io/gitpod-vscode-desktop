@@ -3,7 +3,7 @@
 	"displayName": "Gitpod",
 	"description": "Required to connect to Classic workspaces",
 	"publisher": "gitpod",
-	"version": "0.0.180",
+	"version": "0.0.181",
 	"license": "MIT",
 	"icon": "resources/gitpod.png",
 	"repository": {
