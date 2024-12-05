@@ -382,8 +382,9 @@
 				},
 				{
 					"id": "gitpod-flex-help",
-					"name": "Help",
-					"icon": "$(squirrel)"
+					"name": "Looking for Gitpod Flex?",
+					"icon": "$(squirrel)",
+					"when": "gitpod.host === 'https://gitpod.io'"
 				}
 			]
 		},
@@ -395,7 +396,7 @@
 			},
 			{
 				"view": "gitpod-flex-help",
-				"contents": "Connecting to Gitpod Flex environments requires installing the [Gitpod Flex extension](https://marketplace.visualstudio.com/items?itemName=gitpod.gitpod-flex) and opening them through the [Gitpod Flex](https://app.gitpod.io/). This view is only to manage [Gitpod Classic](https://gitpod.io/workspaces) workspaces."
+				"contents": "Connecting to Gitpod Flex environments requires installing the [Gitpod Flex extension](https://marketplace.visualstudio.com/items?itemName=gitpod.gitpod-flex) and opening them through the [Gitpod Flex](https://app.gitpod.io/).\nThis view is only to manage [Gitpod Classic](https://gitpod.io/workspaces) workspaces."
 			}
 		]
 	},
