@@ -38,6 +38,7 @@ export class HostService extends Disposable implements IHostService {
         super();
 
         this._gitpodHost = Configuration.getGitpodHost();
+        this.updateGitpodHostContextKey();
 
         this._register(vscode.workspace.onDidChangeConfiguration(e => {
             if (e.affectsConfiguration('gitpod.host')) {
@@ -50,10 +51,20 @@ export class HostService extends Disposable implements IHostService {
                 const newGitpodHost = Configuration.getGitpodHost();
                 if (new URL(this._gitpodHost).host !== new URL(newGitpodHost).host) {
                     this._gitpodHost = newGitpodHost;
+                    this.updateGitpodHostContextKey();
                     this._onDidChangeHost.fire();
                 }
             }
         }));
+    }
+
+    private updateGitpodHostContextKey() {
+        try {
+            const origin = new URL(this.gitpodHost).origin;
+            vscode.commands.executeCommand('setContext', 'gitpod.host', origin);
+        } catch (e) {
+            vscode.commands.executeCommand('setContext', 'gitpod.host', undefined);
+        }
     }
 
     async changeHost(newHost: string, skipRemoteWindowCheck: boolean = false) {
