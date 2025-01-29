@@ -11,7 +11,7 @@ Tightly integrated with GitLab, GitHub, and Bitbucket, Gitpod automatically and 
 ## Getting Started
 
 You can open a Gitpod workspace with VS Code Desktop in two different ways:
-- From your [user preferences](https://gitpod.io/preferences), you can select `VS Code Desktop` as your prefered IDE and you will always start your workspaces automatically with it.
+- From your [user preferences](https://gitpod.io/preferences), you can select `VS Code Desktop` as your preferred IDE and you will always start your workspaces automatically with it.
 - Ad hoc, from within VS Code Browser, by opening the Command Pallete (<kbd>F1</kbd>) and searching for <kbd>Open in VS Code</kbd> if you already have a running workspace already.
 
 ## Settings Sync
