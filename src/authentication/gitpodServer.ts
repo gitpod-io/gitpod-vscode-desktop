@@ -29,8 +29,8 @@ async function getUserInfo(token: string, serviceUrl: string, logger: ILogServic
 	};
 }
 
-const ACTION_COPY = "Copy to clipboard";
-const ACTION_CANCEL = "Cancel";
+const ACTION_COPY = 'Copy to clipboard';
+const ACTION_CANCEL = 'Cancel';
 
 export default class GitpodServer extends Disposable {
 
@@ -82,11 +82,11 @@ export default class GitpodServer extends Disposable {
 			const success = await vscode.env.openExternal(uri as any);
 			if (!success) {
 				// Handle the case where the extension can't open a browser window
-				const action = await vscode.window.showWarningMessage("There was a problem opening the login URL in your browser. Please copy it into your browser manually.", ACTION_COPY, ACTION_CANCEL);
+				const action = await vscode.window.showWarningMessage('There was a problem opening the login URL in your browser. Please copy it into your browser manually.', ACTION_COPY, ACTION_CANCEL);
 				if (action === ACTION_COPY) {
 					await vscode.env.clipboard.writeText(uri);
 				} else if (action === ACTION_CANCEL) {
-					throw new Error("Signin cancelled by user");
+					throw new Error('Signin cancelled by user');
 				}
 			}
 
