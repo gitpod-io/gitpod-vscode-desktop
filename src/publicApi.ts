@@ -84,7 +84,7 @@ export class GitpodPublicApi extends Disposable implements IGitpodAPI {
             baseUrl: serviceUrl.toString(),
             httpVersion: '2',
             interceptors: [authInterceptor, metricsInterceptor],
-            useBinaryFormat: true,
+            useBinaryFormat: false,
             pingIntervalMs: 120000,
             pingTimeoutMs: 10000
         });
