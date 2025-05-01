@@ -209,7 +209,7 @@ class WebSocketSSHProxy {
                     pipePromise = localSession.pipe(pipeSession);
                     return {};
                 }).catch(async err => {
-                    this.logService.error('failed to authenticate proxy with username: ' + e.username ?? '', err);
+                    this.logService.error('failed to authenticate proxy with username: ' + (e.username ?? ''), err);
 
                     this.flow.failureCode = getFailureCode(err);
                     let sendErrorReport = true;

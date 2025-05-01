@@ -150,7 +150,7 @@ export default function isPlainObject(value: any) {
 export class WrapError extends Error {
 	constructor(
 		msg: string,
-		readonly cause: any,
+		override readonly cause: any,
 		readonly code?: string
 	) {
 		super();

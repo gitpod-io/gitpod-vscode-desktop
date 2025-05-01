@@ -7,7 +7,7 @@ import * as os from 'os';
 import { Analytics, AnalyticsSettings } from '@segment/analytics-node';
 import { ILogService } from '../services/logService';
 import { cloneAndChange, escapeRegExpCharacters, isBuiltFromGHA, mixin } from '../common/utils';
-import fetch from 'node-fetch-commonjs';
+import { unwrapFetchError } from './fetch';
 
 export const TRUSTED_VALUES = new Set([
 	'gitpodHost',
@@ -63,16 +63,6 @@ export function createSegmentAnalyticsClient(settings: AnalyticsSettings, gitpod
 	return client;
 }
 
-
-function getErrorMetricsEndpoint(gitpodHost: string): string {
-	try {
-		const serviceUrl = new URL(gitpodHost);
-		return `https://ide.${serviceUrl.hostname}/metrics-api/reportError`;
-	} catch {
-		throw new Error(`Invalid URL: ${gitpodHost}`);
-	}
-}
-
 export async function commonSendEventData(logService: ILogService, segmentClient: Analytics | undefined, machineId: string, eventName: string, data?: any): Promise<void> {
 	const properties = data ?? {};
 
@@ -125,7 +115,14 @@ export function commonSendErrorData(logService: ILogService, defaultGitpodHost: 
 
 	// Unhandled errors have no data so use host from config
 	const gitpodHost = properties['gitpodHost'] ?? defaultGitpodHost;
-	const errorMetricsEndpoint = getErrorMetricsEndpoint(gitpodHost);
+	let errorMetricsEndpoint: string;
+	try {
+		const serviceUrl = new URL(gitpodHost);
+		errorMetricsEndpoint = `https://ide.${serviceUrl.hostname}/metrics-api/reportError`;
+	} catch {
+		logService.error(`Invalid gitpodHost: ${gitpodHost}`);
+		return;
+	}
 
 	properties['error_name'] = error.name;
 	properties['error_message'] = errorProps.message;
@@ -173,7 +170,9 @@ export function commonSendErrorData(logService: ILogService, defaultGitpodHost: 
 			logService.error(`Metrics endpoint responded with ${resp.status} ${resp.statusText}`);
 		}
 	}).catch((e) => {
-		logService.error('Failed to report error to metrics endpoint!', e);
+		const err = unwrapFetchError(e);
+		logService.error('Failed to report error to metrics endpoint!');
+		logService.error(err);
 	});
 }
 

@@ -12,6 +12,7 @@ import { Disposable } from '../common/dispose';
 import { INotificationService } from '../services/notificationService';
 import { UserFlowTelemetryProperties } from '../common/telemetry';
 import { ILogService } from '../services/logService';
+import { unwrapFetchError } from '../common/fetch';
 
 interface ExchangeTokenResponse {
 	token_type: 'Bearer';
@@ -150,16 +151,21 @@ export default class GitpodServer extends Disposable {
 
 			const callbackUri = await vscode.env.asExternalUri(vscode.Uri.parse(`${vscode.env.uriScheme}://gitpod.gitpod-desktop${GitpodServer.AUTH_COMPLETE_PATH}`));
 			try {
-				const exchangeTokenResponse = await fetch(`${this._serviceUrl}/api/oauth/token`, {
-					method: 'POST',
-					body: new URLSearchParams({
-						code,
-						grant_type: 'authorization_code',
-						client_id: `${vscode.env.uriScheme}-gitpod`,
-						redirect_uri: callbackUri.toString(true),
-						code_verifier: verifier
-					})
-				});
+				let exchangeTokenResponse:Response;
+				try {
+					exchangeTokenResponse = await fetch(`${this._serviceUrl}/api/oauth/token`, {
+						method: 'POST',
+						body: new URLSearchParams({
+							code,
+							grant_type: 'authorization_code',
+							client_id: `${vscode.env.uriScheme}-gitpod`,
+							redirect_uri: callbackUri.toString(true),
+							code_verifier: verifier
+						})
+					});
+				} catch (e) {
+					throw unwrapFetchError(e);
+				}
 
 				if (!exchangeTokenResponse.ok) {
 					this.notificationService.showErrorMessage(`Couldn't connect (token exchange): ${exchangeTokenResponse.statusText}, ${await exchangeTokenResponse.text()}`, { flow, id: 'failed_to_exchange' });
@@ -172,6 +178,9 @@ export default class GitpodServer extends Disposable {
 				const accessToken = JSON.parse(Buffer.from(jwtToken.split('.')[1], 'base64').toString())['jti'];
 				resolve(accessToken);
 			} catch (err) {
+				this.logService.error('Error exchanging code for token');
+				this.logService.error(err);
+
 				this.notificationService.showErrorMessage(`Couldn't connect (token exchange): ${err}`, { flow, id: 'failed_to_exchange' });
 				reject(err);
 			}

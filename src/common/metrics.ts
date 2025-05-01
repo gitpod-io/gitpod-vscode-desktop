@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ILogService } from '../services/logService';
+import { unwrapFetchError } from './fetch';
 import { isBuiltFromGHA } from './utils';
-import fetch from 'node-fetch-commonjs';
 
 const metricsHostMap = new Map<string, string>();
 
@@ -20,17 +20,23 @@ export async function addCounter(gitpodHost: string, name: string, labels: Recor
         return;
     }
     const metricsHost = getMetricsHost(gitpodHost);
-    const resp = await fetch(
-        `https://${metricsHost}/metrics-api/metrics/counter/add/${name}`,
-        {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Client': 'vscode-desktop-extension'
-            },
-            body: JSON.stringify(data)
-        }
-    );
+
+    let resp: Response;
+    try {
+        resp = await fetch(
+            `https://${metricsHost}/metrics-api/metrics/counter/add/${name}`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Client': 'vscode-desktop-extension'
+                },
+                body: JSON.stringify(data)
+            }
+        );
+    } catch (e) {
+        throw unwrapFetchError(e);
+    }
 
     if (!resp.ok) {
         throw new Error(`Metrics endpoint responded with ${resp.status} ${resp.statusText}`);
@@ -50,17 +56,23 @@ export async function addHistogram(gitpodHost: string, name: string, labels: Rec
         return;
     }
     const metricsHost = getMetricsHost(gitpodHost);
-    const resp = await fetch(
-        `https://${metricsHost}/metrics-api/metrics/histogram/add/${name}`,
-        {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Client': 'vscode-desktop-extension'
-            },
-            body: JSON.stringify(data)
-        }
-    );
+
+    let resp: Response;
+    try {
+        resp = await fetch(
+            `https://${metricsHost}/metrics-api/metrics/histogram/add/${name}`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Client': 'vscode-desktop-extension'
+                },
+                body: JSON.stringify(data)
+            }
+        );
+    } catch (e) {
+        throw unwrapFetchError(e);
+    }
 
     if (!resp.ok) {
         throw new Error(`Metrics endpoint responded with ${resp.status} ${resp.statusText}`);

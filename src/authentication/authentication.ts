@@ -13,6 +13,7 @@ import { ITelemetryService, UserFlowTelemetryProperties } from '../common/teleme
 import { INotificationService } from '../services/notificationService';
 import { ILogService } from '../services/logService';
 import { Configuration } from '../configuration';
+import { unwrapFetchError } from '../common/fetch';
 
 interface SessionData {
 	id: string;
@@ -102,13 +103,21 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 		try {
 			const controller = new AbortController();
 			setTimeout(() => controller.abort(), 1500);
-			const resp = await fetch(endpoint, { signal: controller.signal });
+
+			let resp: Response;
+			try {
+				resp = await fetch(endpoint, { signal: controller.signal });
+			} catch (e) {
+				throw unwrapFetchError(e);
+			}
+
 			if (resp.ok) {
 				this._validScopes = (await resp.json()) as string[];
 				return this._validScopes;
 			}
 		} catch (e) {
-			this.logService.error(`Error fetching endpoint ${endpoint}`, e);
+			this.logService.error(`Error fetching endpoint ${endpoint}`);
+			this.logService.error(e);
 		}
 		return undefined;
 	}
