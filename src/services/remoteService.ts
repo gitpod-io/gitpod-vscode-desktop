@@ -31,6 +31,7 @@ import { INotificationService } from './notificationService';
 import { getOpenSSHVersion } from '../ssh/nativeSSH';
 import { retry } from '../common/async';
 import { IStoredProfileExtension } from '../profileExtensions';
+import { unwrapFetchError } from '../common/fetch';
 
 export interface IRemoteService {
     flow?: UserFlowTelemetryProperties;
@@ -243,7 +244,13 @@ export class RemoteService extends Disposable implements IRemoteService {
 
         const wsUrl = new URL(workspaceUrl);
         const sshHostKeyEndPoint = `https://${wsUrl.host}/_ssh/host_keys`;
-        const sshHostKeyResponse = await fetch(sshHostKeyEndPoint);
+        let sshHostKeyResponse: Response;
+        try {
+            sshHostKeyResponse = await fetch(sshHostKeyEndPoint);
+        } catch (e) {
+            throw unwrapFetchError(e);
+        }
+
         if (!sshHostKeyResponse.ok) {
             // Gitpod SSH gateway not configured
             throw new NoSSHGatewayError(this.hostService.gitpodHost);

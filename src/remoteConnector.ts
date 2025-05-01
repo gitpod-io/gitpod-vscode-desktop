@@ -27,6 +27,7 @@ import { IHostService } from './services/hostService';
 import { WrapError, getServiceURL } from './common/utils';
 import { IRemoteService } from './services/remoteService';
 import { ExportLogsCommand } from './commands/logs';
+import { unwrapFetchError } from './common/fetch';
 
 export class RemoteConnector extends Disposable {
 
@@ -69,7 +70,13 @@ export class RemoteConnector extends Disposable {
 		const workspaceUrl = new URL((workspaceInfo as Workspace).status!.instance!.status!.url);
 
 		const sshHostKeyEndPoint = `https://${workspaceUrl.host}/_ssh/host_keys`;
-		const sshHostKeyResponse = await fetch(sshHostKeyEndPoint);
+		let sshHostKeyResponse: Response;
+		try {
+			sshHostKeyResponse = await fetch(sshHostKeyEndPoint);
+		} catch (e) {
+			throw unwrapFetchError(e);
+		}
+
 		if (!sshHostKeyResponse.ok) {
 			// Gitpod SSH gateway not configured
 			throw new NoSSHGatewayError(gitpodHost);
@@ -319,16 +326,19 @@ export class RemoteConnector extends Disposable {
 						}
 						this.telemetryService.sendUserFlowStatus('failed', { ...gatewayFlow, reason });
 						if (e instanceof NoRunningInstanceError) {
-							this.logService.error('No Running instance:', e);
+							this.logService.error('No Running instance:');
+							this.logService.error(e);
 							gatewayFlow['phase'] = e.phase;
 							this.notificationService.showErrorMessage(`Failed to connect to ${e.workspaceId} Gitpod workspace: workspace not running`, { flow: gatewayFlow, id: 'no_running_instance' });
 							return undefined;
 						} else {
 							if (e instanceof SSHError) {
-								this.logService.error('SSH test connection error:', e);
+								this.logService.error('SSH test connection error:');
 							} else {
-								this.logService.error(`Failed to connect to ${params.workspaceId} Gitpod workspace:`, e);
+								this.logService.error(`Failed to connect to ${params.workspaceId} Gitpod workspace:`);
 							}
+							this.logService.error(e);
+
 							const seeLogs = 'See Logs';
 							const showTroubleshooting = 'Show Troubleshooting';
 							this.notificationService.showErrorMessage(`Failed to connect to ${params.workspaceId} Gitpod workspace`, { flow: gatewayFlow, id: 'failed_to_connect' }, seeLogs, showTroubleshooting)

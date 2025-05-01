@@ -3,7 +3,7 @@
 	"displayName": "Gitpod",
 	"description": "Required to connect to Classic workspaces",
 	"publisher": "gitpod",
-	"version": "0.0.182",
+	"version": "0.0.183",
 	"license": "MIT",
 	"icon": "resources/gitpod.png",
 	"repository": {
@@ -420,7 +420,7 @@
 		"@types/js-yaml": "^4.0.5",
 		"@types/http-proxy-agent": "^2.0.1",
 		"@types/mocha": "^9.1.1",
-		"@types/node": "18.x",
+		"@types/node": "20.x",
 		"@types/proper-lockfile": "^4.1.2",
 		"@types/semver": "^7.3.10",
 		"@types/ssh2": "^0.5.52",
@@ -442,7 +442,7 @@
 		"mocha": "^10.0.0",
 		"ts-loader": "^9.2.7",
 		"ts-proto": "^1.140.0",
-		"typescript": "^4.6.3",
+		"typescript": "^5.7.3",
 		"webpack": "^5.42.0",
 		"webpack-cli": "^4.7.2"
 	},

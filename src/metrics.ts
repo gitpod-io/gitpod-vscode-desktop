@@ -205,7 +205,14 @@ export class MetricsReporter {
         if (this.intervalHandler) {
             return;
         }
-        this.intervalHandler = setInterval(() => this.report().catch(e => this.logger.error('Error while reporting metrics', e)), MetricsReporter.REPORT_INTERVAL);
+        this.intervalHandler = setInterval(async () => {
+            try {
+                await this.report()
+            } catch (e) {
+                this.logger.error('Error while reporting metrics');
+                this.logger.error(e);
+            }
+        }, MetricsReporter.REPORT_INTERVAL);
     }
 
     private async report() {
