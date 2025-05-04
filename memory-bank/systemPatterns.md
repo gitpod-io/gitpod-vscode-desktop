@@ -22,20 +22,20 @@ This is a VS Code Extension (`extensionKind: ["ui"]`) designed to bridge VS Code
 graph LR
     subgraph VSCode UI Extension (gitpod.gitpod-desktop)
         A[extension.ts] --> B(Services);
-        B -- Manages --> C(Authentication);
-        B -- Manages --> D(Workspace Info);
-        B -- Manages --> E(Connection Logic);
+        B -- "Manages" --> C(Authentication);
+        B -- "Manages" --> D(Workspace Info);
+        B -- "Manages" --> E(Connection Logic);
         A --> F(UI Components);
         E --> G(IPC Server - ExtensionServiceServer);
-        E -- Modifies --> H[User SSH Config];
-        E -- Triggers --> I[ms-vscode-remote.remote-ssh];
+        E -- "Modifies" --> H[User SSH Config];
+        E -- "Triggers" --> I[ms-vscode-remote.remote-ssh];
     end
 
     subgraph Local SSH Client
-        J[ssh command] -- Reads --> H;
-        J -- Executes ProxyCommand --> K(proxylauncher.sh/bat);
-        K -- Runs --> L(proxy.js);
-        L -- Connects --> G;
+        J[ssh command] -- "Reads" --> H;
+        J -- "Executes ProxyCommand" --> K(proxylauncher.sh/bat);
+        K -- "Runs" --> L(proxy.js);
+        L -- "Connects" --> G;
     end
 
     subgraph Gitpod Backend
@@ -46,19 +46,19 @@ graph LR
     end
 
     subgraph Remote VSCode Environment
-        I -- Connects --> P;
-        I -- Installs/Uses --> Q[gitpod.gitpod-remote-ssh];
-        I -- Manages --> R[VS Code Server];
+        I -- "Connects" --> P;
+        I -- "Installs/Uses" --> Q[gitpod.gitpod-remote-ssh];
+        I -- "Manages" --> R[VS Code Server];
     end
 
     C --> M;
     D --> M;
-    E -- Uses --> M;
-    E -- Uses --> O;
-    G -- Uses --> N;
-    L -- Proxies connection to --> P; %% Simplified representation
-    I -- SSH Connection via --> O; %% Gateway Path
-    I -- SSH Connection via --> L; %% Local Proxy Path
+    E -- "Uses" --> M;
+    E -- "Uses" --> O;
+    G -- "Uses" --> N;
+    L -- "Proxies connection to" --> P; %% Simplified representation
+    I -- "SSH Connection via" --> O; %% Gateway Path
+    I -- "SSH Connection via" --> L; %% Local Proxy Path
 
     style L fill:#f9f,stroke:#333,stroke-width:2px
     style G fill:#ccf,stroke:#333,stroke-width:2px
