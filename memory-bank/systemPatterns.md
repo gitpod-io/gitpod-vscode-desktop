@@ -20,49 +20,64 @@ This is a VS Code Extension (`extensionKind: ["ui"]`) designed to bridge VS Code
 
 ```mermaid
 graph LR
-    subgraph VSCode UI Extension (gitpod.gitpod-desktop)
-        A[extension.ts] --> B(Services);
-        B -- "Manages" --> C(Authentication);
-        B -- "Manages" --> D(Workspace Info);
-        B -- "Manages" --> E(Connection Logic);
-        A --> F(UI Components);
-        E --> G(IPC Server - ExtensionServiceServer);
-        E -- "Modifies" --> H[User SSH Config];
-        E -- "Triggers" --> I[ms-vscode-remote.remote-ssh];
-    end
+    %% Node Definitions
+    %% VSCode UI Extension
+    nodeExtMain["extension.ts"]
+    nodeExtServices["Services"]
+    nodeExtAuth["Authentication"]
+    nodeExtWsInfo["Workspace Info"]
+    nodeExtConnLogic["Connection Logic"]
+    nodeExtUi["UI Components"]
+    nodeIpcServer["IPC Server - ExtensionServiceServer"]
+    nodeSshConfig["User SSH Config"]
+    nodeRemoteSshExt["ms-vscode-remote.remote-ssh"]
 
-    subgraph Local SSH Client
-        J[ssh command] -- "Reads" --> H;
-        J -- "Executes ProxyCommand" --> K(proxylauncher.sh/bat);
-        K -- "Runs" --> L(proxy.js);
-        L -- "Connects" --> G;
-    end
+    %% Local SSH Client
+    nodeSshCmd["ssh command"]
+    nodeProxyLauncher["proxylauncher.sh/bat"]
+    nodeProxyJs["proxy.js"]
 
-    subgraph Gitpod Backend
-        M[Public API]
-        N[Supervisor API]
-        O[SSH Gateway]
-        P[Workspace Container]
-    end
+    %% Gitpod Backend
+    nodePublicApi["Public API"]
+    nodeSupervisorApi["Supervisor API"]
+    nodeSshGateway["SSH Gateway"]
+    nodeWsContainer["Workspace Container"]
 
-    subgraph Remote VSCode Environment
-        I -- "Connects" --> P;
-        I -- "Installs/Uses" --> Q[gitpod.gitpod-remote-ssh];
-        I -- "Manages" --> R[VS Code Server];
-    end
+    %% Remote VSCode Environment
+    nodeCompanionExt["gitpod.gitpod-remote-ssh"]
+    nodeVscodeServer["VS Code Server"]
 
-    C --> M;
-    D --> M;
-    E -- "Uses" --> M;
-    E -- "Uses" --> O;
-    G -- "Uses" --> N;
-    L -- "Proxies connection to" --> P; %% Simplified representation
-    I -- "SSH Connection via" --> O; %% Gateway Path
-    I -- "SSH Connection via" --> L; %% Local Proxy Path
+    %% Link Definitions
+    %% VSCode UI Extension Internal Links
+    nodeExtMain --> nodeExtServices
+    nodeExtServices -- Manages --> nodeExtAuth
+    nodeExtServices -- Manages --> nodeExtWsInfo
+    nodeExtServices -- Manages --> nodeExtConnLogic
+    nodeExtMain --> nodeExtUi
+    nodeExtConnLogic --> nodeIpcServer
+    nodeExtConnLogic -- Modifies --> nodeSshConfig
+    nodeExtConnLogic -- Triggers --> nodeRemoteSshExt
 
-    style L fill:#f9f,stroke:#333,stroke-width:2px
-    style G fill:#ccf,stroke:#333,stroke-width:2px
-    style H fill:#eee,stroke:#333,stroke-width:1px,stroke-dasharray: 5 5
+    %% Local SSH Client Internal Links & Interaction
+    nodeSshCmd -- Reads --> nodeSshConfig
+    nodeSshCmd -- Executes ProxyCommand --> nodeProxyLauncher
+    nodeProxyLauncher -- Runs --> nodeProxyJs
+    nodeProxyJs -- Connects --> nodeIpcServer
+
+    %% Remote VSCode Environment Internal Links & Interaction
+    nodeRemoteSshExt -- Connects --> nodeWsContainer
+    nodeRemoteSshExt -- Installs/Uses --> nodeCompanionExt
+    nodeRemoteSshExt -- Manages --> nodeVscodeServer
+
+    %% Interactions between Groups
+    nodeExtAuth --> nodePublicApi
+    nodeExtWsInfo --> nodePublicApi
+    nodeExtConnLogic -- Uses --> nodePublicApi
+    nodeExtConnLogic -- Uses --> nodeSshGateway
+    nodeIpcServer -- Uses --> nodeSupervisorApi
+    nodeProxyJs -- Proxies connection to --> nodeWsContainer
+    nodeRemoteSshExt -- SSH Connection via --> nodeSshGateway
+    nodeRemoteSshExt -- SSH Connection via --> nodeProxyJs
 ```
 
 ## Key Technical Decisions
