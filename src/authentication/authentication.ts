@@ -56,7 +56,7 @@ export default class GitpodAuthenticationProvider extends Disposable implements 
 		// Contains the current state of the sessions we have available.
 		this._sessionsPromise = this.readSessions();
 
-		this._register(vscode.authentication.registerAuthenticationProvider('gitpod', 'Gitpod', this, { supportsMultipleAccounts: false }));
+		this._register(vscode.authentication.registerAuthenticationProvider('gitpod', 'Gitpod Classic', this, { supportsMultipleAccounts: false }));
 		this._register(this.context.secrets.onDidChange(() => this.checkForUpdates()));
 	}
 

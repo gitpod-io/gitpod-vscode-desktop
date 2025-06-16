@@ -299,7 +299,7 @@ export class RemoteService extends Disposable implements IRemoteService {
             const parsedKey = parsedResult as ParsedKey;
             return { name: k.name, fingerprint: crypto.createHash('sha256').update(parsedKey.getPublicSSH()).digest('base64') };
         });
-        this.logService.trace(`Registered public keys in Gitpod account:`, registeredKeys.length ? registeredKeys.map(k => `${k.name} SHA256:${k.fingerprint}`).join('\n') : 'None');
+        this.logService.trace(`Registered public keys in Gitpod Classic account:`, registeredKeys.length ? registeredKeys.map(k => `${k.name} SHA256:${k.fingerprint}`).join('\n') : 'None');
 
         identityKeys = identityKeys.filter(k => !!registeredKeys.find(regKey => regKey.fingerprint === k.fingerprint));
 
@@ -315,7 +315,7 @@ export class RemoteService extends Disposable implements IRemoteService {
         const copy: vscode.MessageItem = { title: 'Copy' };
         const configureSSH: vscode.MessageItem = { title: 'Configure SSH' };
         const showLogs: vscode.MessageItem = { title: 'Show logs', isCloseAffordance: true };
-        const message = `You don't have registered any SSH public key for this machine in your Gitpod account.\nAlternatively, copy and use this temporary password until workspace restart: ${maskedPassword}`;
+        const message = `You don't have registered any SSH public key for this machine in your Gitpod Classic account.\nAlternatively, copy and use this temporary password until workspace restart: ${maskedPassword}`;
         const flow = { flow: 'ssh', gitpodHost: this.hostService.gitpodHost, kind: 'gateway', workspaceId, openSSHVersion: await getOpenSSHVersion(), userId: this.sessionService.getUserId() };
         const action = await this.notificationService.showWarningMessage(message, { flow, modal: true, id: 'ssh_gateway_modal' }, copy, configureSSH, showLogs);
 

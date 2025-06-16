@@ -100,7 +100,7 @@ export default class SSHConfiguration {
 
     static async loadGitpodSSHConfig(): Promise<SSHConfiguration> {
         if (!(await isFile(gitpodSSHConfigPath))) {
-            throw new WrapError(`Gitpod ssh config file ${gitpodSSHConfigPath} does not exist`, null, 'NotFile');
+            throw new WrapError(`Gitpod Classic ssh config file ${gitpodSSHConfigPath} does not exist`, null, 'NotFile');
         }
 
         let content = (await fs.promises.readFile(gitpodSSHConfigPath, 'utf8')).trim();
@@ -110,7 +110,7 @@ export default class SSHConfiguration {
 
     static async saveGitpodSSHConfig(config: SSHConfiguration): Promise<void> {
         if (!(await isFile(gitpodSSHConfigPath))) {
-            throw new WrapError(`Gitpod ssh config file ${gitpodSSHConfigPath} does not exist`, null, 'NotFile');
+            throw new WrapError(`Gitpod Classic ssh config file ${gitpodSSHConfigPath} does not exist`, null, 'NotFile');
         }
 
         try {

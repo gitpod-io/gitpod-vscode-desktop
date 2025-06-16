@@ -130,7 +130,7 @@ export class RemoteConnector extends Disposable {
 				const parsedKey = parsedResult as ParsedKey;
 				return { name: k.name, fingerprint: crypto.createHash('sha256').update(parsedKey.getPublicSSH()).digest('base64') };
 			});
-			this.logService.trace(`Registered public keys in Gitpod account:`, registeredKeys.length ? registeredKeys.map(k => `${k.name} SHA256:${k.fingerprint}`).join('\n') : 'None');
+			this.logService.trace(`Registered public keys in Gitpod Classic account:`, registeredKeys.length ? registeredKeys.map(k => `${k.name} SHA256:${k.fingerprint}`).join('\n') : 'None');
 
 			identityKeys = identityKeys.filter(k => !!registeredKeys.find(regKey => regKey.fingerprint === k.fingerprint));
 		} else {
@@ -187,7 +187,7 @@ export class RemoteConnector extends Disposable {
 		const install = 'Install';
 		const cancel = 'Cancel';
 
-		const action = await this.notificationService.showInformationMessage('Please install "Remote - SSH" extension to connect to a Gitpod workspace.', { id: 'install_remote_ssh', flow }, install, cancel);
+		const action = await this.notificationService.showInformationMessage('Please install "Remote - SSH" extension to connect to a Gitpod Classic workspace.', { id: 'install_remote_ssh', flow }, install, cancel);
 		if (action === cancel) {
 			return false;
 		}
@@ -209,7 +209,7 @@ export class RemoteConnector extends Disposable {
 		const configureSSH: vscode.MessageItem = { title: 'Configure SSH' };
 		const showLogs: vscode.MessageItem = { title: 'Show logs', isCloseAffordance: true };
 		const message = sshKeysSupported
-			? `You don't have registered any SSH public key for this machine in your Gitpod account.\nAlternatively, copy and use this temporary password until workspace restart: ${maskedPassword}`
+			? `You don't have registered any SSH public key for this machine in your Gitpod Classic account.\nAlternatively, copy and use this temporary password until workspace restart: ${maskedPassword}`
 			: `An SSH key is required for passwordless authentication.\nAlternatively, copy and use this password: ${maskedPassword}`;
 		const action = await this.notificationService.showWarningMessage(message, { flow, modal: true, id: 'ssh_gateway_modal' }, copy, configureSSH, showLogs);
 
@@ -255,7 +255,7 @@ export class RemoteConnector extends Disposable {
 		sshFlow.userId = this.sessionService.getUserId();
 		sshFlow.useLocalSSH = useLocalSSH;
 
-		this.logService.info('Opening Gitpod workspace', uri.toString());
+		this.logService.info('Opening Gitpod Classic workspace', uri.toString());
 
 		const sshDestination = await vscode.window.withProgress(
 			{
@@ -291,7 +291,7 @@ export class RemoteConnector extends Disposable {
 					const reason = e?.code ?? (e?.name && e.name !== 'Error' ? e.name : 'Unknown');
 					this.telemetryService.sendTelemetryException(new WrapError('Local SSH: failed to connect to workspace', e), { ...localSSHFlow });
 					this.telemetryService.sendUserFlowStatus('failed', { ...localSSHFlow, reason });
-					this.logService.error(`Local SSH: failed to connect to ${params.workspaceId} Gitpod workspace:`, e);
+					this.logService.error(`Local SSH: failed to connect to ${params.workspaceId} Gitpod Classic workspace:`, e);
 				}
 
 				let sshDestination: SSHDestination | undefined;
@@ -329,19 +329,19 @@ export class RemoteConnector extends Disposable {
 							this.logService.error('No Running instance:');
 							this.logService.error(e);
 							gatewayFlow['phase'] = e.phase;
-							this.notificationService.showErrorMessage(`Failed to connect to ${e.workspaceId} Gitpod workspace: workspace not running`, { flow: gatewayFlow, id: 'no_running_instance' });
+							this.notificationService.showErrorMessage(`Failed to connect to ${e.workspaceId} Gitpod Classic workspace: workspace not running`, { flow: gatewayFlow, id: 'no_running_instance' });
 							return undefined;
 						} else {
 							if (e instanceof SSHError) {
 								this.logService.error('SSH test connection error:');
 							} else {
-								this.logService.error(`Failed to connect to ${params.workspaceId} Gitpod workspace:`);
+								this.logService.error(`Failed to connect to ${params.workspaceId} Gitpod Classic workspace:`);
 							}
 							this.logService.error(e);
 
 							const seeLogs = 'See Logs';
 							const showTroubleshooting = 'Show Troubleshooting';
-							this.notificationService.showErrorMessage(`Failed to connect to ${params.workspaceId} Gitpod workspace`, { flow: gatewayFlow, id: 'failed_to_connect' }, seeLogs, showTroubleshooting)
+							this.notificationService.showErrorMessage(`Failed to connect to ${params.workspaceId} Gitpod Classic workspace`, { flow: gatewayFlow, id: 'failed_to_connect' }, seeLogs, showTroubleshooting)
 								.then(action => {
 									if (action === seeLogs) {
 										this.logService.show();

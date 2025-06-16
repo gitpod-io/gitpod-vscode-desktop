@@ -52,7 +52,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				try {
 					const params: SSHConnectionParams = JSON.parse(uri.query);
 					const openNewWindow = 'Use New Window';
-					vscode.window.showWarningMessage(`We cannot open Gitpod workspace on ${params.gitpodHost} from a Gitpod Flex environment window.`, { modal: true }, openNewWindow)
+					vscode.window.showWarningMessage(`We cannot open a Gitpod Classic workspace on ${params.gitpodHost} from a Gitpod environment window.`, { modal: true }, openNewWindow)
 						.then(action => {
 							if (action === openNewWindow) {
 								vscode.commands.executeCommand('vscode.newWindow', { remoteAuthority: null });
@@ -68,7 +68,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	let remoteConnectionInfo: { connectionInfo: SSHConnectionParams; remoteUri: vscode.Uri; sshDestStr: string } | undefined;
 	let success = false;
 	try {
-		logger = vscode.window.createOutputChannel('Gitpod', { log: true });
+		logger = vscode.window.createOutputChannel('Gitpod Classic', { log: true });
 		context.subscriptions.push(logger);
 
 		// always try to create extension globalStorage folder
