@@ -1,8 +1,8 @@
 # Gitpod Classic
 
-> **Note**: If you’re looking for the [Gitpod Flex](https://app.gitpod.io) experience, please install the [Gitpod Flex extension](https://marketplace.visualstudio.com/items?itemName=gitpod.gitpod-flex). For [Gitpod Classic](https://gitpod.io/workspaces) workspaces, this is the extension you need.
+> **Note**: If you’re looking for the [Gitpod](https://app.gitpod.io) experience, please install the [Gitpod extension](https://marketplace.visualstudio.com/items?itemName=gitpod.gitpod-flex). For [Gitpod Classic](https://gitpod.io/workspaces) workspaces, this is the extension you need.
 
-Gitpod is an open-source Kubernetes application for automated and ready-to-code development environments that blends in your existing workflow. It enables you to describe your dev environment as code and start instant and fresh development environments for each new task directly from your browser.
+Gitpod Classic is an open-source Kubernetes application for automated and ready-to-code development environments that blends in your existing workflow. It enables you to describe your dev environment as code and start instant and fresh development environments for each new task directly from your browser.
 
 Tightly integrated with GitLab, GitHub, and Bitbucket, Gitpod automatically and continuously prebuilds dev environments for all your branches. As a result, team members can instantly start coding with fresh, ephemeral and fully-compiled dev environments - no matter if you are building a new feature, want to fix a bug or do a code review.
 
@@ -10,7 +10,7 @@ Tightly integrated with GitLab, GitHub, and Bitbucket, Gitpod automatically and 
 
 ## Getting Started
 
-You can open a Gitpod workspace with VS Code Desktop in two different ways:
+You can open a Gitpod Classic workspace with VS Code Desktop in two different ways:
 - From your [user preferences](https://gitpod.io/preferences), you can select `VS Code Desktop` as your preferred IDE and you will always start your workspaces automatically with it.
 - Ad hoc, from within VS Code Browser, by opening the Command Pallete (<kbd>F1</kbd>) and searching for <kbd>Open in VS Code</kbd> if you already have a running workspace already.
 
@@ -32,6 +32,6 @@ You can also follow [`@gitpod`](https://twitter.com/gitpod) for announcements an
 
 ## Issues
 
-The issue tracker is used for tracking **bug reports** and **feature requests** for the Gitpod open source project as well as planning current and future development efforts. 🗺️
+The issue tracker is used for tracking **bug reports** and **feature requests** for the Gitpod Classic open source project as well as planning current and future development efforts. 🗺️
 
 You can upvote [popular feature requests](https://github.com/gitpod-io/gitpod/issues?q=is%3Aissue+is%3Aopen+sort%3Areactions-%2B1-desc) or [create a new one](https://github.com/gitpod-io/gitpod/issues/new?template=feature_request.md).

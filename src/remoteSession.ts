@@ -104,7 +104,7 @@ export class RemoteSession extends Disposable {
 
 			this.logService.show();
 			const retry = 'Retry';
-			const action = await this.notificationService.showErrorMessage(`Failed to resolve connection to Gitpod workspace: workspace could stop unexpectedly`, { flow: remoteFlow, id: 'unexpected_error' }, retry);
+			const action = await this.notificationService.showErrorMessage(`Failed to resolve connection to Gitpod Classic workspace: workspace could stop unexpectedly`, { flow: remoteFlow, id: 'unexpected_error' }, retry);
 			if (action === retry) {
 				this.initialize();
 			}
@@ -124,7 +124,7 @@ export class RemoteSession extends Disposable {
 	}
 
 	private showSignInDialog() {
-		this.notificationService.showErrorMessage(`You are not signed in with a Gitpod account, please sign in first.`, { flow: { flow: 'remote_window', gitpodHost: this.connectionInfo.gitpodHost }, id: 'not_signed_in', modal: true });
+		this.notificationService.showErrorMessage(`You are not signed in with a Gitpod Classic account, please sign in first.`, { flow: { flow: 'remote_window', gitpodHost: this.connectionInfo.gitpodHost }, id: 'not_signed_in', modal: true });
 	}
 
 	public override async dispose(): Promise<void> {

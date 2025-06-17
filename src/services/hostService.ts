@@ -79,7 +79,7 @@ export class HostService extends Disposable implements IHostService {
 
             const yes = 'Yes';
             const cancel = 'Cancel';
-            const action = await this.notificationService.showInformationMessage(`Would you like to change your Gitpod host from '${this._gitpodHost}' to '${newHost}' and continue?`, { id: 'switch_gitpod_host', flow }, yes, cancel);
+            const action = await this.notificationService.showInformationMessage(`Would you like to change your Gitpod Classic host from '${this._gitpodHost}' to '${newHost}' and continue?`, { id: 'switch_gitpod_host', flow }, yes, cancel);
             if (action === cancel) {
                 return false;
             }

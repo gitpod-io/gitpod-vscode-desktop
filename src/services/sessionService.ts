@@ -13,7 +13,7 @@ import { arrayEquals } from '../common/utils';
 
 export class NoSignedInError extends Error {
     constructor() {
-        super(`You are not signed in with your Gitpod account`);
+        super(`You are not signed in with your Gitpod Classic account`);
     }
 }
 
